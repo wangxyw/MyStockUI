@@ -1,0 +1,16 @@
+# Dependencies
+/node_modules
+#env
+/.env
+
+# others
+.idea
+.DS_Store
+npm-debug.log
+*.swp
+tags
+webpack-assets.json
+yarn-error.log
+
+# vscode
+.vscode
