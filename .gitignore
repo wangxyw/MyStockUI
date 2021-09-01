@@ -3,6 +3,8 @@
 #env
 /.env
 
+/public/javascipts
+
 # others
 .idea
 .DS_Store

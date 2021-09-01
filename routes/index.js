@@ -126,7 +126,7 @@ router.get('/stock_info', function(req, res, next) {
   router.get('/all_alarm_data', function(req, res, next) {
     const datestr = req.query.date_str;
 
-    let sql = `select * from stock_alarms where datestr > '${datestr}';`
+    let sql = `select * from all_stock_big_orders a left join stock_daily b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}';`
     pool.query(sql, function (err, rows, fields) {
         //if (err) throw err;
         res.json(
@@ -162,7 +162,6 @@ router.get('/stock_info', function(req, res, next) {
          } else {
             sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where alarmType = '${alarmType}' and datestr >= '${startDate}' and datestr <= '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
          } 
-        
     }
     
     pool.query(sql, function (err, rows, fields) {

@@ -44,24 +44,47 @@ const getBeforeDate = (n) => {
 
 const validateCons = (data, selectConsUpDown, selectConsDays ) => {
     let consNum = 0;
-    let j = 0
-    data && data.forEach((i)=>{
+    let end = 0;
+    let j = 0;
+    data && data.forEach((i, k)=>{
         if (i.status === selectConsUpDown) {
            j ++;
         } else {
            if (j > consNum) {
             consNum = j;
+            end = k;
            }
            j = 0;
         }
     });
-    if (j > consNum) {consNum = j};
+    if (j > consNum) {consNum = j, end = data.length};
     if (consNum === +selectConsDays) {
-        return true;
+        return {isTrue: true, start : end -selectConsDays, end: end - 1};
     } else {
-        return false;
+        return {isTrue: false};
     }
 }
+
+const findStartAndEnd = (data, consNumber) => {
+    let j = 0;
+    let start = 0;
+    let end = 0;
+    let consNum = 0;
+    data && data.forEach((i, k)=>{
+        if (i.status === selectConsUpDown) {
+           j ++;
+        } else {
+           if (j > consNum) {
+            consNum = j;
+            end = k;
+           }
+           j = 0;
+        }
+    });
+    return {start : end - 1 -consNumber, end: end - 1}
+}
+
+
 
 const validateTotal = (data, selectConsUpDown, selectConsDays ) => {
     return data && data.filter(i=>i.status === selectConsUpDown).length === +selectConsDays
@@ -127,7 +150,7 @@ export const AlarmComponent = () => {
             ).then(result => {
                 setIsLoading(false);
                 if (selectConsTotal === 'CONS') {
-                    if(validateCons(result, selectConsUpDown, selectConsDays)) {
+                    if(validateCons(result, selectConsUpDown, selectConsDays).isTrue) {
                         upDownStocks.push(i);
                         //setUpdownStocks([...upDownStocks]);
                         
@@ -157,8 +180,14 @@ export const AlarmComponent = () => {
                const data = groupBy(result, 'symbol') ;
                for (var k in data) {
                 if (selectConsTotal === 'CONS') {
-                    if(validateCons(data[k], selectConsUpDown, selectConsDays)) {
-                        upDownStocks.push(data[k][0]);
+                    if(validateCons(data[k], selectConsUpDown, selectConsDays).isTrue) {
+                        const startIndex = validateCons(data[k], selectConsUpDown, selectConsDays).start;
+                        const endIndex = validateCons(data[k], selectConsUpDown, selectConsDays).end;
+                        const startPrice = data[k][startIndex].finalprice;
+                        const endPrice = data[k][endIndex].finalprice;
+                        if (Math.abs((endPrice - startPrice)/startPrice) < 0.01) {
+                            upDownStocks.push(data[k][0]);
+                        } 
                         //setUpdownStocks([...upDownStocks]);
                         
                     }
@@ -211,15 +240,15 @@ export const AlarmComponent = () => {
         let url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
         if (applyTimeFilter) url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
         setIsLoading(true);
-        fetch(url)
-        .then(
-          res =>res.json()
-        ).then(data => {
+        // fetch(url)
+        // .then(
+        //   res =>res.json()
+        // ).then(data => {
             fetch(`/get_viewed_stock?datestr=${moment(new Date()).format(dateFormat)}`)
               .then(
                 result =>result.json()
               ).then(viewedStocks => {
-                  const addViewed = data && data.map(i => {
+                  const addViewed = stockOptions && stockOptions.map(i => {
                       if (viewedStocks.find(e => e.symbol === i.symbol)) {
                           i.viewed = true;
                           return i
@@ -232,8 +261,8 @@ export const AlarmComponent = () => {
                   setStockOptions(addViewed)
                   setTotalNum(addViewed && addViewed.length) 
               }) 
-        })
-    }, [selectAlarmType, selectDate, selectStartDate, selectEndDate])
+        // })
+    }, [selectAlarmType, selectDate, selectStartDate, selectEndDate, stockOptions])
 
     const dateArr = useMemo(()=> {
         const dateArray = [];
@@ -500,10 +529,10 @@ export const AlarmComponent = () => {
 
         fetch(`/update_stock_status?stock_id=${selectStock}&datestr=${moment(new Date()).format(dateFormat)}`, {method: 'GET'})
         .then(res =>res.json()).then(()=>{
-            //reLoadAllAlarms(false);
+            reLoadAllAlarms(false);
         })
 
-       // reLoadAllAlarms();
+       reLoadAllAlarms();
 
     }, [selectStock, selectAlarmType, selectDays]);
 
@@ -521,7 +550,7 @@ export const AlarmComponent = () => {
            <div><Button type="link" target="_blank" href={`https://finance.sina.com.cn/realstock/company/${selectStock}/nc.shtml`}>Go to Stock Page</Button></div>
            {/* <Input style={{width: '200px', height:'32px'}} size="small" placeholder="Input Stock" value={selectStock} onChange={(e) => {setSelectStock(e.target.value)}}/> */}
            <Select showSearch style={{width: '200px'}} onChange={(v) => {setSelectStock(v)}} loading={isLoading}>
-               {stockOptions.map(i => <Select.Option value={i.symbol} style={{color: `${i.viewed ? 'red' : '#222'}`}}>{`${i.symbol} (${i['count(*)']})`}</Select.Option>)}
+               {stockOptions.map(i => <Select.Option value={i.symbol} style={{color: `${i.viewed ? 'red' : '#222'}`}}>{`${i.symbol} ${i['count(*)'] ? `(${i['count(*)']})` : ''}`}</Select.Option>)}
            </Select>
            <span>Total: {totalNum}</span>
            <Select style={{width: '100px'}} value={selectAlarmType} onChange={(v) => {setSelectAlarmType(v)}} size="middle">
@@ -535,8 +564,8 @@ export const AlarmComponent = () => {
            <Button type="primary" onClick={() => getStockAlarm()}>Show Alarm</Button>
 
            <div style={{ display: 'inline-block', marginLeft: '10px'}}> Show <Input style={{width: '100px', height:'32px'}} size="small" placeholder="You can select the number of days to view" value={selectDays} onChange={(e) => {
-               if (isNaN(parseInt(e.target.value))) {
-                alert('F*ck u');
+               if (e.target.value !== '' && isNaN(parseInt(e.target.value))) {
+                alert('Input number');
                } else {
                 setSelectDays(e.target.value)
                }
