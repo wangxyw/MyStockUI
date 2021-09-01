@@ -29,6 +29,7 @@ class MessageList extends React.Component {
         var vols = [40000, 50000, 60000, 70000, 80000, 90000, 100000];
         const { Option } = Select;
         return (<section className="pageContentInner">
+            <AlarmComponent />
             <div className="head-section"><h1>Stock ID: {this.state.selectStockId}</h1></div>
             <p style={{display:'inline-block', marginRight: '10px'}}>Select Stocks: </p>
             <Select title="Select Stock" style={{width: '200px'}} onChange={
@@ -53,7 +54,7 @@ class MessageList extends React.Component {
              notMerge={true}
              lazyUpdate={true}
              option={this.state.option} />
-             <AlarmComponent />
+             
              {/* <MyFocusListComponent/> */}
         </section>);
     }

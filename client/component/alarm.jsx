@@ -264,6 +264,35 @@ export const AlarmComponent = () => {
         // })
     }, [selectAlarmType, selectDate, selectStartDate, selectEndDate, stockOptions])
 
+    const clearAdvanced = useCallback((applyTimeFilter) => {
+        let url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+        if (applyTimeFilter) url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
+        setIsLoading(true);
+        fetch(url)
+        .then(
+          res =>res.json()
+        ).then(data => {
+            fetch(`/get_viewed_stock?datestr=${moment(new Date()).format(dateFormat)}`)
+              .then(
+                result =>result.json()
+              ).then(viewedStocks => {
+                  const addViewed = data && data.map(i => {
+                      if (viewedStocks.find(e => e.symbol === i.symbol)) {
+                          i.viewed = true;
+                          return i
+                      } else {
+                          return i
+                      }
+                  })
+                  setIsLoading(false);
+                  setSavedStockOptions(addViewed);
+                  setStockOptions(addViewed)
+                  setTotalNum(addViewed && addViewed.length) 
+              }) 
+        })
+    }, [selectAlarmType, selectDate, selectStartDate, selectEndDate, stockOptions])
+
+
     const dateArr = useMemo(()=> {
         const dateArray = [];
         for (var i=parseInt(selectDays, 10);i>=0;i--) {
@@ -571,11 +600,11 @@ export const AlarmComponent = () => {
                }
             }}/> days Data</div>
             <DatePicker defaultValue={moment(selectDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectDate(v.format(dateFormat))}/>
-            <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
+            {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
             <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
             <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
             <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
-            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button>
+            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
             <div style={{marginTop: '20px'}}>
                 Advanced Filter:
                 <Select style={{width: '180px'}} value={selectConsTotal} onChange={(v) => {setSelectConsTotal(v)}} size="small">
@@ -593,7 +622,7 @@ export const AlarmComponent = () => {
                    setIsLoading(true); 
                    advancedSearch(selectConsDays, selectConsTotal, selectConsUpDown);
                 } }}> Set Advanced Search</Button>
-                <Button type="primary" onClick={() => {reLoadAllAlarms(false) }}> Clear Advanced Search</Button>
+                <Button style={{marginLeft: '10px'}}type="primary" onClick={() => {clearAdvanced(false) }}> Clear Advanced Search</Button>
             </div>
             <div>
               Comments
