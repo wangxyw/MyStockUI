@@ -138,6 +138,7 @@ export const AlarmComponent = () => {
     const [selectEndDate, setSelectEndDate] = useState(moment(`${year}-${month}-${day}`).format(dateFormat));
     const [comments, setComments] = useState('');
     const [predict, setPredict] = useState('up');
+    const [selectPriceMargin, setSelectPriceMargin] = useState(3);
 
     const filterData = useCallback((data, selectConsDays, selectConsTotal, selectConsUpDown) => {
         if (selectAlarmType=== 'All') {return};
@@ -185,7 +186,7 @@ export const AlarmComponent = () => {
                         const endIndex = validateCons(data[k], selectConsUpDown, selectConsDays).end;
                         const startPrice = data[k][startIndex].finalprice;
                         const endPrice = data[k][endIndex].finalprice;
-                        if (Math.abs((endPrice - startPrice)/startPrice) < 0.01) {
+                        if (Math.abs((endPrice - startPrice)/startPrice) < selectPriceMargin/100) {
                             upDownStocks.push(data[k][0]);
                         } 
                         //setUpdownStocks([...upDownStocks]);
@@ -618,6 +619,13 @@ export const AlarmComponent = () => {
                 {' for '}
                 <Input style={{width: '50px', height:'32px'}} size="small" placeholder="Input Days" value={selectConsDays} onChange={(e) => {setSelectConsDays(e.target.value)}}/>
                 days
+
+                <Select style={{width: '80px'}} value={selectPriceMargin} onChange={(v) => {setSelectPriceMargin(v)}} size="small">
+                  {[1,2,3,4,5,6,7,8,9,10].map(i => 
+                      <Select.Option value={i} >{i}</Select.Option>
+                  )}
+                </Select>% price margin
+
                 <Button type="primary" onClick={() => {if (selectConsDays && !isNaN(selectConsDays)) {
                    setIsLoading(true); 
                    advancedSearch(selectConsDays, selectConsTotal, selectConsUpDown);
