@@ -3,7 +3,7 @@
 #env
 /.env
 
-/public/javascipts
+public/javascripts/
 
 # others
 .idea
