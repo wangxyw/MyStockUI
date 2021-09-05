@@ -99,10 +99,10 @@ router.get('/stock_info', function(req, res, next) {
     const symbol = req.query.stock_id;
     const alarm_type  = req.query.alarm_type;
     let sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, b.turnoverrate, b.finalprice FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.symbol='${symbol}' and a.datestr=b.datestr and a.datestr < '2021-06-02'
-    union SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, b.turnoverrate, b.finalprice FROM all_stock_big_orders a left join stock_daily b on a.symbol = b.symbol and a.datestr=b.datestr where a.symbol='${symbol}' and a.datestr > '2021-06-01';`
+    union SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.turnoverrate, a.finalprice FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '2021-06-01';`
     const datestr = req.query.date_str;
     if (datestr) {
-        sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr FROM stock_alarms a where a.symbol='${symbol}' and a.datestr > '${datestr}';`
+        sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '${datestr}';`
     }
     // let sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = '${alarm_type}' and a.symbol='${symbol}' and a.datestr=b.datestr;`
     // if (alarm_type === 'All') {
@@ -126,7 +126,7 @@ router.get('/stock_info', function(req, res, next) {
   router.get('/all_alarm_data', function(req, res, next) {
     const datestr = req.query.date_str;
 
-    let sql = `select * from all_stock_big_orders a left join stock_daily b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}';`
+    let sql = `select * from stock_big_data a where a.datestr > '${datestr}' and a.name not like "%ST%";`
     pool.query(sql, function (err, rows, fields) {
         //if (err) throw err;
         res.json(
@@ -143,24 +143,24 @@ router.get('/stock_info', function(req, res, next) {
 
     let sql = '';
     if (alarmType === 'All') {
-       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data group by symbol order by COUNT(*) desc, avgtotalpct desc;`
     } else if (alarmType === 'A1A2') {
-       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where alarmType != 'A3' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data where alarmType = 'A1' OR alarmType ='A2' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
     } else if (alarmType === 'A1Today') { 
-       sql = `select *, avg(a.totalvolpct) as avgtotalpct, count(*) from stock_alarms a join stocks b on a.symbol = b.symbol where a.alarmType = 'A1' and a.datestr = '${date}' and a.status = 'up' and b.name not like "%ST%" group by a.symbol order by COUNT(*) desc, avgtotalpct desc;`
+       sql = `select *, avg(a.totalvolpct) as avgtotalpct, count(*) from stock_big_data a where a.alarmType = 'A1' and a.datestr = '${date}' and a.status = 'up' and a.name not like "%ST%" group by a.symbol order by COUNT(*) desc, avgtotalpct desc;`
     } else {
-       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where alarmType = '${alarmType}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+       sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data where alarmType = '${alarmType}' and name not like "%ST%" group by symbol order by COUNT(*) desc, avgtotalpct desc;`
     } 
 
     if (startDate && endDate) {
         if (alarmType === 'All') {
-            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where datestr >= '${startDate}' and datestr <= '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data where datestr >= '${startDate}' and datestr <= '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
          } else if (alarmType === 'A1A2') {
-            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where alarmType != 'A3' and datestr > '${startDate}' and datestr < '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data where alarmType != 'A3' and datestr > '${startDate}' and datestr < '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
          } else if (alarmType === 'A1Today') {
-            sql = `select *, avg(a.totalvolpct) as avgtotalpct, count(*) from stock_alarms a join stocks b on a.symbol = b.symbol where a.alarmType = 'A1' and a.datestr = '${date}' and a.status = 'up' and b.name not like "%ST%" group by a.symbol order by COUNT(*) desc, avgtotalpct desc;`
+            sql = `select *, avg(a.totalvolpct) as avgtotalpct, count(*) from stock_big_data a where a.alarmType = 'A1' and a.datestr = '${date}' and a.status = 'up' and a.name not like "%ST%" group by a.symbol order by COUNT(*) desc, avgtotalpct desc;`
          } else {
-            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_alarms where alarmType = '${alarmType}' and datestr >= '${startDate}' and datestr <= '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
+            sql = `select *, avg(totalvolpct) as avgtotalpct, count(*) from stock_big_data where alarmType = '${alarmType}' and datestr >= '${startDate}' and datestr <= '${endDate}' group by symbol order by COUNT(*) desc, avgtotalpct desc;`
          } 
     }
     
