@@ -98,8 +98,7 @@ router.get('/stock_info', function(req, res, next) {
   router.get('/stock_alarm', function(req, res, next) {
     const symbol = req.query.stock_id;
     const alarm_type  = req.query.alarm_type;
-    let sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, b.turnoverrate, b.finalprice FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.symbol='${symbol}' and a.datestr=b.datestr and a.datestr < '2021-06-02'
-    union SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.turnoverrate, a.finalprice FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '2021-06-01';`
+    let sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.turnoverrate, a.finalprice FROM stock_big_data a where a.symbol='${symbol}';`
     const datestr = req.query.date_str;
     if (datestr) {
         sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '${datestr}';`
