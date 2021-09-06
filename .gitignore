@@ -13,6 +13,7 @@ npm-debug.log
 tags
 webpack-assets.json
 yarn-error.log
+package-lock.json
 
 # vscode
 .vscode
