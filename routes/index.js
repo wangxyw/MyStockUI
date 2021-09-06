@@ -86,7 +86,7 @@ router.get('/stock_info', function(req, res, next) {
   });
 
   router.get('/all_focus_stock', function(req, res, next) {
-    const sql = `SELECT * FROM focus_stocks a join stock_daily b on a.symbol = b.symbol where a.datestr=b.datestr;`
+    const sql = `SELECT * FROM focus_stocks a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`
     pool.query(sql, function (err, rows, fields) {
         if (err) throw err
         res.json(
