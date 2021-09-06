@@ -42,6 +42,28 @@ const getBeforeDate = (n) => {
     return s;
 }
 
+const getBeforeOneDate = (date, n) => {
+    //const n = n;
+    let d = new Date(date);
+    let year = d.getFullYear();
+    let mon = d.getMonth() + 1;
+    let day = d.getDate();
+    if(day <= n) {
+        if(mon > 1) {
+            mon = mon - 1;
+        } else {
+            year = year - 1;
+            mon = 12;
+        }
+    }
+    d.setDate(d.getDate() - n);
+    year = d.getFullYear();
+    mon = d.getMonth() + 1;
+    day = d.getDate();
+    const s = year + "-" + (mon < 10 ? ('0' + mon) : mon) + "-" + (day < 10 ? ('0' + day) : day);
+    return s;
+}
+
 const validateCons = (data, selectConsUpDown, selectConsDays ) => {
     let consNum = 0;
     let end = 0;
@@ -174,7 +196,7 @@ export const AlarmComponent = () => {
 
     const advancedSearch = useCallback((selectConsDays, selectConsTotal, selectConsUpDown) => {
         const upDownStocks = [];
-        fetch(`/all_alarm_data?date_str=${getBeforeDate(selectDays)}`, {method: 'GET'})
+        fetch(`/all_alarm_data?date_str=${getBeforeOneDate(selectDate, selectDays)}&end_date_str=${selectDate}`, {method: 'GET'})
             .then(
             res =>res.json()
             ).then(result => {
@@ -206,7 +228,7 @@ export const AlarmComponent = () => {
                 setTotalNum(upDownStocks.length);  
                }
         });
-    }, [setStockOptions, selectAlarmType, stockOptions, selectDays]);
+    }, [setStockOptions, selectAlarmType, stockOptions, selectDays, selectDate]);
 
     useEffect(() => {
         setIsLoading(true);

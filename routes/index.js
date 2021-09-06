@@ -125,8 +125,9 @@ router.get('/stock_info', function(req, res, next) {
 
   router.get('/all_alarm_data', function(req, res, next) {
     const datestr = req.query.date_str;
+    const endDateStr = req.query.end_date_str;
 
-    let sql = `select * from stock_big_data a where a.datestr > '${datestr}' and a.name not like "%ST%";`
+    let sql = `select * from stock_big_data a where a.datestr > '${datestr}' and a.datestr < '${endDateStr}' and a.name not like "%ST%";`
     pool.query(sql, function (err, rows, fields) {
         //if (err) throw err;
         res.json(
