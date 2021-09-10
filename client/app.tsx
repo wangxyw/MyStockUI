@@ -6,7 +6,7 @@ import { Selected } from './component/selected';
 import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 
 const MENU_ALARM = 'alarm';
-const MENU_FOCUSED = 'focused';
+const MENU_FOCUSED = 'my_focus';
 const MENU_SELECTED = 'selected';
 
 function getInitPath() {

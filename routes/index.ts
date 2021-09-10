@@ -74,6 +74,22 @@ router.get('/stock_info', function(req, res, next) {
     })
   });
 
+  router.post('/edit_focus', function(req, res, next) {
+    const symbol = req.body.symbol;
+    const comments  = req.body.comments;
+    const sql = `UPDATE focus_stocks SET comments='${comments}' where symbol='${symbol}';`
+    pool.query(sql, function (err, rows, fields) {
+        if (err) {
+            res.json(err)
+        } else {
+            res.json(
+            rows
+           )
+        }
+
+    })
+  });
+
   router.get('/get_viewed_stock', function(req, res, next) {
     const datestr  = req.query.datestr;
     const sql = `SELECT * FROM viewd_stocks WHERE datestr = '${datestr}';`

@@ -100,26 +100,6 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   }
 };
 
-const findStartAndEnd = (data, consNumber) => {
-  let j = 0;
-  let start = 0;
-  let end = 0;
-  let consNum = 0;
-  data &&
-    data.forEach((i, k) => {
-      if (i.status === selectConsUpDown) {
-        j++;
-      } else {
-        if (j > consNum) {
-          consNum = j;
-          end = k;
-        }
-        j = 0;
-      }
-    });
-  return { start: end - 1 - consNumber, end: end - 1 };
-};
-
 const validateTotal = (data, selectConsUpDown, selectConsDays) => {
   return (
     data &&
@@ -152,20 +132,20 @@ const matchColor = (type) => {
 };
 
 export const AlarmComponent = () => {
-  const [selectStock, setSelectStock] = useState('');
+  const [selectStock, setSelectStock] = useState<any>('');
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
-  const [stockOptions, setStockOptions] = useState([]);
-  const [totalNum, setTotalNum] = useState(null);
+  const [stockOptions, setStockOptions] = useState<any[]>([]);
+  const [totalNum, setTotalNum] = useState<number>(null as unknown as number);
   const [isLoading, setIsLoading] = useState(false);
 
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
-  const [savedStockOptions, setSavedStockOptions] = useState([]);
+  // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
   const curDate = new Date();
   const year = curDate.getFullYear();
   const month = curDate.getMonth() + 1;
@@ -174,19 +154,19 @@ export const AlarmComponent = () => {
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
-  const [selectStartDate, setSelectStartDate] = useState(
-    moment(`${year}-${month}-${day}`).format(dateFormat)
-  );
-  const [selectEndDate, setSelectEndDate] = useState(
-    moment(`${year}-${month}-${day}`).format(dateFormat)
-  );
+  // const [selectStartDate, setSelectStartDate] = useState(
+  //   moment(`${year}-${month}-${day}`).format(dateFormat)
+  // );
+  // const [selectEndDate, setSelectEndDate] = useState(
+  //   moment(`${year}-${month}-${day}`).format(dateFormat)
+  // );
   const [comments, setComments] = useState('');
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
 
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
-      const upDownStocks = [];
+      const upDownStocks: any[] = [];
       fetch(
         `/api/all_alarm_data?date_str=${getBeforeOneDate(
           selectDate,
@@ -265,7 +245,7 @@ export const AlarmComponent = () => {
                 }
               });
             setIsLoading(false);
-            setSavedStockOptions(addViewed);
+            // setSavedStockOptions(addViewed);
             setStockOptions(addViewed);
             setTotalNum(addViewed && addViewed.length);
           });
@@ -274,14 +254,7 @@ export const AlarmComponent = () => {
 
   const reLoadAllAlarms = useCallback(
     (applyTimeFilter) => {
-      let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
-      if (applyTimeFilter)
-        url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
       setIsLoading(true);
-      // fetch(url)
-      // .then(
-      //   res =>res.json()
-      // ).then(data => {
       fetch(
         `/api/get_viewed_stock?datestr=${moment(new Date()).format(dateFormat)}`
       )
@@ -298,20 +271,18 @@ export const AlarmComponent = () => {
               }
             });
           setIsLoading(false);
-          setSavedStockOptions(addViewed);
+          // setSavedStockOptions(addViewed);
           setStockOptions(addViewed);
           setTotalNum(addViewed && addViewed.length);
         });
       // })
     },
-    [selectAlarmType, selectDate, selectStartDate, selectEndDate, stockOptions]
+    [selectAlarmType, selectDate, stockOptions]
   );
 
   const clearAdvanced = useCallback(
-    (applyTimeFilter) => {
+    () => {
       let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
-      if (applyTimeFilter)
-        url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
       setIsLoading(true);
       fetch(url)
         .then((res) => res.json())
@@ -334,17 +305,17 @@ export const AlarmComponent = () => {
                   }
                 });
               setIsLoading(false);
-              setSavedStockOptions(addViewed);
+              //setSavedStockOptions(addViewed);
               setStockOptions(addViewed);
               setTotalNum(addViewed && addViewed.length);
             });
         });
     },
-    [selectAlarmType, selectDate, selectStartDate, selectEndDate, stockOptions]
+    [selectAlarmType, selectDate, stockOptions]
   );
 
   const dateArr = useMemo(() => {
-    const dateArray = [];
+    const dateArray: any[] = [];
     for (var i = parseInt(selectDays, 10); i >= 0; i--) {
       dateArray.push(getBeforeDate(i));
     }
@@ -624,8 +595,6 @@ export const AlarmComponent = () => {
       .then(() => {
         reLoadAllAlarms(false);
       });
-
-    reLoadAllAlarms();
   }, [selectStock, selectAlarmType, selectDays]);
 
   const addtoFocus = useCallback(() => {
@@ -650,7 +619,7 @@ export const AlarmComponent = () => {
       {/* <Input style={{width: '200px', height:'32px'}} size="small" placeholder="Input Stock" value={selectStock} onChange={(e) => {setSelectStock(e.target.value)}}/> */}
       <Select
         showSearch
-        style={{ width: '200px' }}
+        style={{ width: '220px' }}
         onChange={(v) => {
           setSelectStock(v);
         }}
@@ -661,7 +630,7 @@ export const AlarmComponent = () => {
             key={i.symbol}
             value={i.symbol}
             style={{ color: `${i.viewed ? 'red' : '#222'}` }}
-          >{`${i.symbol} ${
+          >{`${i.name} ${i.symbol} ${
             i['count(*)'] ? `(${i['count(*)']})` : ''
           }`}</Select.Option>
         ))}
@@ -709,7 +678,7 @@ export const AlarmComponent = () => {
       <DatePicker
         defaultValue={moment(selectDate, dateFormat)}
         format={dateFormat}
-        onChange={(v) => setSelectDate(v.format(dateFormat))}
+        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
       />
       {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
             <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
@@ -747,7 +716,7 @@ export const AlarmComponent = () => {
           placeholder="Input Days"
           value={selectConsDays}
           onChange={(e) => {
-            setSelectConsDays(e.target.value);
+            setSelectConsDays(parseInt(e.target.value, 10));
           }}
         />
         days
@@ -792,7 +761,7 @@ export const AlarmComponent = () => {
           style={{ marginLeft: '10px' }}
           type="primary"
           onClick={() => {
-            clearAdvanced(false);
+            clearAdvanced();
           }}
         >
           {' '}
