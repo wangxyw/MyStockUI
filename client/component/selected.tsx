@@ -111,7 +111,7 @@ export const Selected = () => {
     const { Option } = Select;
     return (
       <section className="pageContentInner">
-        <div className="head-section">
+        <div className="head-section" style={{padding: '20px'}}>
           <h1>Stock ID: {selectStockId}</h1>
         </div>
         <p style={{ display: 'inline-block', marginRight: '10px' }}>

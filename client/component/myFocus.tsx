@@ -205,7 +205,7 @@ export const MyFocusListComponent = () => {
     };
   });
   return (
-    <div>
+    <div style={{padding: '20px'}}>
       My Focus Stocks
       <Table columns={mergedColumns} dataSource={data} components={components}/>
     </div>

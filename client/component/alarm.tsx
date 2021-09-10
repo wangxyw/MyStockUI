@@ -605,7 +605,7 @@ export const AlarmComponent = () => {
   }, [comments, selectStock, predict]);
 
   return (
-    <div>
+    <div style={{padding: '20px'}}>
       <h2>Alarm</h2>
       <div>
         <Button
@@ -673,7 +673,7 @@ export const AlarmComponent = () => {
             }
           }}
         />{' '}
-        days Data
+        days Data till
       </div>
       <DatePicker
         defaultValue={moment(selectDate, dateFormat)}
