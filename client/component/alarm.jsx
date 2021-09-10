@@ -157,12 +157,13 @@ export const AlarmComponent = () => {
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
+  const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState([]);
   const [totalNum, setTotalNum] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
-  const [selectConsDays, setSelectConsDays] = useState(null);
+  const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   const [savedStockOptions, setSavedStockOptions] = useState([]);
   const curDate = new Date();
@@ -183,55 +184,13 @@ export const AlarmComponent = () => {
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
 
-  const filterData = useCallback(
-    (data, selectConsDays, selectConsTotal, selectConsUpDown) => {
-      if (selectAlarmType === 'All') {
-        return;
-      }
-      const upDownStocks = [];
-      data &&
-        data.forEach((i) => {
-          const symbol = i.symbol;
-          fetch(
-            `/api/stock_alarm?stock_id=${symbol}&alarm_type=${selectAlarmType}&date_str=${getBeforeDate(
-              selectDays
-            )}`,
-            { method: 'GET' }
-          )
-            .then((res) => res.json())
-            .then((result) => {
-              setIsLoading(false);
-              if (selectConsTotal === 'CONS') {
-                if (
-                  validateCons(result, selectConsUpDown, selectConsDays).isTrue
-                ) {
-                  upDownStocks.push(i);
-                  //setUpdownStocks([...upDownStocks]);
-                }
-              }
-              if (selectConsTotal === 'TOTAL') {
-                if (validateTotal(result, selectConsUpDown, selectConsDays)) {
-                  upDownStocks.push(i);
-                  //setUpdownStocks([...upDownStocks]);
-                  //setStockOptions([...upDownStocks]);
-                  //setTotalNum(upDownStocks.length);
-                }
-              }
-              setStockOptions([...upDownStocks]);
-              setTotalNum(upDownStocks.length);
-            });
-        });
-    },
-    [setStockOptions, selectAlarmType, stockOptions]
-  );
-
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
       const upDownStocks = [];
       fetch(
         `/api/all_alarm_data?date_str=${getBeforeOneDate(
           selectDate,
-          selectDays
+          selectConsAllDays
         )}&end_date_str=${selectDate}`,
         { method: 'GET' }
       )
@@ -278,7 +237,7 @@ export const AlarmComponent = () => {
           }
         });
     },
-    [setStockOptions, selectAlarmType, stockOptions, selectDays, selectDate]
+    [setStockOptions, selectAlarmType, stockOptions, selectConsAllDays, selectDate]
   );
 
   useEffect(() => {
@@ -315,9 +274,9 @@ export const AlarmComponent = () => {
 
   const reLoadAllAlarms = useCallback(
     (applyTimeFilter) => {
-      let url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+      let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
       if (applyTimeFilter)
-        url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
+        url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
       setIsLoading(true);
       // fetch(url)
       // .then(
@@ -350,9 +309,9 @@ export const AlarmComponent = () => {
 
   const clearAdvanced = useCallback(
     (applyTimeFilter) => {
-      let url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+      let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
       if (applyTimeFilter)
-        url = `/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
+        url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&start_date=${selectStartDate}&end_date=${selectEndDate}`;
       setIsLoading(true);
       fetch(url)
         .then((res) => res.json())
@@ -806,7 +765,17 @@ export const AlarmComponent = () => {
             </Select.Option>
           ))}
         </Select>
-        % price margin
+        % price margin in 
+        <Input
+          style={{ width: '50px', height: '32px' }}
+          size="small"
+          placeholder="Input Days"
+          value={selectConsAllDays}
+          onChange={(e) => {
+            setSelectConsAllDays(e.target.value);
+          }}
+        />
+        days
         <Button
           type="primary"
           onClick={() => {
