@@ -1,7 +1,7 @@
 import { Table, Form, Input } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
-import { post } from '../lib/request';
+import { get, post } from '../lib';
 
 interface Item {
   key: string;
@@ -35,8 +35,8 @@ const columns = [
     title: 'Predict',
     dataIndex: 'predict',
     key: 'predict',
-    sorter: (a: any, b: any) :any => a.predict - b.predict,
-    render: (txt: any) : any => {
+    sorter: (a: any, b: any): any => a.predict - b.predict,
+    render: (txt: any): any => {
       if (txt === 'Up') {
         return '看涨';
       }
@@ -44,6 +44,11 @@ const columns = [
         return '看跌';
       }
     },
+  },
+  {
+    title: 'Current Price',
+    dataIndex: 'currentPrice',
+    key: 'currentPrice',
   },
   {
     title: 'Final Price',
@@ -67,7 +72,7 @@ const columns = [
     title: 'Comments',
     dataIndex: 'comments',
     key: 'comments',
-    editable: true
+    editable: true,
   },
   {
     title: 'Date',
@@ -153,7 +158,11 @@ const EditableCell: React.FC<EditableCellProps> = ({
         <Input ref={inputRef} onPressEnter={save} onBlur={save} />
       </Form.Item>
     ) : (
-      <div className="editable-cell-value-wrap" style={{ paddingRight: 24 }} onClick={toggleEdit}>
+      <div
+        className="editable-cell-value-wrap"
+        style={{ paddingRight: 24 }}
+        onClick={toggleEdit}
+      >
         {children}
       </div>
     );
@@ -162,26 +171,43 @@ const EditableCell: React.FC<EditableCellProps> = ({
   return <td {...restProps}>{childNode}</td>;
 };
 
+async function getAllFocusedStocks() {
+  const stockData = await get('/api/all_focus_stock');
+  const symbols = stockData.map((d) => d.symbol);
+  const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
+
+  return stockData.map((s) => {
+    const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
+
+    return {
+      ...s,
+      currentPrice,
+    };
+  });
+}
 
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   useEffect(() => {
-    fetch('/api/all_focus_stock')
-      .then((res) => res.json())
-      .then((data) => {
-        setData(data);
-      });
+    async function handleAllStockData() {
+      const data = await getAllFocusedStocks();
+      setData(data);
+    }
+
+    handleAllStockData();
   }, []);
 
   const handleSave = (row: any) => {
     console.log(row);
-    post('/api/edit_focus', {body: JSON.stringify({symbol: row?.symbol, comments: row?.comments})}).then(() =>{
+    post('/api/edit_focus', {
+      body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
+    }).then(() => {
       fetch('/api/all_focus_stock')
-      .then((res) => res.json())
-      .then((data) => {
-        setData(data);
-      });
-    })
+        .then((res) => res.json())
+        .then((data) => {
+          setData(data);
+        });
+    });
   };
   const components = {
     body: {
@@ -189,7 +215,7 @@ export const MyFocusListComponent = () => {
       cell: EditableCell,
     },
   };
-  const mergedColumns = columns.map(col => {
+  const mergedColumns = columns.map((col) => {
     if (!col.editable) {
       return col;
     }
@@ -205,9 +231,13 @@ export const MyFocusListComponent = () => {
     };
   });
   return (
-    <div style={{padding: '20px'}}>
+    <div style={{ padding: '20px' }}>
       My Focus Stocks
-      <Table columns={mergedColumns} dataSource={data} components={components}/>
+      <Table
+        columns={mergedColumns}
+        dataSource={data}
+        components={components}
+      />
     </div>
   );
 };
