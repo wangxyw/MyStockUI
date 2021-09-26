@@ -4,6 +4,50 @@ import { Button, Input, Select, DatePicker, Radio } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
+import DATE from './date.json';
+
+const getBeforeOneDate = (date, n) => {
+  //const n = n;
+  let d = new Date(date);
+  let year = d.getFullYear();
+  let mon = d.getMonth() + 1;
+  let day = d.getDate();
+  if (day <= n) {
+    if (mon > 1) {
+      mon = mon - 1;
+    } else {
+      year = year - 1;
+      mon = 12;
+    }
+  }
+  d.setDate(d.getDate() - n);
+  year = d.getFullYear();
+  mon = d.getMonth() + 1;
+  day = d.getDate();
+  const s =
+    year +
+    '-' +
+    (mon < 10 ? '0' + mon : mon) +
+    '-' +
+    (day < 10 ? '0' + day : day);
+  return s;
+};
+
+const caculateDate = (startDatestr, days) => {
+  const workdays = DATE.workday;
+  const startDateStrIndex = workdays.indexOf(startDatestr);
+  if (startDateStrIndex !== -1) {
+    const endDateStr = workdays[(startDateStrIndex - days)];
+    return endDateStr;
+  } else {
+    let i = 1;
+    while (workdays.indexOf(startDatestr) === -1) {
+      startDatestr = getBeforeOneDate(startDatestr, i)
+    }
+    const endDateStr = workdays[(workdays.indexOf(startDatestr) - days)];
+    return endDateStr;
+  }
+}
 
 const validateStock = (stock) => {
   if (stock.length < 8) {
@@ -47,32 +91,7 @@ const getBeforeDate = (n) => {
   return s;
 };
 
-const getBeforeOneDate = (date, n) => {
-  //const n = n;
-  let d = new Date(date);
-  let year = d.getFullYear();
-  let mon = d.getMonth() + 1;
-  let day = d.getDate();
-  if (day <= n) {
-    if (mon > 1) {
-      mon = mon - 1;
-    } else {
-      year = year - 1;
-      mon = 12;
-    }
-  }
-  d.setDate(d.getDate() - n);
-  year = d.getFullYear();
-  mon = d.getMonth() + 1;
-  day = d.getDate();
-  const s =
-    year +
-    '-' +
-    (mon < 10 ? '0' + mon : mon) +
-    '-' +
-    (day < 10 ? '0' + day : day);
-  return s;
-};
+
 
 const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let consNum = 0;
@@ -168,7 +187,7 @@ export const AlarmComponent = () => {
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
       const upDownStocks: any[] = [];
       fetch(
-        `/api/all_alarm_data?date_str=${getBeforeOneDate(
+        `/api/all_alarm_data?date_str=${caculateDate(
           selectDate,
           selectConsAllDays
         )}&end_date_str=${selectDate}`,
@@ -194,6 +213,7 @@ export const AlarmComponent = () => {
                 ).end;
                 const startPrice = data[k][startIndex].finalprice;
                 const endPrice = data[k][endIndex].finalprice;
+                console.log(startPrice, endPrice, Math.abs((endPrice - startPrice) / startPrice), selectPriceMargin / 100)
                 if (
                   Math.abs((endPrice - startPrice) / startPrice) <
                   selectPriceMargin / 100
@@ -217,7 +237,7 @@ export const AlarmComponent = () => {
           }
         });
     },
-    [setStockOptions, selectAlarmType, stockOptions, selectConsAllDays, selectDate]
+    [setStockOptions, selectAlarmType, stockOptions, selectConsAllDays, selectDate, selectPriceMargin]
   );
 
   useEffect(() => {
