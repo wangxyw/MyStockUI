@@ -213,7 +213,6 @@ export const AlarmComponent = () => {
                 ).end;
                 const startPrice = data[k][startIndex].finalprice;
                 const endPrice = data[k][endIndex].finalprice;
-                console.log(startPrice, endPrice, Math.abs((endPrice - startPrice) / startPrice), selectPriceMargin / 100)
                 if (
                   Math.abs((endPrice - startPrice) / startPrice) <
                   selectPriceMargin / 100

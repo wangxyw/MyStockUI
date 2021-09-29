@@ -2,6 +2,7 @@ import { Table, Form, Input } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
+import {ArrowDownOutlined, ArrowUpOutlined} from '@ant-design/icons';
 
 interface Item {
   key: string;
@@ -49,6 +50,16 @@ const columns = [
     title: 'Current Price',
     dataIndex: 'currentPrice',
     key: 'currentPrice',
+    render:(c, record) => {
+          const isUp = (c - record.finalprice) > 0;
+          const arrow = !isUp? <ArrowDownOutlined style={{color: 'green'}}/> : <ArrowUpOutlined style={{color: 'red'}}/>;
+          return (
+            <>
+            <span style={{color: isUp? 'red': 'green'}}>{c}</span>{arrow}
+            </>
+          );
+    
+    }
   },
   {
     title: 'Final Price',
@@ -198,7 +209,6 @@ export const MyFocusListComponent = () => {
   }, []);
 
   const handleSave = (row: any) => {
-    console.log(row);
     post('/api/edit_focus', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
     }).then(() => {

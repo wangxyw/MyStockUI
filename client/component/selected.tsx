@@ -13,7 +13,6 @@ export const Selected = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
           setOption(
             {
               title: {
