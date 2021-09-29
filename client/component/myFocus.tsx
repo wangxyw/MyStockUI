@@ -1,8 +1,8 @@
-import { Table, Form, Input } from 'antd';
+import { Table, Form, Input, Popconfirm } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
-import {ArrowDownOutlined, ArrowUpOutlined} from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 
 interface Item {
   key: string;
@@ -10,88 +10,6 @@ interface Item {
   age: string;
   address: string;
 }
-
-const columns = [
-  {
-    title: 'Symbol',
-    dataIndex: 'symbol',
-    key: 'symbol',
-    render: (text) => {
-      return (
-        <a
-          target="_blank"
-          href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
-        >
-          {text}
-        </a>
-      );
-    },
-  },
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-  },
-  {
-    title: 'Predict',
-    dataIndex: 'predict',
-    key: 'predict',
-    sorter: (a: any, b: any): any => a.predict - b.predict,
-    render: (txt: any): any => {
-      if (txt === 'Up') {
-        return '看涨';
-      }
-      if (txt === 'Down') {
-        return '看跌';
-      }
-    },
-  },
-  {
-    title: 'Current Price',
-    dataIndex: 'currentPrice',
-    key: 'currentPrice',
-    render:(c, record) => {
-          const isUp = (c - record.finalprice) > 0;
-          const arrow = !isUp? <ArrowDownOutlined style={{color: 'green'}}/> : <ArrowUpOutlined style={{color: 'red'}}/>;
-          return (
-            <>
-            <span style={{color: isUp? 'red': 'green'}}>{c}</span>{arrow}
-            </>
-          );
-    
-    }
-  },
-  {
-    title: 'Final Price',
-    dataIndex: 'finalprice',
-    key: 'finalprice',
-  },
-  {
-    title: 'Price Change Pct',
-    dataIndex: 'pricechangepct',
-    key: 'pricechangepct',
-    sorter: (a, b) => a.pricechangepct - b.pricechangepct,
-    // render: txt => (<>{(+txt < 0? <ArrowDownOutlined twoToneColor={"green"}/> : <ArrowUpOutlined twoToneColor={"red"}/>)}</>)
-  },
-  {
-    title: 'Turnover Rate',
-    dataIndex: 'turnoverrate',
-    key: 'turnoverrate',
-    sorter: (a, b) => a.turnoverrate - b.turnoverrate,
-  },
-  {
-    title: 'Comments',
-    dataIndex: 'comments',
-    key: 'comments',
-    editable: true,
-  },
-  {
-    title: 'Date',
-    dataIndex: 'datestr',
-    key: 'datestr',
-  },
-];
-
 interface EditableRowProps {
   index: number;
 }
@@ -199,6 +117,116 @@ async function getAllFocusedStocks() {
 
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
+  const columns = [
+    {
+      title: 'Symbol',
+      dataIndex: 'symbol',
+      key: 'symbol',
+      render: (text) => {
+        return (
+          <a
+            target="_blank"
+            href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+          >
+            {text}
+          </a>
+        );
+      },
+    },
+    {
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Predict',
+      dataIndex: 'predict',
+      key: 'predict',
+      sorter: (a: any, b: any): any => a.predict - b.predict,
+      render: (txt: any): any => {
+        if (txt === 'Up') {
+          return '看涨';
+        }
+        if (txt === 'Down') {
+          return '看跌';
+        }
+      },
+    },
+    {
+      title: 'Current Price',
+      dataIndex: 'currentPrice',
+      key: 'currentPrice',
+      render: (c, record) => {
+        const isUp = c - record.finalprice > 0;
+        const arrow = !isUp ? (
+          <ArrowDownOutlined style={{ color: 'green' }} />
+        ) : (
+          <ArrowUpOutlined style={{ color: 'red' }} />
+        );
+        return (
+          <>
+            <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
+            {arrow}
+          </>
+        );
+      },
+    },
+    {
+      title: 'Final Price',
+      dataIndex: 'finalprice',
+      key: 'finalprice',
+    },
+    {
+      title: 'Price Change Pct',
+      dataIndex: 'pricechangepct',
+      key: 'pricechangepct',
+      sorter: (a, b) => a.pricechangepct - b.pricechangepct,
+      // render: txt => (<>{(+txt < 0? <ArrowDownOutlined twoToneColor={"green"}/> : <ArrowUpOutlined twoToneColor={"red"}/>)}</>)
+    },
+    {
+      title: 'Turnover Rate',
+      dataIndex: 'turnoverrate',
+      key: 'turnoverrate',
+      sorter: (a, b) => a.turnoverrate - b.turnoverrate,
+    },
+    {
+      title: 'Comments',
+      dataIndex: 'comments',
+      key: 'comments',
+      editable: true,
+    },
+    {
+      title: 'Date',
+      dataIndex: 'datestr',
+      key: 'datestr',
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (text, record) => (
+        <Popconfirm
+          title="Sure to delete?"
+          onConfirm={() =>
+            post('/api/delete_focus', {
+              body: JSON.stringify({
+                symbol: record?.symbol,
+                datestr: record?.datestr,
+              }),
+            }).then(() => {
+              async function handleAllStockData() {
+                const data = await getAllFocusedStocks();
+                setData(data);
+              }
+              handleAllStockData();
+            })
+          }
+        >
+          <a>Delete</a>
+        </Popconfirm>
+      ),
+    },
+  ];
+  
   useEffect(() => {
     async function handleAllStockData() {
       const data = await getAllFocusedStocks();

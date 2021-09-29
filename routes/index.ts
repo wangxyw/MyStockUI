@@ -66,6 +66,19 @@ router.get('/add_focus', function (req, res, next) {
   });
 });
 
+router.post('/delete_focus', function (req, res, next) {
+  const symbol = req.body.symbol;
+  const datestr = req.body.datestr;
+  const sql = `DELETE from focus_stocks where symbol= '${symbol}' and datestr= '${datestr}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
 router.post('/edit_focus', function (req, res, next) {
   const symbol = req.body.symbol;
   const comments = req.body.comments;
