@@ -196,44 +196,32 @@ export const AlarmComponent = () => {
         .then((res) => res.json())
         .then((result) => {
           const data = groupBy(result, 'symbol');
-          for (var k in data) {
+          Object.keys(data).forEach(k =>{
             if (selectConsTotal === 'CONS') {
+              const item = data[k];
+              const {isTrue, start, end} = validateCons(item, selectConsUpDown, selectConsDays);
               if (
-                validateCons(data[k], selectConsUpDown, selectConsDays).isTrue
+                isTrue
               ) {
-                const startIndex = validateCons(
-                  data[k],
-                  selectConsUpDown,
-                  selectConsDays
-                ).start;
-                const endIndex = validateCons(
-                  data[k],
-                  selectConsUpDown,
-                  selectConsDays
-                ).end;
-                const startPrice = data[k][startIndex].finalprice;
-                const endPrice = data[k][endIndex].finalprice;
+                const startPrice = item[start].finalprice;
+                const endPrice = item[end].finalprice;
                 if (
                   Math.abs((endPrice - startPrice) / startPrice) <
                   selectPriceMargin / 100
                 ) {
-                  upDownStocks.push(data[k][0]);
+                  upDownStocks.push(item[0]);
                 }
-                //setUpdownStocks([...upDownStocks]);
               }
             }
             if (selectConsTotal === 'TOTAL') {
               if (validateTotal(result, selectConsUpDown, selectConsDays)) {
                 upDownStocks.push(data[k][0]);
-                //setUpdownStocks([...upDownStocks]);
-                //setStockOptions([...upDownStocks]);
-                //setTotalNum(upDownStocks.length);
               }
             }
-            setIsLoading(false);
-            setStockOptions([...upDownStocks]);
-            setTotalNum(upDownStocks.length);
-          }
+          })
+          setIsLoading(false);
+          setStockOptions([...upDownStocks]);
+          setTotalNum(upDownStocks.length);
         });
     },
     [setStockOptions, selectAlarmType, stockOptions, selectConsAllDays, selectDate, selectPriceMargin]
@@ -618,7 +606,10 @@ export const AlarmComponent = () => {
 
   const addtoFocus = useCallback(() => {
     fetch(
-      `/api/add_focus?stock_id=${selectStock}&datestr=${selectDate}&comments=${comments}&predict=${predict}`,
+      `/api/add_focus?stock_id=${selectStock}&datestr=${caculateDate(
+        selectDate,
+        0
+      )}&comments=${comments}&predict=${predict}`,
       { method: 'GET' }
     ).then((res) => res.json());
   }, [comments, selectStock, predict]);
