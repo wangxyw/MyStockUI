@@ -199,6 +199,7 @@ export const MyFocusListComponent = () => {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
+      sorter: (a: any, b: any): any => {return (Number(a.datestr.replaceAll('-', '')) - Number(b.datestr.replaceAll('-', '')))},
     },
     {
       title: 'Action',
