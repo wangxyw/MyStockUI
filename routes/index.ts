@@ -112,10 +112,10 @@ router.get('/all_focus_stock', function (req, res, next) {
 router.get('/stock_alarm', function (req, res, next) {
   const symbol = req.query.stock_id;
   // const alarm_type  = req.query.alarm_type;
-  let sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.turnoverrate, a.finalprice FROM stock_big_data a where a.symbol='${symbol}';`;
+  let sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.turnoverrate, a.finalprice, a.totalvol, a.stockvol FROM stock_big_data a where a.symbol='${symbol}';`;
   const datestr = req.query.date_str;
   if (datestr) {
-    sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
+    sql = `SELECT a.symbol,  status,  totalvolpct, dvaluepct, a.datestr, a.finalprice, a.turnoverrate, a.totalvol, a.stockvol FROM stock_big_data a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
   // let sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = '${alarm_type}' and a.symbol='${symbol}' and a.datestr=b.datestr;`
   // if (alarm_type === 'All') {

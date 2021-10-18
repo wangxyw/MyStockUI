@@ -155,6 +155,7 @@ export const AlarmComponent = () => {
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
+  const [volOption, setVolOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -365,6 +366,20 @@ export const AlarmComponent = () => {
               return '-';
             }
           });
+          const allVolArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).stockvol;
+            } else {
+              return '-';
+            }
+          });
+          const bigVolArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).totalvol;
+            } else {
+              return '-';
+            }
+          });
           const statusArr = dateArr.map((i) => {
             if (data.find((d) => d.datestr === i)) {
               return data.find((d) => d.datestr === i).status;
@@ -534,6 +549,75 @@ export const AlarmComponent = () => {
               //         }
               //     }
               // }
+            ],
+          });
+
+          setVolOption({
+            title: {
+              text: '',
+              left: 0,
+            },
+            legend: {
+              data: ['allVol', 'bigVol'],
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'shadow',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+            },
+            series: [
+              {
+                name: 'TotalPct',
+                type: 'bar',
+                data: allVolArr,
+                itemStyle: {
+                  normal: {
+                    color: '#444',
+                  },
+                }
+              },
+              {
+                name: 'DPct',
+                type: 'bar',
+                data: bigVolArr,
+                itemStyle: {
+                  normal: {
+                    color: function (params) {
+                      var colorList;
+                      if (statusArr[params.dataIndex] == 'up') {
+                        colorList = '#ef232a';
+                      } else if (statusArr[params.dataIndex] == 'down') {
+                        colorList = '#14b143';
+                      }
+                      return colorList;
+                    },
+                  },
+                },
+              }
             ],
           });
 
@@ -812,10 +896,16 @@ export const AlarmComponent = () => {
         option={option}
       />
       <ReactEcharts
-        style={{ height: 350, width: 1450 }}
+        style={{ height: 250, width: 1450 }}
         notMerge={true}
         lazyUpdate={true}
         option={priceOption}
+      />
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={volOption}
       />
     </div>
   );
