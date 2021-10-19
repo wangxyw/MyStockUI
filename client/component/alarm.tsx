@@ -5,6 +5,7 @@ import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
+import { post, get } from '../lib/request';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -97,8 +98,21 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let consNum = 0;
   let end = 0;
   let j = 0;
+  let typeA = false;
+  let typeB = false;
+  let typeC = false;
   data &&
     data.forEach((i, k) => {
+      if (i?.alarmtype==='A1' && i?.status === selectConsUpDown) {
+        typeA = true;
+      }
+      if (i?.alarmtype==='A2' && i?.status === selectConsUpDown) {
+        typeB = true;
+      }
+      if (i?.alarmtype==='A3' && i?.status === selectConsUpDown) {
+        console.log('0900988u', i)
+        typeC = true;
+      }
       if (i.status === selectConsUpDown) {
         j++;
       } else {
@@ -112,8 +126,8 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   if (j > consNum) {
     (consNum = j), (end = data.length);
   }
-  if (consNum === +selectConsDays) {
-    return { isTrue: true, start: end - selectConsDays, end: end - 1 };
+  if (consNum >= +selectConsDays) {
+    return { isTrue: true, start: end - selectConsDays, end: end - 1, typeA, typeB, typeC };
   } else {
     return { isTrue: false };
   }
@@ -156,6 +170,7 @@ export const AlarmComponent = () => {
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
   const [volOption, setVolOption] = useState({});
+  const [resultOption, setResultOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -183,6 +198,89 @@ export const AlarmComponent = () => {
   const [comments, setComments] = useState('');
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
+  const [plateOption, setPlateOption] = useState({});
+  
+  const saveSearchResult = ({consday, totalday, pricemargin, datestr, result}) => {
+    post('/api/save_advanced_search', {
+      body: JSON.stringify({
+        consday,
+        totalday,
+        pricemargin,
+        datestr,
+        result
+      }),
+    }).then(() => {
+      get(`/api/get_search_result?totalday=${totalday}&consday=${consday}&pricemargin=${pricemargin}`).then((res) => {
+        const dateArr = res.map(i => i.datestr);
+        const result = res.map(i => i.result);
+        setResultOption({
+          title: {
+            text: 'advanced search result',
+            left: 0,
+          },
+          legend: {
+            data: ['allVol', 'bigVol'],
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow',
+            },
+          },
+          xAxis: {
+            type: 'category',
+            data: dateArr,
+            axisLabel: { show: true, interval: 0, rotate: 45 },
+          },
+          yAxis: {
+            type: 'value',
+          },
+          series: [
+            {
+              name: 'TotalPct',
+              type: 'bar',
+              data: result,
+              barWidth: 40,
+              itemStyle: {
+                normal: {
+                  color: '#444',
+                },
+              }
+            }
+          ],
+        });
+         
+      });
+    });
+  };
+
+  const caculatePlate = (results) => {
+    const ids = results?.map(i => `'${i.symbol}'`).join(",");
+    get(`/api/get_plate?ids=${ids}`).then(res => {
+      const option = {
+        
+        tooltip: {
+          formatter: function (info) {
+            return [
+              'name : ' + info.name, 
+              'count : ' + info.value 
+            ].join('');
+          }
+        },
+        series: [
+          { label: {
+            show: true,
+            formatter: '{b}'
+          },
+          type: 'treemap',
+          data: res.filter(i=>i.count > 2).map(i => ({name: i.name, value: i.count}))
+        }
+      ]
+      };
+      setPlateOption(option);
+    });
+
+  };
 
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
@@ -197,10 +295,13 @@ export const AlarmComponent = () => {
         .then((res) => res.json())
         .then((result) => {
           const data = groupBy(result, 'symbol');
-          Object.keys(data).forEach(k =>{
+          Object.keys(data).forEach(k => {
             if (selectConsTotal === 'CONS') {
               const item = data[k];
-              const {isTrue, start, end} = validateCons(item, selectConsUpDown, selectConsDays);
+              const {isTrue, start, end, typeA, typeB, typeC} = validateCons(item, selectConsUpDown, selectConsDays);
+              if (typeA) item[0].typeA1 = true;
+              if (typeB) item[0].typeA2 = true;
+              if (typeC) item[0].typeA3 = true;
               if (
                 isTrue
               ) {
@@ -223,9 +324,22 @@ export const AlarmComponent = () => {
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
           setTotalNum(upDownStocks.length);
+          saveSearchResult({
+            consday: selectConsDays,
+            totalday: selectConsAllDays,
+            datestr: caculateDate(
+              selectDate,
+              0
+            ),
+            pricemargin: selectPriceMargin,
+            result: upDownStocks.length,
+          });
+          caculatePlate(
+            upDownStocks
+          )
         });
     },
-    [setStockOptions, selectAlarmType, stockOptions, selectConsAllDays, selectDate, selectPriceMargin]
+    [setStockOptions, selectAlarmType, selectConsDays, stockOptions, selectConsAllDays, selectDate, selectPriceMargin]
   );
 
   useEffect(() => {
@@ -700,6 +814,12 @@ export const AlarmComponent = () => {
 
   return (
     <div style={{padding: '20px'}}>
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={resultOption}
+      />
       <h2>Alarm</h2>
       <div>
         <Button
@@ -725,8 +845,11 @@ export const AlarmComponent = () => {
             value={i.symbol}
             style={{ color: `${i.viewed ? 'red' : '#222'}` }}
           >{`${i.name} ${i.symbol} ${
-            i['count(*)'] ? `(${i['count(*)']})` : ''
-          }`}</Select.Option>
+            i['count(*)'] ? `(${i['count(*)']})` : ''}
+            ${i.typeA1 ? 'A1' : ''}
+            ${i.typeA2 ? 'A2' : ''}
+            ${i.typeA3 ? 'A3' : ''}
+            `}</Select.Option>
         ))}
       </Select>
       <span>Total: {totalNum}</span>
@@ -906,6 +1029,12 @@ export const AlarmComponent = () => {
         notMerge={true}
         lazyUpdate={true}
         option={volOption}
+      />
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={plateOption}
       />
     </div>
   );
