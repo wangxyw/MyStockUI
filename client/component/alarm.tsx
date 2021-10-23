@@ -38,17 +38,17 @@ const caculateDate = (startDatestr, days) => {
   const workdays = DATE.workday;
   const startDateStrIndex = workdays.indexOf(startDatestr);
   if (startDateStrIndex !== -1) {
-    const endDateStr = workdays[(startDateStrIndex - days)];
+    const endDateStr = workdays[startDateStrIndex - days];
     return endDateStr;
   } else {
     let i = 1;
     while (workdays.indexOf(startDatestr) === -1) {
-      startDatestr = getBeforeOneDate(startDatestr, i)
+      startDatestr = getBeforeOneDate(startDatestr, i);
     }
-    const endDateStr = workdays[(workdays.indexOf(startDatestr) - days)];
+    const endDateStr = workdays[workdays.indexOf(startDatestr) - days];
     return endDateStr;
   }
-}
+};
 
 const validateStock = (stock) => {
   if (stock.length < 8) {
@@ -92,8 +92,6 @@ const getBeforeDate = (n) => {
   return s;
 };
 
-
-
 const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let consNum = 0;
   let end = 0;
@@ -103,14 +101,14 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let typeC = false;
   data &&
     data.forEach((i, k) => {
-      if (i?.alarmtype==='A1' && i?.status === selectConsUpDown) {
+      if (i?.alarmtype === 'A1' && i?.status === selectConsUpDown) {
         typeA = true;
       }
-      if (i?.alarmtype==='A2' && i?.status === selectConsUpDown) {
+      if (i?.alarmtype === 'A2' && i?.status === selectConsUpDown) {
         typeB = true;
       }
-      if (i?.alarmtype==='A3' && i?.status === selectConsUpDown) {
-        console.log('0900988u', i)
+      if (i?.alarmtype === 'A3' && i?.status === selectConsUpDown) {
+        console.log('0900988u', i);
         typeC = true;
       }
       if (i.status === selectConsUpDown) {
@@ -127,7 +125,14 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
     (consNum = j), (end = data.length);
   }
   if (consNum >= +selectConsDays) {
-    return { isTrue: true, start: end - selectConsDays, end: end - 1, typeA, typeB, typeC };
+    return {
+      isTrue: true,
+      start: end - selectConsDays,
+      end: end - 1,
+      typeA,
+      typeB,
+      typeC,
+    };
   } else {
     return { isTrue: false };
   }
@@ -199,15 +204,22 @@ export const AlarmComponent = () => {
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
   const [plateOption, setPlateOption] = useState({});
-  
-  const saveSearchResult = ({consday, totalday, pricemargin, datestr, result}) => {
+  const [eachVolOption, setEachVolOption] = useState({});
+
+  const saveSearchResult = ({
+    consday,
+    totalday,
+    pricemargin,
+    datestr,
+    result,
+  }) => {
     post('/api/save_advanced_search', {
       body: JSON.stringify({
         consday,
         totalday,
         pricemargin,
         datestr,
-        result
+        result,
       }),
     }).then(() => {
       get(`/api/get_search_result?totalday=${totalday}&consday=${consday}&pricemargin=${pricemargin}`).then((res) => {
@@ -251,35 +263,34 @@ export const AlarmComponent = () => {
         });
          
       });
+
     });
   };
 
   const caculatePlate = (results) => {
-    const ids = results?.map(i => `'${i.symbol}'`).join(",");
-    get(`/api/get_plate?ids=${ids}`).then(res => {
+    const ids = results?.map((i) => `'${i.symbol}'`).join(',');
+    get(`/api/get_plate?ids=${ids}`).then((res) => {
       const option = {
-        
         tooltip: {
           formatter: function (info) {
-            return [
-              'name : ' + info.name, 
-              'count : ' + info.value 
-            ].join('');
-          }
+            return ['name : ' + info.name, 'count : ' + info.value].join('');
+          },
         },
         series: [
-          { label: {
-            show: true,
-            formatter: '{b}'
+          {
+            label: {
+              show: true,
+              formatter: '{b}',
+            },
+            type: 'treemap',
+            data: res
+              .filter((i) => i.count > 2)
+              .map((i) => ({ name: i.name, value: i.count })),
           },
-          type: 'treemap',
-          data: res.filter(i=>i.count > 2).map(i => ({name: i.name, value: i.count}))
-        }
-      ]
+        ],
       };
       setPlateOption(option);
     });
-
   };
 
   const advancedSearch = useCallback(
@@ -295,16 +306,18 @@ export const AlarmComponent = () => {
         .then((res) => res.json())
         .then((result) => {
           const data = groupBy(result, 'symbol');
-          Object.keys(data).forEach(k => {
+          Object.keys(data).forEach((k) => {
             if (selectConsTotal === 'CONS') {
               const item = data[k];
-              const {isTrue, start, end, typeA, typeB, typeC} = validateCons(item, selectConsUpDown, selectConsDays);
+              const { isTrue, start, end, typeA, typeB, typeC } = validateCons(
+                item,
+                selectConsUpDown,
+                selectConsDays
+              );
               if (typeA) item[0].typeA1 = true;
               if (typeB) item[0].typeA2 = true;
               if (typeC) item[0].typeA3 = true;
-              if (
-                isTrue
-              ) {
+              if (isTrue) {
                 const startPrice = item[start].finalprice;
                 const endPrice = item[end].finalprice;
                 if (
@@ -320,26 +333,29 @@ export const AlarmComponent = () => {
                 upDownStocks.push(data[k][0]);
               }
             }
-          })
+          });
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
           setTotalNum(upDownStocks.length);
           saveSearchResult({
             consday: selectConsDays,
             totalday: selectConsAllDays,
-            datestr: caculateDate(
-              selectDate,
-              0
-            ),
+            datestr: caculateDate(selectDate, 0),
             pricemargin: selectPriceMargin,
             result: upDownStocks.length,
           });
-          caculatePlate(
-            upDownStocks
-          )
+          caculatePlate(upDownStocks);
         });
     },
-    [setStockOptions, selectAlarmType, selectConsDays, stockOptions, selectConsAllDays, selectDate, selectPriceMargin]
+    [
+      setStockOptions,
+      selectAlarmType,
+      selectConsDays,
+      stockOptions,
+      selectConsAllDays,
+      selectDate,
+      selectPriceMargin,
+    ]
   );
 
   useEffect(() => {
@@ -402,39 +418,36 @@ export const AlarmComponent = () => {
     [selectAlarmType, selectDate, stockOptions]
   );
 
-  const clearAdvanced = useCallback(
-    () => {
-      let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
-      setIsLoading(true);
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => {
-          fetch(
-            `/api/get_viewed_stock?datestr=${moment(new Date()).format(
-              dateFormat
-            )}`
-          )
-            .then((result) => result.json())
-            .then((viewedStocks) => {
-              const addViewed =
-                data &&
-                data.map((i) => {
-                  if (viewedStocks.find((e) => e.symbol === i.symbol)) {
-                    i.viewed = true;
-                    return i;
-                  } else {
-                    return i;
-                  }
-                });
-              setIsLoading(false);
-              //setSavedStockOptions(addViewed);
-              setStockOptions(addViewed);
-              setTotalNum(addViewed && addViewed.length);
-            });
-        });
-    },
-    [selectAlarmType, selectDate, stockOptions]
-  );
+  const clearAdvanced = useCallback(() => {
+    let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+    setIsLoading(true);
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        fetch(
+          `/api/get_viewed_stock?datestr=${moment(new Date()).format(
+            dateFormat
+          )}`
+        )
+          .then((result) => result.json())
+          .then((viewedStocks) => {
+            const addViewed =
+              data &&
+              data.map((i) => {
+                if (viewedStocks.find((e) => e.symbol === i.symbol)) {
+                  i.viewed = true;
+                  return i;
+                } else {
+                  return i;
+                }
+              });
+            setIsLoading(false);
+            //setSavedStockOptions(addViewed);
+            setStockOptions(addViewed);
+            setTotalNum(addViewed && addViewed.length);
+          });
+      });
+  }, [selectAlarmType, selectDate, stockOptions]);
 
   const dateArr = useMemo(() => {
     const dateArray: any[] = [];
@@ -447,7 +460,7 @@ export const AlarmComponent = () => {
   const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
-        `/api/stock_alarm?stock_id=${selectStock}&alarm_type=${selectAlarmType}`,
+        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
@@ -494,6 +507,65 @@ export const AlarmComponent = () => {
               return '-';
             }
           });
+
+          const kuvolumeArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).kuvolume;
+            } else {
+              return '-';
+            }
+          });
+
+          const kdvolumeArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).kdvolume;
+            } else {
+              return '-';
+            }
+          });
+
+          const kevolumeArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).kevolume;
+            } else {
+              return '-';
+            }
+          });
+
+          const u_dvolumeArr = dateArr.map((i) => {
+            if (data.find((d) => d.datestr === i)) {
+              return (
+                data.find((d) => d.datestr === i).kuvolume -
+                data.find((d) => d.datestr === i).kdvolume
+              );
+            } else {
+              return '-';
+            }
+          });
+          const udSumData = data?.map((item) => {
+            const ud = item.kuvolume - item.kdvolume;
+            item.ud = ud;
+            return item;
+          });
+          const udSum = udSumData?.map((item, key) => {
+            const total = udSumData?.map?.(i => i.ud).reduce((pre, cur, index) => {
+                if (index > key) {
+                  return pre + 0;
+                }
+                return pre + cur;
+            });
+            item.udSum = total;
+            return item;
+          });
+          const udSumArr = dateArr.map((i) => {
+            if (udSum.find((d) => d.datestr === i)) {
+              return udSum.find((d) => d.datestr === i).udSum;
+            } else {
+              return '-';
+            }
+          });
+          console.log('---', udSumData?.map(i=>i.ud), udSum?.map(i=>i.udSum), udSumArr);
+
           const statusArr = dateArr.map((i) => {
             if (data.find((d) => d.datestr === i)) {
               return data.find((d) => d.datestr === i).status;
@@ -712,7 +784,7 @@ export const AlarmComponent = () => {
                   normal: {
                     color: '#444',
                   },
-                }
+                },
               },
               {
                 name: 'DPct',
@@ -731,7 +803,7 @@ export const AlarmComponent = () => {
                     },
                   },
                 },
-              }
+              },
             ],
           });
 
@@ -785,6 +857,97 @@ export const AlarmComponent = () => {
               },
             ],
           });
+
+          setEachVolOption({
+            title: {
+              text: 'K U Volume',
+              left: 0,
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'shadow',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+              // min: function (value) {
+              //   return value.min;
+              // },
+            },
+            series: [
+              {
+                name: 'KUvolume',
+                type: 'line',
+                data: kuvolumeArr,
+                itemStyle: {
+                  normal: {
+                    color: 'red',
+                  },
+                },
+              },
+              {
+                name: 'KDvolume',
+                type: 'line',
+                data: kdvolumeArr,
+                itemStyle: {
+                  normal: {
+                    color: 'green',
+                  },
+                },
+              },
+              {
+                name: 'KEvolume',
+                type: 'line',
+                data: kevolumeArr,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+              {
+                name: 'U-D volume',
+                type: 'line',
+                data: u_dvolumeArr,
+                itemStyle: {
+                  normal: {
+                    color: 'yellow',
+                  },
+                },
+              },
+              {
+                name: 'U-D SUM volume',
+                type: 'line',
+                data: udSumArr,
+                itemStyle: {
+                  normal: {
+                    color: 'black',
+                  },
+                },
+              },
+            ],
+          });
         })
         .catch((error) => {
           alert(error);
@@ -813,7 +976,7 @@ export const AlarmComponent = () => {
   }, [comments, selectStock, predict]);
 
   return (
-    <div style={{padding: '20px'}}>
+    <div style={{ padding: '20px' }}>
       <ReactEcharts
         style={{ height: 250, width: 1450 }}
         notMerge={true}
@@ -844,8 +1007,7 @@ export const AlarmComponent = () => {
             key={i.symbol}
             value={i.symbol}
             style={{ color: `${i.viewed ? 'red' : '#222'}` }}
-          >{`${i.name} ${i.symbol} ${
-            i['count(*)'] ? `(${i['count(*)']})` : ''}
+          >{`${i.name} ${i.symbol} ${i['count(*)'] ? `(${i['count(*)']})` : ''}
             ${i.typeA1 ? 'A1' : ''}
             ${i.typeA2 ? 'A2' : ''}
             ${i.typeA3 ? 'A3' : ''}
@@ -951,7 +1113,7 @@ export const AlarmComponent = () => {
             </Select.Option>
           ))}
         </Select>
-        % price margin in 
+        % price margin in
         <Input
           style={{ width: '50px', height: '32px' }}
           size="small"
@@ -1023,6 +1185,12 @@ export const AlarmComponent = () => {
         notMerge={true}
         lazyUpdate={true}
         option={priceOption}
+      />
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={eachVolOption}
       />
       <ReactEcharts
         style={{ height: 250, width: 1450 }}
