@@ -206,6 +206,7 @@ export const AlarmComponent = () => {
   const [plateOption, setPlateOption] = useState({});
   const [eachVolOption, setEachVolOption] = useState({});
   const [udSumOption, setUdSumOption] = useState({});
+  const [udVolOption, setUDVolOption] = useState({});
 
   const saveSearchResult = ({
     consday,
@@ -926,7 +927,47 @@ export const AlarmComponent = () => {
                     color: 'blue',
                   },
                 },
+              }
+            ],
+          });
+          setUDVolOption({
+            title: {
+              text: 'K U Volume',
+              left: 0,
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'shadow',
               },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+              // min: function (value) {
+              //   return value.min;
+              // },
+            },
+            series: [
               {
                 name: 'U-D volume',
                 type: 'line',
@@ -1232,6 +1273,12 @@ export const AlarmComponent = () => {
         notMerge={true}
         lazyUpdate={true}
         option={udSumOption}
+      />
+       <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={udVolOption}
       />
       <ReactEcharts
         style={{ height: 250, width: 1450 }}
