@@ -4,10 +4,14 @@ import { AlarmComponent } from './component/alarm';
 import { MyFocusListComponent } from './component/myFocus';
 import { Selected } from './component/selected';
 import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
+import { AdvancedSearchCom } from './component/advanced_search_result';
+import { Alarm100Component } from './component/alarm100';
 
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_SELECTED = 'selected';
+const MENU_ALARM_100 = 'alarm100';
+const MENU_AD = 'advanced_search_result';
 
 function getInitPath() {
   if (window) {
@@ -45,11 +49,17 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_ALARM}>
           <Link to="/">Alarm</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_ALARM_100}>
+          <Link to="/alarm100">Alarm100</Link>
+        </Menu.Item>
         <Menu.Item key={MENU_FOCUSED}>
           <Link to="/my_focus">My Focus</Link>
         </Menu.Item>
         <Menu.Item key={MENU_SELECTED}>
           <Link to="/selected">Selected</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_AD}>
+          <Link to="/advanced_search_result">Advanced Search Result</Link>
         </Menu.Item>
       </Menu>
       <Switch>
@@ -58,6 +68,12 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/selected" component={Selected}>
           <Selected />
+        </Route>
+        <Route path="/advanced_search_result" component={AdvancedSearchCom}>
+          <AdvancedSearchCom />
+        </Route>
+        <Route path="/alarm100" component={Alarm100Component}>
+          <Alarm100Component />
         </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent />

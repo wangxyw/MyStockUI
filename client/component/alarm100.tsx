@@ -5,7 +5,6 @@ import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
-import { post } from '../lib/request';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -168,7 +167,7 @@ const matchColor = (type) => {
   }
 };
 
-export const AlarmComponent = () => {
+export const Alarm100Component = () => {
   const [selectStock, setSelectStock] = useState<any>('');
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
@@ -205,24 +204,6 @@ export const AlarmComponent = () => {
   const [udSumOption, setUdSumOption] = useState({});
   const [udVolOption, setUDVolOption] = useState({});
 
-  const saveSearchResult = ({
-    consday,
-    totalday,
-    pricemargin,
-    datestr,
-    result,
-  }) => {
-    post('/api/save_advanced_search', {
-      body: JSON.stringify({
-        consday,
-        totalday,
-        pricemargin,
-        datestr,
-        result,
-      }),
-    })
-  };
-
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
       const upDownStocks: any[] = [];
@@ -230,7 +211,7 @@ export const AlarmComponent = () => {
         `/api/all_alarm_data?date_str=${caculateDate(
           selectDate,
           selectConsAllDays
-        )}&end_date_str=${selectDate}`,
+        )}&end_date_str=${selectDate}&from100=${true}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
@@ -267,13 +248,6 @@ export const AlarmComponent = () => {
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
           setTotalNum(upDownStocks.length);
-          saveSearchResult({
-            consday: selectConsDays,
-            totalday: selectConsAllDays,
-            datestr: caculateDate(selectDate, 0),
-            pricemargin: selectPriceMargin,
-            result: upDownStocks.length,
-          });
         });
     },
     [
@@ -290,7 +264,7 @@ export const AlarmComponent = () => {
   useEffect(() => {
     setIsLoading(true);
     fetch(
-      `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`
+      `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&from100=${true}`
     )
       .then((res) => res.json())
       .then((data) => {
@@ -348,7 +322,7 @@ export const AlarmComponent = () => {
   );
 
   const clearAdvanced = useCallback(() => {
-    let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+    let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&from100=${true}`;
     setIsLoading(true);
     fetch(url)
       .then((res) => res.json())
@@ -389,7 +363,7 @@ export const AlarmComponent = () => {
   const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
-        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}`,
+        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}&from100=${true}`,
         { method: 'GET' }
       )
         .then((res) => res.json())

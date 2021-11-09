@@ -1,11 +1,11 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import React from 'react';
-import { Button, Input, Select, DatePicker, Radio } from 'antd';
+import { Button, Input, Select, DatePicker } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
-import { post } from '../lib/request';
+import { post, get } from '../lib/request';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -168,12 +168,11 @@ const matchColor = (type) => {
   }
 };
 
-export const AlarmComponent = () => {
+export const AdvancedSearchCom = () => {
   const [selectStock, setSelectStock] = useState<any>('');
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
-  const [priceOption, setPriceOption] = useState({});
-  const [volOption, setVolOption] = useState({});
+  const [resultOption, setResultOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -201,9 +200,7 @@ export const AlarmComponent = () => {
   const [comments, setComments] = useState('');
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
-  const [eachVolOption, setEachVolOption] = useState({});
-  const [udSumOption, setUdSumOption] = useState({});
-  const [udVolOption, setUDVolOption] = useState({});
+  const [plateOption, setPlateOption] = useState({});
 
   const saveSearchResult = ({
     consday,
@@ -220,7 +217,76 @@ export const AlarmComponent = () => {
         datestr,
         result,
       }),
-    })
+    }).then(() => {
+      get(`/api/get_search_result?totalday=${totalday}&consday=${consday}&pricemargin=${pricemargin}`).then((res) => {
+        const dateArr = res.map(i => i.datestr);
+        const result = res.map(i => i.result);
+        setResultOption({
+          title: {
+            text: 'advanced search result',
+            left: 0,
+          },
+          legend: {
+            data: ['allVol', 'bigVol'],
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow',
+            },
+          },
+          xAxis: {
+            type: 'category',
+            data: dateArr,
+            axisLabel: { show: true, interval: 0, rotate: 45 },
+          },
+          yAxis: {
+            type: 'value',
+          },
+          series: [
+            {
+              name: 'TotalPct',
+              type: 'bar',
+              data: result,
+              barWidth: 40,
+              itemStyle: {
+                normal: {
+                  color: '#444',
+                },
+              }
+            }
+          ],
+        });
+         
+      });
+
+    });
+  };
+
+  const caculatePlate = (results) => {
+    const ids = results?.map((i) => `'${i.symbol}'`).join(',');
+    get(`/api/get_plate?ids=${ids}`).then((res) => {
+      const option = {
+        tooltip: {
+          formatter: function (info) {
+            return ['name : ' + info.name, 'count : ' + info.value].join('');
+          },
+        },
+        series: [
+          {
+            label: {
+              show: true,
+              formatter: '{b}',
+            },
+            type: 'treemap',
+            data: res
+              .filter((i) => i.count > 2)
+              .map((i) => ({ name: i.name, value: i.count })),
+          },
+        ],
+      };
+      setPlateOption(option);
+    });
   };
 
   const advancedSearch = useCallback(
@@ -274,6 +340,7 @@ export const AlarmComponent = () => {
             pricemargin: selectPriceMargin,
             result: upDownStocks.length,
           });
+          caculatePlate(upDownStocks);
         });
     },
     [
@@ -408,13 +475,7 @@ export const AlarmComponent = () => {
               return '-';
             }
           });
-          const priceArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).finalprice;
-            } else {
-              return '-';
-            }
-          });
+
           const totalDataArr = dateArr.map((i) => {
             if (data.find((d) => d.datestr === i)) {
               return data.find((d) => d.datestr === i).totalvolpct * 100;
@@ -422,78 +483,7 @@ export const AlarmComponent = () => {
               return '-';
             }
           });
-          const allVolArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).stockvol;
-            } else {
-              return '-';
-            }
-          });
-          const bigVolArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).totalvol;
-            } else {
-              return '-';
-            }
-          });
-
-          const kuvolumeArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).kuvolume;
-            } else {
-              return '-';
-            }
-          });
-
-          const kdvolumeArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).kdvolume;
-            } else {
-              return '-';
-            }
-          });
-
-          const kevolumeArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).kevolume;
-            } else {
-              return '-';
-            }
-          });
-
-          const u_dvolumeArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return (
-                data.find((d) => d.datestr === i).kuvolume -
-                data.find((d) => d.datestr === i).kdvolume
-              );
-            } else {
-              return '-';
-            }
-          });
-          const udSumData = data?.map((item) => {
-            const ud = item.kuvolume - item.kdvolume;
-            item.ud = ud;
-            return item;
-          });
-          const udSum = udSumData?.map((item, key) => {
-            const total = udSumData?.map?.(i => i.ud).reduce((pre, cur, index) => {
-                if (index > key) {
-                  return pre + 0;
-                }
-                return pre + cur;
-            });
-            item.udSum = total;
-            return item;
-          });
-          const udSumArr = dateArr.map((i) => {
-            if (udSum.find((d) => d.datestr === i)) {
-              return udSum.find((d) => d.datestr === i).udSum;
-            } else {
-              return '-';
-            }
-          });
-
+    
           const statusArr = dateArr.map((i) => {
             if (data.find((d) => d.datestr === i)) {
               return data.find((d) => d.datestr === i).status;
@@ -666,296 +656,6 @@ export const AlarmComponent = () => {
             ],
           });
 
-          setVolOption({
-            title: {
-              text: '',
-              left: 0,
-            },
-            legend: {
-              data: ['allVol', 'bigVol'],
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow',
-              },
-            },
-            toolbox: {
-              show: true,
-              orient: 'vertical',
-              left: 'right',
-              top: 'center',
-              feature: {
-                mark: { show: true },
-                magicType: {
-                  show: true,
-                  type: ['line', 'bar', 'stack', 'tiled'],
-                },
-                restore: { show: true },
-                saveAsImage: { show: true },
-              },
-            },
-            xAxis: {
-              type: 'category',
-              data: dateArr,
-              axisLabel: { show: true, interval: 0, rotate: 45 },
-            },
-            yAxis: {
-              type: 'value',
-            },
-            series: [
-              {
-                name: 'TotalPct',
-                type: 'bar',
-                data: allVolArr,
-                itemStyle: {
-                  normal: {
-                    color: '#444',
-                  },
-                },
-              },
-              {
-                name: 'DPct',
-                type: 'bar',
-                data: bigVolArr,
-                itemStyle: {
-                  normal: {
-                    color: function (params) {
-                      var colorList;
-                      if (statusArr[params.dataIndex] == 'up') {
-                        colorList = '#ef232a';
-                      } else if (statusArr[params.dataIndex] == 'down') {
-                        colorList = '#14b143';
-                      }
-                      return colorList;
-                    },
-                  },
-                },
-              },
-            ],
-          });
-
-          setPriceOption({
-            title: {
-              text: 'Final Price',
-              left: 0,
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow',
-              },
-            },
-            toolbox: {
-              show: true,
-              orient: 'vertical',
-              left: 'right',
-              top: 'center',
-              feature: {
-                mark: { show: true },
-                magicType: {
-                  show: true,
-                  type: ['line', 'bar', 'stack', 'tiled'],
-                },
-                restore: { show: true },
-                saveAsImage: { show: true },
-              },
-            },
-            xAxis: {
-              type: 'category',
-              data: dateArr,
-              axisLabel: { show: true, interval: 0, rotate: 45 },
-            },
-            yAxis: {
-              type: 'value',
-              min: function (value) {
-                return value.min;
-              },
-            },
-            series: [
-              {
-                name: 'Final Price',
-                type: 'line',
-                data: priceArr,
-                itemStyle: {
-                  normal: {
-                    color: 'blue',
-                  },
-                },
-              },
-            ],
-          });
-
-          setEachVolOption({
-            title: {
-              text: 'K U Volume',
-              left: 0,
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow',
-              },
-            },
-            toolbox: {
-              show: true,
-              orient: 'vertical',
-              left: 'right',
-              top: 'center',
-              feature: {
-                mark: { show: true },
-                magicType: {
-                  show: true,
-                  type: ['line', 'bar', 'stack', 'tiled'],
-                },
-                restore: { show: true },
-                saveAsImage: { show: true },
-              },
-            },
-            xAxis: {
-              type: 'category',
-              data: dateArr,
-              axisLabel: { show: true, interval: 0, rotate: 45 },
-            },
-            yAxis: {
-              type: 'value',
-              // min: function (value) {
-              //   return value.min;
-              // },
-            },
-            series: [
-              {
-                name: 'KUvolume',
-                type: 'line',
-                data: kuvolumeArr,
-                itemStyle: {
-                  normal: {
-                    color: 'red',
-                  },
-                },
-              },
-              {
-                name: 'KDvolume',
-                type: 'line',
-                data: kdvolumeArr,
-                itemStyle: {
-                  normal: {
-                    color: 'green',
-                  },
-                },
-              },
-              {
-                name: 'KEvolume',
-                type: 'line',
-                data: kevolumeArr,
-                itemStyle: {
-                  normal: {
-                    color: 'blue',
-                  },
-                },
-              }
-            ],
-          });
-          setUDVolOption({
-            title: {
-              text: 'K U Volume',
-              left: 0,
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow',
-              },
-            },
-            toolbox: {
-              show: true,
-              orient: 'vertical',
-              left: 'right',
-              top: 'center',
-              feature: {
-                mark: { show: true },
-                magicType: {
-                  show: true,
-                  type: ['line', 'bar', 'stack', 'tiled'],
-                },
-                restore: { show: true },
-                saveAsImage: { show: true },
-              },
-            },
-            xAxis: {
-              type: 'category',
-              data: dateArr,
-              axisLabel: { show: true, interval: 0, rotate: 45 },
-            },
-            yAxis: {
-              type: 'value',
-              // min: function (value) {
-              //   return value.min;
-              // },
-            },
-            series: [
-              {
-                name: 'U-D volume',
-                type: 'line',
-                data: u_dvolumeArr,
-                itemStyle: {
-                  normal: {
-                    color: 'black',
-                  },
-                },
-              }
-            ],
-          });
-          setUdSumOption({
-            title: {
-              text: 'K U Volume',
-              left: 0,
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow',
-              },
-            },
-            toolbox: {
-              show: true,
-              orient: 'vertical',
-              left: 'right',
-              top: 'center',
-              feature: {
-                mark: { show: true },
-                magicType: {
-                  show: true,
-                  type: ['line', 'bar', 'stack', 'tiled'],
-                },
-                restore: { show: true },
-                saveAsImage: { show: true },
-              },
-            },
-            xAxis: {
-              type: 'category',
-              data: dateArr,
-              axisLabel: { show: true, interval: 0, rotate: 45 },
-            },
-            yAxis: {
-              type: 'value',
-              // min: function (value) {
-              //   return value.min;
-              // },
-            },
-            series: [
-              {
-                name: 'U-D SUM volume',
-                type: 'line',
-                data: udSumArr,
-                itemStyle: {
-                  normal: {
-                    color: '#f5cd3a',
-                  },
-                },
-              },
-            ],
-          });
         })
         .catch((error) => {
           alert(error);
@@ -985,87 +685,6 @@ export const AlarmComponent = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2>Alarm</h2>
-      <div>
-        <Button
-          type="link"
-          target="_blank"
-          href={`https://finance.sina.com.cn/realstock/company/${selectStock}/nc.shtml`}
-        >
-          Go to Stock Page
-        </Button>
-      </div>
-      {/* <Input style={{width: '200px', height:'32px'}} size="small" placeholder="Input Stock" value={selectStock} onChange={(e) => {setSelectStock(e.target.value)}}/> */}
-      <Select
-        showSearch
-        style={{ width: '220px' }}
-        onChange={(v) => {
-          setSelectStock(v);
-        }}
-        loading={isLoading}
-      >
-        {stockOptions.map((i) => (
-          <Select.Option
-            key={i.symbol}
-            value={i.symbol}
-            style={{ color: `${i.viewed ? 'red' : '#222'}` }}
-          >{`${i.name} ${i.symbol} ${i['count(*)'] ? `(${i['count(*)']})` : ''}
-            ${i.typeA1 ? 'A1' : ''}
-            ${i.typeA2 ? 'A2' : ''}
-            ${i.typeA3 ? 'A3' : ''}
-            `}</Select.Option>
-        ))}
-      </Select>
-      <span>Total: {totalNum}</span>
-      <Select
-        style={{ width: '100px' }}
-        value={selectAlarmType}
-        onChange={(v) => {
-          setSelectAlarmType(v);
-        }}
-        size="middle"
-      >
-        <Select.Option value="All" style={{ color: 'red' }}>
-          All
-        </Select.Option>
-        <Select.Option value="A1A2">A1A2</Select.Option>
-        <Select.Option value="A1Today">A1 Today UP</Select.Option>
-        <Select.Option value="A1">A1</Select.Option>
-        <Select.Option value="A2">A2</Select.Option>
-        <Select.Option value="A3">A3</Select.Option>
-      </Select>
-      <Button type="primary" onClick={() => getStockAlarm()}>
-        Show Alarm
-      </Button>
-
-      <div style={{ display: 'inline-block', marginLeft: '10px' }}>
-        {' '}
-        Show{' '}
-        <Input
-          style={{ width: '100px', height: '32px' }}
-          size="small"
-          placeholder="You can select the number of days to view"
-          value={selectDays}
-          onChange={(e) => {
-            if (e.target.value !== '' && isNaN(parseInt(e.target.value))) {
-              alert('Input number');
-            } else {
-              setSelectDays(e.target.value);
-            }
-          }}
-        />{' '}
-        days Data till
-      </div>
-      <DatePicker
-        defaultValue={moment(selectDate, dateFormat)}
-        format={dateFormat}
-        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
-      />
-      {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
-            <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
-            <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
-            <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
-            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
       <div style={{ marginTop: '20px' }}>
         Advanced Filter:
         <Select
@@ -1138,80 +757,92 @@ export const AlarmComponent = () => {
           {' '}
           Set Advanced Search
         </Button>
-        <Button
-          style={{ marginLeft: '10px' }}
-          type="primary"
-          onClick={() => {
-            clearAdvanced();
-          }}
-        >
-          {' '}
-          Clear Advanced Search
-        </Button>
       </div>
-      <div>
-        Comments
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={resultOption}
+      />
+        <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={plateOption}
+      />
+   
+      {/* <Input style={{width: '200px', height:'32px'}} size="small" placeholder="Input Stock" value={selectStock} onChange={(e) => {setSelectStock(e.target.value)}}/> */}
+      <Select
+        showSearch
+        style={{ width: '220px' }}
+        onChange={(v) => {
+          setSelectStock(v);
+        }}
+        loading={isLoading}
+      >
+        {stockOptions.map((i) => (
+          <Select.Option
+            key={i.symbol}
+            value={i.symbol}
+            style={{ color: `${i.viewed ? 'red' : '#222'}` }}
+          >{`${i.name} ${i.symbol} ${i['count(*)'] ? `(${i['count(*)']})` : ''}
+            ${i.typeA1 ? 'A1' : ''}
+            ${i.typeA2 ? 'A2' : ''}
+            ${i.typeA3 ? 'A3' : ''}
+            `}</Select.Option>
+        ))}
+      </Select>
+      <span>Total: {totalNum}</span>
+      <Select
+        style={{ width: '100px' }}
+        value={selectAlarmType}
+        onChange={(v) => {
+          setSelectAlarmType(v);
+        }}
+        size="middle"
+      >
+        <Select.Option value="All" style={{ color: 'red' }}>
+          All
+        </Select.Option>
+        <Select.Option value="A1A2">A1A2</Select.Option>
+        <Select.Option value="A1Today">A1 Today UP</Select.Option>
+        <Select.Option value="A1">A1</Select.Option>
+        <Select.Option value="A2">A2</Select.Option>
+        <Select.Option value="A3">A3</Select.Option>
+      </Select>
+      <Button type="primary" onClick={() => getStockAlarm()}>
+        Show Alarm
+      </Button>
+
+      <div style={{ display: 'inline-block', marginLeft: '10px' }}>
+        {' '}
+        Show{' '}
         <Input
-          style={{ width: '250px', height: '32px' }}
+          style={{ width: '100px', height: '32px' }}
           size="small"
-          placeholder=""
-          value={comments}
+          placeholder="You can select the number of days to view"
+          value={selectDays}
           onChange={(e) => {
-            setComments(e.target.value);
+            if (e.target.value !== '' && isNaN(parseInt(e.target.value))) {
+              alert('Input number');
+            } else {
+              setSelectDays(e.target.value);
+            }
           }}
-        />
-        <Radio.Group
-          onChange={(e) => setPredict(e.target.value)}
-          value={predict}
-        >
-          <Radio value={'up'}>看涨</Radio>
-          <Radio value={'down'}>看跌</Radio>
-        </Radio.Group>
-        <Button
-          type="primary"
-          onClick={() => {
-            addtoFocus();
-          }}
-        >
-          Add to My Focus
-        </Button>
+        />{' '}
+        days Data till
       </div>
-      <ReactEcharts
-        style={{ height: 350, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={option}
+      <DatePicker
+        defaultValue={moment(selectDate, dateFormat)}
+        format={dateFormat}
+        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
       />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={priceOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={udSumOption}
-      />
-       <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={udVolOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={eachVolOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={volOption}
-      />
+      {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
+            <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
+            <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
+            <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
+            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
+      
     </div>
   );
 };
