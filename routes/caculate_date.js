@@ -1,44 +1,37 @@
-// this data get from http://timor.tech/api/holiday/year/2022/
-const holidays =  [
-    "2021-01-01",
-    "2021-01-02",
-    "2021-01-03",
-    "2021-02-07",
-    "2021-02-11",
-    "2021-02-12",
-    "2021-02-13",
-    "2021-02-14",
-    "2021-02-15",
-    "2021-02-16",
-    "2021-02-17",
-    "2021-02-20",
-    "2021-04-03",
-    "2021-04-04",
-    "2021-04-05",
-    "2021-04-25",
-    "2021-05-01",
-    "2021-05-02",
-    "2021-05-03",
-    "2021-05-04",
-    "2021-05-05",
-    "2021-05-08",
-    "2021-06-12",
-    "2021-06-13",
-    "2021-06-14",
-    "2021-09-18",
-    "2021-09-19",
-    "2021-09-20",
-    "2021-09-21",
-    "2021-09-26",
-    "2021-10-01",
-    "2021-10-02",
-    "2021-10-03",
-    "2021-10-04",
-    "2021-10-05",
-    "2021-10-06",
-    "2021-10-07",
-    "2021-10-09"
- ];
+
+
+var request = require("request");
+var fs = require("fs");
+
+// this holiday data get from http://timor.tech/api/holiday/year/2022/ when offical holiday is announced
+var year = process.argv.splice(2)[0];
+var options = { method: 'GET',
+  url: `http://timor.tech/api/holiday/year/${year}`
+};
+
+request(options, function (error, response, body) {
+  if (error) throw new Error(error);
+ 
+  const data = JSON.parse(body).holiday;
+ 
+  const newholidays = Object.keys(data).map(i => data[i].date);
+  const tradingDays = getTradingDays(year, newholidays);
+  fs.readFile('../client/component/date.json', (err, d) => {
+    const existedDate = JSON.parse(d.toString());
+    const existedHoliday = existedDate.holiday;
+    const existedWorkday = existedDate.workday;
+    const newData = {
+      holiday: existedHoliday.concat(newholidays),
+      workday: existedWorkday.concat(tradingDays)
+    }
+    console.log(newData);
+    fs.writeFile('../client/component/date.json', JSON.stringify(newData), () => {
+    })
+  });
+});
+
+
+
 
 
 function getMonthLength(date) {
@@ -48,30 +41,35 @@ function getMonthLength(date) {
   d.setDate(d.getDate() - 1);
   return d.getDate();
 }
-const arr = [];
-for (let i = 1; i <= 12; i++) {
-  const days = getMonthLength(`2021-${i}-01`);
-  for (let j = 1; j <= days; j++) {
-    if (
-      new Date(`2021-${i}-${j}`).getDay() !== 0 &&
-      new Date(`2021-${i}-${j}`).getDay() !== 6
-    ) {
-      let i1 = '';
-      let j1 = '';
-      if (i < 10 && i > 0) {
-        i1 = `0${i}`;
-      } else {
-        i1 = i;
+
+function getTradingDays(year, holidays) {
+  const arr = [];
+  for (let i = 1; i <= 12; i++) {
+    const days = getMonthLength(`${year}-${i}-01`);
+    for (let j = 1; j <= days; j++) {
+      if (
+        new Date(`${year}-${i}-${j}`).getDay() !== 0 &&
+        new Date(`${year}-${i}-${j}`).getDay() !== 6
+      ) {
+        let i1 = '';
+        let j1 = '';
+        if (i < 10 && i > 0) {
+          i1 = `0${i}`;
+        } else {
+          i1 = i;
+        }
+        if (j < 10 && j > 0) {
+          j1 = `0${j}`;
+        } else {
+          j1 = j;
+        }
+        if (!holidays.includes(`${year}-${i1}-${j1}`)) {
+          arr.push(`${year}-${i1}-${j1}`);
+        }  
       }
-      if (j < 10 && j > 0) {
-        j1 = `0${j}`;
-      } else {
-        j1 = j;
-      }
-      if (!holidays.includes(`2021-${i1}-${j1}`)) {
-        console.log(`2021-${i1}-${j1}`);
-      }  
-      arr.push(`2021-${i}-${j}`);
     }
   }
+  return arr;
 }
+
+
