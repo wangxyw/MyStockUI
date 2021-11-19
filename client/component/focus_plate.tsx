@@ -1,8 +1,6 @@
-import { Table, Form, Input, Popconfirm, Button, Tag } from 'antd';
-import React, { useEffect, useState, useRef, useContext } from 'react';
-import { FormInstance } from 'antd/lib/form';
+import { Table, Button, Tag } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 
 
 async function getAllFocusedPlates() {
@@ -30,6 +28,7 @@ export const PlateComponent = () => {
             <Tag color="#f50">0</Tag>
           );
         },
+        sorter: (a: any, b: any): any => a.focus - b.focus,
       },
     {
       title: 'Action',
@@ -95,7 +94,6 @@ export const PlateComponent = () => {
       <Table
         columns={mergedColumns}
         dataSource={data}
-        //components={components}
       />
     </div>
   );

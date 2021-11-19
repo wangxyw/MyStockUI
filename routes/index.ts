@@ -121,7 +121,7 @@ router.get('/get_search_result', function (req, res, next) {
 
 router.get('/get_plate', function (req, res, next) {
   const ids = req.query.ids;
-  const sql = `SELECT count(*) as count, code, name FROM plate WHERE symbol in (${ids}) group by code;`;
+  const sql = `SELECT count(*) as count, a.code, a.name FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.code;`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -152,6 +152,22 @@ router.get('/get_viewed_stock', function (req, res, next) {
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
+  });
+});
+
+router.get('/get_stock_plate', (req, res, next) => {
+  const ids = req.query.ids;
+  const sql = `SELECT distinct(a.symbol), group_concat(a.code), group_concat(a.name) as platename FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.symbol;`;
+  const sql2 = `SELECT count(*) as count, a.name, a.code, group_concat(a.symbol) FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.name order by count DESC;`
+  const result: any = {}
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    result.symbols = rows;
+    pool.query(sql2, function (err, rows2, fields) {
+      if (err) throw err;
+      result.plates = rows2;
+      res.json(result);
+    }); 
   });
 });
 

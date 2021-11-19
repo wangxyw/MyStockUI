@@ -5,7 +5,8 @@ import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
-import { post } from '../lib/request';
+import { get, post } from '../lib/request';
+import {uniq} from 'lodash';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -177,6 +178,7 @@ export const AlarmComponent = () => {
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
+  const [focusPlateOptions, setFocusPlateOptions] = useState<any[]>([]);
   const [totalNum, setTotalNum] = useState<number>(null as unknown as number);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -204,6 +206,9 @@ export const AlarmComponent = () => {
   const [eachVolOption, setEachVolOption] = useState({});
   const [udSumOption, setUdSumOption] = useState({});
   const [udVolOption, setUDVolOption] = useState({});
+  const [selectedFocusPlate, setSelectedFocusPlate] = useState('');
+  const [advancedSearchR, setAdvancedSearchR] = useState<any[]>();
+
 
   const saveSearchResult = ({
     consday,
@@ -222,6 +227,30 @@ export const AlarmComponent = () => {
       }),
     })
   };
+
+  const listPlate = useCallback((results) => {
+    const ids = results?.map((i) => `'${i.symbol}'`).join(',');
+    get(`/api/get_stock_plate?ids=${ids}`).then((res) => {
+      const resbySymbols = res.symbols;
+      const resbyPlates = res.plates;
+      console.log(resbyPlates);
+      const newstocks = results.map(i => ({
+        ...i,
+        platename: resbySymbols?.find(e => e.symbol === i.symbol)?.platename
+      }))
+      setFocusPlateOptions(resbyPlates);
+      setStockOptions([...newstocks]);
+      setAdvancedSearchR([...newstocks]);
+    });
+  }, []);
+
+  const setStockOptionsByPlate = useCallback((v) => {
+     const focusPlateStocks: any = advancedSearchR?.filter(i => i.platename?.split(",")?.includes(v));
+     console.log(focusPlateStocks);
+     setSelectedFocusPlate(v);
+     setStockOptions(focusPlateStocks);
+     setTotalNum(focusPlateStocks?.length);
+  }, [advancedSearchR]);
 
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
@@ -266,6 +295,7 @@ export const AlarmComponent = () => {
           });
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
+          listPlate(upDownStocks);
           setTotalNum(upDownStocks.length);
           saveSearchResult({
             consday: selectConsDays,
@@ -316,7 +346,7 @@ export const AlarmComponent = () => {
             setStockOptions(addViewed);
             setTotalNum(addViewed && addViewed.length);
           });
-      });
+      }); 
   }, [selectAlarmType, selectDate]);
 
   const reLoadAllAlarms = useCallback(
@@ -998,7 +1028,7 @@ export const AlarmComponent = () => {
       {/* <Input style={{width: '200px', height:'32px'}} size="small" placeholder="Input Stock" value={selectStock} onChange={(e) => {setSelectStock(e.target.value)}}/> */}
       <Select
         showSearch
-        style={{ width: '220px' }}
+        style={{ width: '280px' }}
         onChange={(v) => {
           setSelectStock(v);
         }}
@@ -1061,6 +1091,14 @@ export const AlarmComponent = () => {
         format={dateFormat}
         onChange={(v: any) => setSelectDate(v.format(dateFormat))}
       />
+      <Select style={{width: '200px'}} onChange={(v) => setStockOptionsByPlate(v as string)}>
+      {focusPlateOptions?.map((i) => (
+          <Select.Option
+            key={i.code}
+            value={i.name}
+          >{i.name}({i.count})</Select.Option>
+        ))}
+      </Select>
       {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
             <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
             <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
