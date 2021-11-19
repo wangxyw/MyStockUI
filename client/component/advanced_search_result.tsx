@@ -182,7 +182,6 @@ export const AdvancedSearchCom = () => {
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
-  // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
   const curDate = new Date();
   const year = curDate.getFullYear();
   const month = curDate.getMonth() + 1;
@@ -191,14 +190,6 @@ export const AdvancedSearchCom = () => {
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
-  // const [selectStartDate, setSelectStartDate] = useState(
-  //   moment(`${year}-${month}-${day}`).format(dateFormat)
-  // );
-  // const [selectEndDate, setSelectEndDate] = useState(
-  //   moment(`${year}-${month}-${day}`).format(dateFormat)
-  // );
-  const [comments, setComments] = useState('');
-  const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
   const [plateOption, setPlateOption] = useState({});
 
@@ -642,17 +633,7 @@ export const AdvancedSearchCom = () => {
                     color: 'blue',
                   },
                 },
-              },
-              // {
-              //     name: 'FinalPrice',
-              //     type: 'line',
-              //     data: priceArr,
-              //     itemStyle: {
-              //         normal: {
-              //             color: 'yellow'
-              //         }
-              //     }
-              // }
+              }
             ],
           });
 
@@ -672,17 +653,6 @@ export const AdvancedSearchCom = () => {
         reLoadAllAlarms(false);
       });
   }, [selectStock, selectAlarmType, selectDays]);
-
-  const addtoFocus = useCallback(() => {
-    fetch(
-      `/api/add_focus?stock_id=${selectStock}&datestr=${caculateDate(
-        selectDate,
-        0
-      )}&comments=${comments}&predict=${predict}`,
-      { method: 'GET' }
-    ).then((res) => res.json());
-  }, [comments, selectStock, predict]);
-
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ marginTop: '20px' }}>
@@ -836,13 +806,7 @@ export const AdvancedSearchCom = () => {
         defaultValue={moment(selectDate, dateFormat)}
         format={dateFormat}
         onChange={(v: any) => setSelectDate(v.format(dateFormat))}
-      />
-      {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
-            <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
-            <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
-            <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
-            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
-      
+      />     
     </div>
   );
 };

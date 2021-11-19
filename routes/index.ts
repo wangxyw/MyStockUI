@@ -122,7 +122,24 @@ router.get('/get_search_result', function (req, res, next) {
 router.get('/get_plate', function (req, res, next) {
   const ids = req.query.ids;
   const sql = `SELECT count(*) as count, code, name FROM plate WHERE symbol in (${ids}) group by code;`;
-  console.log('====', sql);
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/focus_plate', function (req, res, next) {
+  const sql = `SELECT * FROM focus_plate`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.post('/edit_focus_plate', function (req, res, next) {
+  const isAdd = req.body.isAdd ? 1: 0;
+  const code = req.body.code;
+  const sql = `UPDATE focus_plate set focus=${isAdd} where code='${code}'`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -145,6 +162,21 @@ router.get('/all_focus_stock', function (req, res, next) {
     res.json(rows);
   });
 });
+
+router.get('/get_focus_stock_price', function (req, res, next) {
+  const symbols = req.query.stocks;
+ 
+  const sql = `SELECT * FROM stock_big_data where symbol in (${symbols})`;
+
+  console.log(sql);
+
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+
 
 router.get('/stock_alarm', function (req, res, next) {
   const symbol = req.query.stock_id;

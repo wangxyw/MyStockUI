@@ -6,19 +6,20 @@ import { Selected } from './component/selected';
 import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 import { AdvancedSearchCom } from './component/advanced_search_result';
 import { Alarm100Component } from './component/alarm100';
-
+import { PlateComponent } from './component/focus_plate';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_SELECTED = 'selected';
 const MENU_ALARM_100 = 'alarm100';
 const MENU_AD = 'advanced_search_result';
+const MENU_PLATE = 'plate';
 
 function getInitPath() {
   if (window) {
     const path = window.location.pathname;
 
     if (
-      [MENU_ALARM, MENU_FOCUSED, MENU_SELECTED].find((p) =>
+      [MENU_ALARM, MENU_FOCUSED, MENU_SELECTED, MENU_ALARM_100, MENU_AD, MENU_PLATE].find((p) =>
         path.startsWith(`/${p}`)
       )
     ) {
@@ -40,7 +41,7 @@ const App = (): JSX.Element => {
   };
 
   return (
-    <BrowserRouter>
+    <BrowserRouter forceRefresh={false}>
       <Menu
         onClick={handleMenuClick}
         selectedKeys={[current]}
@@ -61,6 +62,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_AD}>
           <Link to="/advanced_search_result">Advanced Search Result</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_PLATE}>
+          <Link to="/plate">Plate List</Link>
+        </Menu.Item>
       </Menu>
       <Switch>
         <Route path="/my_focus" component={MyFocusListComponent}>
@@ -74,6 +78,9 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/alarm100" component={Alarm100Component}>
           <Alarm100Component />
+        </Route>
+        <Route path="/plate" component={PlateComponent}>
+          <PlateComponent />
         </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent />
