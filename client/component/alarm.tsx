@@ -141,7 +141,7 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
 const validateTotal = (data, selectConsUpDown, selectConsDays) => {
   return (
     data &&
-    data.filter((i) => i.status === selectConsUpDown).length === +selectConsDays
+    data.filter((i) => i.status === selectConsUpDown).length >= +selectConsDays
   );
 };
 
@@ -230,7 +230,7 @@ export const AlarmComponent = () => {
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
-    get(`/api/get_stock_plate?ids=${ids}`).then((res) => {
+    ids?.length > 0 && get(`/api/get_stock_plate?ids=${ids}`).then((res) => {
       const resbySymbols = res.symbols;
       const resbyPlates = res.plates;
       console.log(resbyPlates);
@@ -266,8 +266,8 @@ export const AlarmComponent = () => {
         .then((result) => {
           const data = groupBy(result, 'symbol');
           Object.keys(data).forEach((k) => {
+            const item = data[k];
             if (selectConsTotal === 'CONS') {
-              const item = data[k];
               const { isTrue, start, end, typeA, typeB, typeC } = validateCons(
                 item,
                 selectConsUpDown,
@@ -288,7 +288,7 @@ export const AlarmComponent = () => {
               }
             }
             if (selectConsTotal === 'TOTAL') {
-              if (validateTotal(result, selectConsUpDown, selectConsDays)) {
+              if (validateTotal(item, selectConsUpDown, selectConsDays)) {
                 upDownStocks.push(data[k][0]);
               }
             }
