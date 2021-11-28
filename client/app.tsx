@@ -76,14 +76,14 @@ const App = (): JSX.Element => {
         <Route path="/advanced_search_result" component={AdvancedSearchCom}>
           <AdvancedSearchCom />
         </Route>
-        <Route path="/alarm100" component={Alarm100Component}>
-          <Alarm100Component />
+        <Route path="/alarm100" component={AlarmComponent}>
+          <AlarmComponent from100={true} />
         </Route>
         <Route path="/plate" component={PlateComponent}>
           <PlateComponent />
         </Route>
         <Route path="/" component={AlarmComponent}>
-          <AlarmComponent />
+          <AlarmComponent from100={false}/>
         </Route>
       </Switch>
     </BrowserRouter>

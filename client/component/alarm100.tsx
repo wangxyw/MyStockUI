@@ -5,6 +5,7 @@ import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
+import { get } from '../lib/request';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -215,7 +216,19 @@ export const Alarm100Component = () => {
         { method: 'GET' }
       )
         .then((res) => res.json())
-        .then((result) => {
+        .then((d) => {
+            get(`/api/get_viewed_stock?datestr=${moment(new Date()).format(
+                dateFormat
+              )}`).then(viewed => {
+                const result = d.map((i) => {
+                  if (viewed.find((e) => e.symbol === i.symbol)) {
+                    i.viewed = true;
+                    return i;
+                  } else {
+                    return i;
+                  }
+                });
+
           const data = groupBy(result, 'symbol');
           Object.keys(data).forEach((k) => {
             if (selectConsTotal === 'CONS') {
@@ -248,7 +261,7 @@ export const Alarm100Component = () => {
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
           setTotalNum(upDownStocks.length);
-        });
+        }); })
     },
     [
       setStockOptions,

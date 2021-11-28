@@ -199,7 +199,9 @@ router.get('/stock_alarm', function (req, res, next) {
   const afterDate  = req.query.afterDate;
   const from100 = req.query.from100;
   let table = 'stock_big_data';
-  if (from100) table = 'stock_big_data_100';
+  if (from100 === 'true') {
+    table = 'stock_big_data_100'
+  };
   let sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr >= '${afterDate}';`;
   const datestr = req.query.date_str;
   if (datestr) {
@@ -227,7 +229,7 @@ router.get('/all_alarm_data', function (req, res, next) {
   const endDateStr = req.query.end_date_str;
   const from100 = req.query.from100;
   let table = 'stock_big_data';
-  if (from100) table = 'stock_big_data_100';
+  if (from100 === 'true') table = 'stock_big_data_100';
   let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
   pool.query(sql, function (err, rows, fields) {
     //if (err) throw err;
@@ -242,7 +244,7 @@ router.get('/all_stock_alarm', function (req, res, next) {
   const date = req.query.date;
   const from100 = req.query.from100;
   let table = 'stock_big_data';
-  if (from100) table = 'stock_big_data_100';
+  if (from100 === 'true') table = 'stock_big_data_100';
 
   let sql = '';
   if (alarmType === 'All') {

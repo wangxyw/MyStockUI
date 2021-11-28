@@ -169,7 +169,8 @@ const matchColor = (type) => {
   }
 };
 
-export const AlarmComponent = () => {
+export const AlarmComponent = (props) => {
+  const {from100} = props;
   const [selectStock, setSelectStock] = useState<any>('');
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
@@ -208,6 +209,7 @@ export const AlarmComponent = () => {
   const [udVolOption, setUDVolOption] = useState({});
   const [selectedFocusPlate, setSelectedFocusPlate] = useState('');
   const [advancedSearchR, setAdvancedSearchR] = useState<any[]>();
+  const [viewedDate, setViewedDate] = useState(moment(`${year}-${month}-${day}`).format(dateFormat));
 
 
   const saveSearchResult = ({
@@ -259,11 +261,20 @@ export const AlarmComponent = () => {
         `/api/all_alarm_data?date_str=${caculateDate(
           selectDate,
           selectConsAllDays
-        )}&end_date_str=${selectDate}`,
+        )}&end_date_str=${selectDate}&from100=${from100}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
-        .then((result) => {
+        .then((d) => {
+         get(`/api/get_viewed_stock?datestr=${viewedDate}`).then(viewed => {
+          const result = d.map((i) => {
+            if (viewed.find((e) => e.symbol === i.symbol)) {
+              i.viewed = true;
+              return i;
+            } else {
+              return i;
+            }
+          });
           const data = groupBy(result, 'symbol');
           Object.keys(data).forEach((k) => {
             const item = data[k];
@@ -304,30 +315,31 @@ export const AlarmComponent = () => {
             pricemargin: selectPriceMargin,
             result: upDownStocks.length,
           });
+         })    
         });
     },
     [
       setStockOptions,
+      from100,
       selectAlarmType,
       selectConsDays,
       stockOptions,
       selectConsAllDays,
       selectDate,
       selectPriceMargin,
+      viewedDate
     ]
   );
 
   useEffect(() => {
     setIsLoading(true);
     fetch(
-      `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`
+      `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&from100=${from100}`
     )
       .then((res) => res.json())
       .then((data) => {
         fetch(
-          `/api/get_viewed_stock?datestr=${moment(new Date()).format(
-            dateFormat
-          )}`
+          `/api/get_viewed_stock?datestr=${viewedDate}`
         )
           .then((result) => result.json())
           .then((viewedStocks) => {
@@ -347,7 +359,7 @@ export const AlarmComponent = () => {
             setTotalNum(addViewed && addViewed.length);
           });
       }); 
-  }, [selectAlarmType, selectDate]);
+  }, [selectAlarmType, selectDate, viewedDate, from100]);
 
   const reLoadAllAlarms = useCallback(
     (applyTimeFilter) => {
@@ -378,7 +390,7 @@ export const AlarmComponent = () => {
   );
 
   const clearAdvanced = useCallback(() => {
-    let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}`;
+    let url = `/api/all_stock_alarm?alarm_type=${selectAlarmType}&date=${selectDate}&from100=${from100}`;
     setIsLoading(true);
     fetch(url)
       .then((res) => res.json())
@@ -406,7 +418,7 @@ export const AlarmComponent = () => {
             setTotalNum(addViewed && addViewed.length);
           });
       });
-  }, [selectAlarmType, selectDate, stockOptions]);
+  }, [selectAlarmType, selectDate, stockOptions, from100]);
 
   const dateArr = useMemo(() => {
     const dateArray: any[] = [];
@@ -419,7 +431,7 @@ export const AlarmComponent = () => {
   const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
-        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}`,
+        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}&from100=${from100}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
@@ -1001,7 +1013,7 @@ export const AlarmComponent = () => {
       .then(() => {
         reLoadAllAlarms(false);
       });
-  }, [selectStock, selectAlarmType, selectDays]);
+  }, [selectStock, selectAlarmType, selectDays, from100]);
 
   const addtoFocus = useCallback(() => {
     fetch(
@@ -1088,6 +1100,12 @@ export const AlarmComponent = () => {
       </div>
       <DatePicker
         defaultValue={moment(selectDate, dateFormat)}
+        format={dateFormat}
+        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
+      />
+      Viewed Date
+      <DatePicker
+        defaultValue={moment(viewedDate, dateFormat)}
         format={dateFormat}
         onChange={(v: any) => setSelectDate(v.format(dateFormat))}
       />
