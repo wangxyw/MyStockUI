@@ -137,7 +137,7 @@ router.get('/focus_plate', function (req, res, next) {
 });
 
 router.post('/edit_focus_plate', function (req, res, next) {
-  const isAdd = req.body.isAdd ? 1: 0;
+  const isAdd = req.body.isAdd ? 1 : 0;
   const code = req.body.code;
   const sql = `UPDATE focus_plate set focus=${isAdd} where code='${code}'`;
   pool.query(sql, function (err, rows, fields) {
@@ -158,8 +158,8 @@ router.get('/get_viewed_stock', function (req, res, next) {
 router.get('/get_stock_plate', (req, res, next) => {
   const ids = req.query.ids;
   const sql = `SELECT distinct(a.symbol), group_concat(a.code), group_concat(a.name) as platename FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.symbol;`;
-  const sql2 = `SELECT count(*) as count, a.name, a.code, group_concat(a.symbol) FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.name order by count DESC;`
-  const result: any = {}
+  const sql2 = `SELECT count(*) as count, a.name, a.code, group_concat(a.symbol) FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.name order by count DESC;`;
+  const result: any = {};
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     result.symbols = rows;
@@ -167,7 +167,7 @@ router.get('/get_stock_plate', (req, res, next) => {
       if (err) throw err;
       result.plates = rows2;
       res.json(result);
-    }); 
+    });
   });
 });
 
@@ -181,7 +181,7 @@ router.get('/all_focus_stock', function (req, res, next) {
 
 router.get('/get_focus_stock_price', function (req, res, next) {
   const symbols = req.query.stocks;
- 
+
   const sql = `SELECT * FROM stock_big_data where symbol in (${symbols})`;
 
   console.log(sql);
@@ -192,17 +192,16 @@ router.get('/get_focus_stock_price', function (req, res, next) {
   });
 });
 
-
-
 router.get('/stock_alarm', function (req, res, next) {
   const symbol = req.query.stock_id;
-  const afterDate  = req.query.afterDate;
+  const afterDate = req.query.afterDate;
   const from100 = req.query.from100;
   let table = 'stock_big_data';
   if (from100 === 'true') {
-    table = 'stock_big_data_100'
-  };
-  let sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr >= '${afterDate}';`;
+    table = 'stock_big_data_100';
+  }
+  let sql = `SELECT *, group_concat(c.name) as plates FROM stock_big_data a join plate b on a.symbol = b.symbol join focus_plate c on c.code = b.code where a.symbol='${symbol}' and a.datestr >= '${afterDate}' and c.focus =1 group by datestr;`;
+  //let sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr >= '${afterDate}';`;
   const datestr = req.query.date_str;
   if (datestr) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;

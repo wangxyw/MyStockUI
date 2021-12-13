@@ -1,12 +1,12 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import React from 'react';
-import { Button, Input, Select, DatePicker, Radio } from 'antd';
+import { Button, Input, Select, DatePicker, Radio, Tag } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
 import { get, post } from '../lib/request';
-import {uniq} from 'lodash';
+import { cloneDeep } from 'lodash';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -139,10 +139,29 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
 };
 
 const validateTotal = (data, selectConsUpDown, selectConsDays) => {
-  return (
-    data &&
-    data.filter((i) => i.status === selectConsUpDown).length >= +selectConsDays
-  );
+  let typeA = false;
+  let typeB = false;
+  let typeC = false;
+  data.forEach((i, k) => {
+    if (i?.alarmtype === 'A1' && i?.status === selectConsUpDown) {
+      typeA = true;
+    }
+    if (i?.alarmtype === 'A2' && i?.status === selectConsUpDown) {
+      typeB = true;
+    }
+    if (i?.alarmtype === 'A3' && i?.status === selectConsUpDown) {
+      typeC = true;
+    }
+  });
+  return {
+    isTrue:
+      data &&
+      data.filter((i) => i.status === selectConsUpDown).length >=
+        +selectConsDays,
+    typeA,
+    typeB,
+    typeC,
+  };
 };
 
 const matchType = (dpct, totalpct) => {
@@ -150,7 +169,7 @@ const matchType = (dpct, totalpct) => {
     return 'A1';
   } else if (totalpct > 50 && dpct < 25) {
     return 'A2';
-  } else if (totalpct < 50 && dpct >= 25) {
+  } else if (totalpct < 50 && totalpct > 10 && dpct >= 25) {
     return 'A3';
   } else {
     return 'NA';
@@ -169,8 +188,32 @@ const matchColor = (type) => {
   }
 };
 
+const caculatefiveAverage = (data: any[], key = 'kuvolume', days) => {
+  const newData = data.reduce((prev, cur) => {
+    const newCur = cloneDeep(cur);
+    if (prev.length > 0) {
+      if (prev.length < days) {
+        const sum = prev.map((p) => p[key]).reduce((p, c) => p + c);
+        newCur[`five_${key}`] = sum / prev.length;
+      } else {
+        const sum = prev
+          .slice(prev.length - days, prev.length)
+          .map((p) => p[key])
+          .reduce((p, c) => p + c);
+        const avg = sum / days;
+        newCur[`five_${key}`] = avg;
+      }
+    } else {
+      newCur[`five_${key}`] = 0;
+    }
+    prev.push(newCur);
+    return prev;
+  }, []);
+  return newData;
+};
+
 export const AlarmComponent = (props) => {
-  const {from100} = props;
+  const { from100 } = props;
   const [selectStock, setSelectStock] = useState<any>('');
   const [selectAlarmType, setSelectAlarmType] = useState('All');
   const [option, setOption] = useState({});
@@ -182,9 +225,9 @@ export const AlarmComponent = (props) => {
   const [focusPlateOptions, setFocusPlateOptions] = useState<any[]>([]);
   const [totalNum, setTotalNum] = useState<number>(null as unknown as number);
   const [isLoading, setIsLoading] = useState(false);
-
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
+  const [stockPlate, setStockPlate] = useState('');
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
   const curDate = new Date();
@@ -209,8 +252,9 @@ export const AlarmComponent = (props) => {
   const [udVolOption, setUDVolOption] = useState({});
   const [selectedFocusPlate, setSelectedFocusPlate] = useState('');
   const [advancedSearchR, setAdvancedSearchR] = useState<any[]>();
-  const [viewedDate, setViewedDate] = useState(moment(`${year}-${month}-${day}`).format(dateFormat));
-
+  const [viewedDate, setViewedDate] = useState(
+    moment(`${year}-${month}-${day}`).format(dateFormat)
+  );
 
   const saveSearchResult = ({
     consday,
@@ -227,32 +271,37 @@ export const AlarmComponent = (props) => {
         datestr,
         result,
       }),
-    })
+    });
   };
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
-    ids?.length > 0 && get(`/api/get_stock_plate?ids=${ids}`).then((res) => {
-      const resbySymbols = res.symbols;
-      const resbyPlates = res.plates;
-      console.log(resbyPlates);
-      const newstocks = results.map(i => ({
-        ...i,
-        platename: resbySymbols?.find(e => e.symbol === i.symbol)?.platename
-      }))
-      setFocusPlateOptions(resbyPlates);
-      setStockOptions([...newstocks]);
-      setAdvancedSearchR([...newstocks]);
-    });
+    ids?.length > 0 &&
+      get(`/api/get_stock_plate?ids=${ids}`).then((res) => {
+        const resbySymbols = res.symbols;
+        const resbyPlates = res.plates;
+        const newstocks = results.map((i) => ({
+          ...i,
+          platename: resbySymbols?.find((e) => e.symbol === i.symbol)
+            ?.platename,
+        }));
+        setFocusPlateOptions(resbyPlates);
+        setStockOptions([...newstocks]);
+        setAdvancedSearchR([...newstocks]);
+      });
   }, []);
 
-  const setStockOptionsByPlate = useCallback((v) => {
-     const focusPlateStocks: any = advancedSearchR?.filter(i => i.platename?.split(",")?.includes(v));
-     console.log(focusPlateStocks);
-     setSelectedFocusPlate(v);
-     setStockOptions(focusPlateStocks);
-     setTotalNum(focusPlateStocks?.length);
-  }, [advancedSearchR]);
+  const setStockOptionsByPlate = useCallback(
+    (v) => {
+      const focusPlateStocks: any = advancedSearchR?.filter((i) =>
+        i.platename?.split(',')?.includes(v)
+      );
+      setSelectedFocusPlate(v);
+      setStockOptions(focusPlateStocks);
+      setTotalNum(focusPlateStocks?.length);
+    },
+    [advancedSearchR]
+  );
 
   const advancedSearch = useCallback(
     (selectConsDays, selectConsTotal, selectConsUpDown) => {
@@ -266,56 +315,61 @@ export const AlarmComponent = (props) => {
       )
         .then((res) => res.json())
         .then((d) => {
-         get(`/api/get_viewed_stock?datestr=${viewedDate}`).then(viewed => {
-          const result = d.map((i) => {
-            if (viewed.find((e) => e.symbol === i.symbol)) {
-              i.viewed = true;
-              return i;
-            } else {
-              return i;
-            }
-          });
-          const data = groupBy(result, 'symbol');
-          Object.keys(data).forEach((k) => {
-            const item = data[k];
-            if (selectConsTotal === 'CONS') {
-              const { isTrue, start, end, typeA, typeB, typeC } = validateCons(
-                item,
-                selectConsUpDown,
-                selectConsDays
-              );
-              if (typeA) item[0].typeA1 = true;
-              if (typeB) item[0].typeA2 = true;
-              if (typeC) item[0].typeA3 = true;
-              if (isTrue) {
-                const startPrice = item[start].finalprice;
-                const endPrice = item[end].finalprice;
-                if (
-                  Math.abs((endPrice - startPrice) / startPrice) <
-                  selectPriceMargin / 100
-                ) {
-                  upDownStocks.push(item[0]);
+          get(`/api/get_viewed_stock?datestr=${viewedDate}`).then((viewed) => {
+            const result = d.map((i) => {
+              if (viewed.find((e) => e.symbol === i.symbol)) {
+                i.viewed = true;
+                return i;
+              } else {
+                return i;
+              }
+            });
+            const data = groupBy(result, 'symbol');
+            Object.keys(data).forEach((k) => {
+              const item = data[k];
+              if (selectConsTotal === 'CONS') {
+                const { isTrue, start, end, typeA, typeB, typeC } =
+                  validateCons(item, selectConsUpDown, selectConsDays);
+                if (typeA) item[0].typeA1 = true;
+                if (typeB) item[0].typeA2 = true;
+                if (typeC) item[0].typeA3 = true;
+                if (isTrue) {
+                  const startPrice = item[start].finalprice;
+                  const endPrice = item[end].finalprice;
+                  if (
+                    Math.abs((endPrice - startPrice) / startPrice) <
+                    selectPriceMargin / 100
+                  ) {
+                    upDownStocks.push(item[0]);
+                  }
                 }
               }
-            }
-            if (selectConsTotal === 'TOTAL') {
-              if (validateTotal(item, selectConsUpDown, selectConsDays)) {
-                upDownStocks.push(data[k][0]);
+              if (selectConsTotal === 'TOTAL') {
+                const { isTrue, typeA, typeB, typeC } = validateTotal(
+                  item,
+                  selectConsUpDown,
+                  selectConsDays
+                );
+                if (typeA) item[0].typeA1 = true;
+                if (typeB) item[0].typeA2 = true;
+                if (typeC) item[0].typeA3 = true;
+                if (isTrue) {
+                  upDownStocks.push(data[k][0]);
+                }
               }
-            }
+            });
+            setIsLoading(false);
+            setStockOptions([...upDownStocks]);
+            listPlate(upDownStocks);
+            setTotalNum(upDownStocks.length);
+            saveSearchResult({
+              consday: selectConsDays,
+              totalday: selectConsAllDays,
+              datestr: caculateDate(selectDate, 0),
+              pricemargin: selectPriceMargin,
+              result: upDownStocks.length,
+            });
           });
-          setIsLoading(false);
-          setStockOptions([...upDownStocks]);
-          listPlate(upDownStocks);
-          setTotalNum(upDownStocks.length);
-          saveSearchResult({
-            consday: selectConsDays,
-            totalday: selectConsAllDays,
-            datestr: caculateDate(selectDate, 0),
-            pricemargin: selectPriceMargin,
-            result: upDownStocks.length,
-          });
-         })    
         });
     },
     [
@@ -327,7 +381,7 @@ export const AlarmComponent = (props) => {
       selectConsAllDays,
       selectDate,
       selectPriceMargin,
-      viewedDate
+      viewedDate,
     ]
   );
 
@@ -338,9 +392,7 @@ export const AlarmComponent = (props) => {
     )
       .then((res) => res.json())
       .then((data) => {
-        fetch(
-          `/api/get_viewed_stock?datestr=${viewedDate}`
-        )
+        fetch(`/api/get_viewed_stock?datestr=${viewedDate}`)
           .then((result) => result.json())
           .then((viewedStocks) => {
             const addViewed =
@@ -358,7 +410,7 @@ export const AlarmComponent = (props) => {
             setStockOptions(addViewed);
             setTotalNum(addViewed && addViewed.length);
           });
-      }); 
+      });
   }, [selectAlarmType, selectDate, viewedDate, from100]);
 
   const reLoadAllAlarms = useCallback(
@@ -431,11 +483,34 @@ export const AlarmComponent = (props) => {
   const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
-        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(selectDays)}&from100=${from100}`,
+        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(
+          selectDays
+        )}&from100=${from100}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
         .then((data) => {
+          setStockPlate(data?.[0]?.plates);
+          const fiveAverageKT = caculatefiveAverage(data, 'totalvol', 5);
+          const tenAverageKT = caculatefiveAverage(data, 'totalvol', 10);
+          console.log(
+            fiveAverageKT.map((i) => i.five_totalvol),
+            fiveAverageKT.map((i) => i.totalvol)
+          );
+          const fiveABigVdata = dateArr.map((i) => {
+            if (fiveAverageKT.find((d) => d.datestr === i)) {
+              return fiveAverageKT.find((d) => d.datestr === i).five_totalvol;
+            } else {
+              return '-';
+            }
+          });
+          const tenABigVdata = dateArr.map((i) => {
+            if (tenAverageKT.find((d) => d.datestr === i)) {
+              return tenAverageKT.find((d) => d.datestr === i).five_totalvol;
+            } else {
+              return '-';
+            }
+          });
           const dataArr = dateArr.map((i) => {
             if (data.find((d) => d.datestr === i)) {
               return data.find((d) => d.datestr === i).dvaluepct * 100;
@@ -519,12 +594,14 @@ export const AlarmComponent = (props) => {
             return item;
           });
           const udSum = udSumData?.map((item, key) => {
-            const total = udSumData?.map?.(i => i.ud).reduce((pre, cur, index) => {
+            const total = udSumData
+              ?.map?.((i) => i.ud)
+              .reduce((pre, cur, index) => {
                 if (index > key) {
                   return pre + 0;
                 }
                 return pre + cur;
-            });
+              });
             item.udSum = total;
             return item;
           });
@@ -714,7 +791,7 @@ export const AlarmComponent = (props) => {
               left: 0,
             },
             legend: {
-              data: ['allVol', 'bigVol'],
+              data: ['allVol', 'bigVol', 'AverageBigVol'],
             },
             tooltip: {
               trigger: 'axis',
@@ -747,7 +824,7 @@ export const AlarmComponent = (props) => {
             },
             series: [
               {
-                name: 'TotalPct',
+                name: 'TotalVol',
                 type: 'bar',
                 data: allVolArr,
                 itemStyle: {
@@ -757,7 +834,34 @@ export const AlarmComponent = (props) => {
                 },
               },
               {
-                name: 'DPct',
+                name: 'Average10Pct',
+                type: 'line',
+                data: tenABigVdata,
+                symbol: 'none',
+                smooth: true,
+                connectNulls: true,
+                itemStyle: {
+                  normal: {
+                    color: 'green',
+                  },
+                },
+              },
+
+              {
+                name: 'AveragePct',
+                type: 'line',
+                symbol: 'none',
+                connectNulls: true,
+                smooth: true,
+                data: fiveABigVdata,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+              {
+                name: 'BigVol',
                 type: 'bar',
                 data: bigVolArr,
                 itemStyle: {
@@ -895,7 +999,7 @@ export const AlarmComponent = (props) => {
                     color: 'blue',
                   },
                 },
-              }
+              },
             ],
           });
           setUDVolOption({
@@ -945,7 +1049,7 @@ export const AlarmComponent = (props) => {
                     color: 'black',
                   },
                 },
-              }
+              },
             ],
           });
           setUdSumOption({
@@ -1000,7 +1104,8 @@ export const AlarmComponent = (props) => {
           });
         })
         .catch((error) => {
-          alert(error);
+          console.log('error: ', error);
+          throw error;
         });
 
     fetch(
@@ -1079,7 +1184,6 @@ export const AlarmComponent = (props) => {
       <Button type="primary" onClick={() => getStockAlarm()}>
         Show Alarm
       </Button>
-
       <div style={{ display: 'inline-block', marginLeft: '10px' }}>
         {' '}
         Show{' '}
@@ -1109,20 +1213,27 @@ export const AlarmComponent = (props) => {
         format={dateFormat}
         onChange={(v: any) => setSelectDate(v.format(dateFormat))}
       />
-      <Select style={{width: '200px'}} onChange={(v) => setStockOptionsByPlate(v as string)}>
-      {focusPlateOptions?.map((i) => (
-          <Select.Option
-            key={i.code}
-            value={i.name}
-          >{i.name}({i.count})</Select.Option>
+      <Select
+        style={{ width: '200px' }}
+        onChange={(v) => setStockOptionsByPlate(v as string)}
+      >
+        {focusPlateOptions?.map((i) => (
+          <Select.Option key={i.code} value={i.name}>
+            {i.name}({i.count})
+          </Select.Option>
         ))}
       </Select>
+      <div>
+        {stockPlate?.split(',')?.map((i) => (
+          <Tag>{i}</Tag>
+        ))}
+      </div>
       {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
             <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
             <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
             <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
             <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
-      <div style={{ marginTop: '20px' }}>
+      <div style={{ marginTop: '10px' }}>
         Advanced Filter:
         <Select
           style={{ width: '180px' }}
@@ -1249,8 +1360,14 @@ export const AlarmComponent = (props) => {
         notMerge={true}
         lazyUpdate={true}
         option={udSumOption}
+      />{' '}
+      <ReactEcharts
+        style={{ height: 250, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={volOption}
       />
-       <ReactEcharts
+      <ReactEcharts
         style={{ height: 250, width: 1450 }}
         notMerge={true}
         lazyUpdate={true}
@@ -1261,12 +1378,6 @@ export const AlarmComponent = (props) => {
         notMerge={true}
         lazyUpdate={true}
         option={eachVolOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={volOption}
       />
     </div>
   );
