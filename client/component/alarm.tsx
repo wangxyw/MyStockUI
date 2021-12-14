@@ -795,7 +795,7 @@ export const AlarmComponent = (props) => {
               left: 0,
             },
             legend: {
-              data: ['allVol', 'bigVol', 'AverageBigVol'],
+              data: ['Average10', 'Average5', 'Average20'],
             },
             tooltip: {
               trigger: 'axis',
@@ -828,7 +828,7 @@ export const AlarmComponent = (props) => {
             },
             series: [
               {
-                name: 'Average10Pct',
+                name: 'Average10',
                 type: 'line',
                 data: tenABigVdata,
                 symbol: 'none',
@@ -839,9 +839,10 @@ export const AlarmComponent = (props) => {
                     color: 'green',
                   },
                 },
+                lineStyle: { width: 1 },
               },
               {
-                name: 'Average20Pct',
+                name: 'Average20',
                 type: 'line',
                 data: twentyABigVdata,
                 symbol: 'none',
@@ -852,9 +853,10 @@ export const AlarmComponent = (props) => {
                     color: 'purple',
                   },
                 },
+                lineStyle: { width: 1 },
               },
               {
-                name: 'AveragePct',
+                name: 'Average5',
                 type: 'line',
                 symbol: 'none',
                 connectNulls: true,
@@ -865,6 +867,7 @@ export const AlarmComponent = (props) => {
                     color: 'blue',
                   },
                 },
+                lineStyle: { width: 1 },
               },
             ],
           });
