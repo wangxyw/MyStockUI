@@ -17,6 +17,7 @@ var pool = mysql.createPool({
   user: mysqlConfig.dbsql.user,
   password: mysqlConfig.dbsql.pwd,
   database: mysqlConfig.dbsql.database,
+  multipleStatements: true,
 });
 
 router.get('/stock_info', function (req, res, next) {
@@ -200,12 +201,14 @@ router.get('/stock_alarm', function (req, res, next) {
   if (from100 === 'true') {
     table = 'stock_big_data_100';
   }
-  let sql = `SELECT *, group_concat(c.name) as plates FROM stock_big_data a join plate b on a.symbol = b.symbol join focus_plate c on c.code = b.code where a.symbol='${symbol}' and a.datestr >= '${afterDate}' and c.focus =1 group by datestr;`;
-  //let sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr >= '${afterDate}';`;
+  //let sql = `SELECT *, group_concat(c.name) as plates FROM stock_big_data a join plate b on a.symbol = b.symbol join focus_plate c on c.code = b.code where a.symbol='${symbol}' and a.datestr >= '${afterDate}' and c.focus =1 group by datestr;`;
+  let sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr >= '${afterDate}';`;
   const datestr = req.query.date_str;
   if (datestr) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
+
+  const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
   // let sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = '${alarm_type}' and a.symbol='${symbol}' and a.datestr=b.datestr;`
   // if (alarm_type === 'All') {
   //   sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.symbol='${symbol}' and a.datestr=b.datestr;`
@@ -217,9 +220,9 @@ router.get('/stock_alarm', function (req, res, next) {
   // if (alarm_type === 'A1Today') {
   //   sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = 'A1' and a.symbol='${symbol}' and a.datestr=b.datestr;`
   // }
-  pool.query(sql, function (err, rows, fields) {
+  pool.query(`${sql}${plateSQL}`, function (err, rows, fields) {
     //if (err) throw err;
-    res.json(rows);
+    res.json(rows?.[0].map((i) => ({ ...i, plates: rows?.[1]?.[0]?.plates })));
   });
 });
 
