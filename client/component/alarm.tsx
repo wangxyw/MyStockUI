@@ -219,6 +219,7 @@ export const AlarmComponent = (props) => {
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
   const [volOption, setVolOption] = useState({});
+  const [averageOption, setAverageOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState('10');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -493,13 +494,17 @@ export const AlarmComponent = (props) => {
           setStockPlate(data?.[0]?.plates);
           const fiveAverageKT = caculatefiveAverage(data, 'totalvol', 5);
           const tenAverageKT = caculatefiveAverage(data, 'totalvol', 10);
-          console.log(
-            fiveAverageKT.map((i) => i.five_totalvol),
-            fiveAverageKT.map((i) => i.totalvol)
-          );
+          const twentyAverageKT = caculatefiveAverage(data, 'totalvol', 20);
           const fiveABigVdata = dateArr.map((i) => {
             if (fiveAverageKT.find((d) => d.datestr === i)) {
               return fiveAverageKT.find((d) => d.datestr === i).five_totalvol;
+            } else {
+              return '-';
+            }
+          });
+          const twentyABigVdata = dateArr.map((i) => {
+            if (twentyAverageKT.find((d) => d.datestr === i)) {
+              return twentyAverageKT.find((d) => d.datestr === i).five_totalvol;
             } else {
               return '-';
             }
@@ -784,7 +789,85 @@ export const AlarmComponent = (props) => {
               // }
             ],
           });
-
+          setAverageOption({
+            title: {
+              text: '',
+              left: 0,
+            },
+            legend: {
+              data: ['allVol', 'bigVol', 'AverageBigVol'],
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'shadow',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+            },
+            series: [
+              {
+                name: 'Average10Pct',
+                type: 'line',
+                data: tenABigVdata,
+                symbol: 'none',
+                smooth: true,
+                connectNulls: true,
+                itemStyle: {
+                  normal: {
+                    color: 'green',
+                  },
+                },
+              },
+              {
+                name: 'Average20Pct',
+                type: 'line',
+                data: twentyABigVdata,
+                symbol: 'none',
+                smooth: true,
+                connectNulls: true,
+                itemStyle: {
+                  normal: {
+                    color: 'purple',
+                  },
+                },
+              },
+              {
+                name: 'AveragePct',
+                type: 'line',
+                symbol: 'none',
+                connectNulls: true,
+                smooth: true,
+                data: fiveABigVdata,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+            ],
+          });
           setVolOption({
             title: {
               text: '',
@@ -1354,6 +1437,12 @@ export const AlarmComponent = (props) => {
         notMerge={true}
         lazyUpdate={true}
         option={priceOption}
+      />
+      <ReactEcharts
+        style={{ height: 350, width: 1450 }}
+        notMerge={true}
+        lazyUpdate={true}
+        option={averageOption}
       />
       <ReactEcharts
         style={{ height: 250, width: 1450 }}
