@@ -194,17 +194,17 @@ const caculatefiveAverage = (data: any[], key = 'kuvolume', days) => {
     if (prev.length > 0) {
       if (prev.length < days) {
         const sum = prev.map((p) => p[key]).reduce((p, c) => p + c);
-        newCur[`five_${key}`] = sum / prev.length;
+        newCur[`five_${key}`] = (sum + cur[key]) / (prev.length + 1);
       } else {
         const sum = prev
-          .slice(prev.length - days, prev.length)
+          .slice(prev.length - days + 1, prev.length)
           .map((p) => p[key])
           .reduce((p, c) => p + c);
-        const avg = sum / days;
+        const avg = (sum + cur[key]) / days;
         newCur[`five_${key}`] = avg;
       }
     } else {
-      newCur[`five_${key}`] = 0;
+      newCur[`five_${key}`] = cur[key];
     }
     prev.push(newCur);
     return prev;
@@ -795,7 +795,7 @@ export const AlarmComponent = (props) => {
               left: 0,
             },
             legend: {
-              data: ['Average10', 'Average5', 'Average20'],
+              data: ['Average5', 'Average10', 'Average20'],
             },
             tooltip: {
               trigger: 'axis',
@@ -850,7 +850,7 @@ export const AlarmComponent = (props) => {
                 connectNulls: true,
                 itemStyle: {
                   normal: {
-                    color: 'purple',
+                    color: '#ccc',
                   },
                 },
                 lineStyle: { width: 1 },
@@ -864,7 +864,7 @@ export const AlarmComponent = (props) => {
                 data: fiveABigVdata,
                 itemStyle: {
                   normal: {
-                    color: 'blue',
+                    color: 'red',
                   },
                 },
                 lineStyle: { width: 1 },
@@ -1204,7 +1204,7 @@ export const AlarmComponent = (props) => {
       .then(() => {
         reLoadAllAlarms(false);
       });
-  }, [selectStock, selectAlarmType, selectDays, from100]);
+  }, [selectStock, selectAlarmType, selectDays, stockOptions, from100]);
 
   const addtoFocus = useCallback(() => {
     fetch(
