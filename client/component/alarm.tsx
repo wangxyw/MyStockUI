@@ -473,20 +473,32 @@ export const AlarmComponent = (props) => {
       });
   }, [selectAlarmType, selectDate, stockOptions, from100]);
 
-  const dateArr = useMemo(() => {
-    const dateArray: any[] = [];
-    for (var i = parseInt(selectDays, 10); i >= 0; i--) {
-      dateArray.push(getBeforeDate(i));
-    }
-    return dateArray;
+  const dateArrNew = useMemo(() => {
+    const curIndex = DATE.workday.indexOf(getBeforeDate(0));
+    const newDates = DATE.workday.slice(
+      curIndex - parseInt(selectDays, 10),
+      curIndex
+    );
+    console.log('======', parseInt(selectDays, 10), newDates);
+    const datesIsFirstWorkday = {};
+    newDates?.forEach((i, k) => {
+      if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
+        datesIsFirstWorkday[i] = true;
+      } else {
+        datesIsFirstWorkday[i] = false;
+      }
+    });
+    console.log('======', datesIsFirstWorkday);
+    return datesIsFirstWorkday;
   }, [selectDays]);
+  const dateArr = useMemo(() => {
+    return Object.keys(dateArrNew);
+  }, [dateArrNew]);
 
   const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
-        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${getBeforeDate(
-          selectDays
-        )}&from100=${from100}`,
+        `/api/stock_alarm?stock_id=${selectStock}&afterDate=${dateArr[0]}&from100=${from100}`,
         { method: 'GET' }
       )
         .then((res) => res.json())
@@ -686,6 +698,19 @@ export const AlarmComponent = (props) => {
             xAxis: {
               type: 'category',
               data: dateArr,
+              axisLine: {
+                lineStyle: {
+                  color: function (params) {
+                    var colorList;
+                    if (dateArrNew[params]) {
+                      colorList = 'red';
+                    } else {
+                      colorList = 'black';
+                    }
+                    return colorList;
+                  },
+                },
+              },
               axisLabel: { show: true, interval: 0, rotate: 45 },
             },
             yAxis: {
