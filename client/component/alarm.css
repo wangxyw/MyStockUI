@@ -1,0 +1,14 @@
+.alm-grid-lines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(36, 1fr);
+}
+
+.alm-grid-line {
+  width: 1px;
+  border-right: 1px dashed #ccc;
+}
