@@ -477,7 +477,7 @@ export const AlarmComponent = (props) => {
     const curIndex = DATE.workday.indexOf(caculateDate(getBeforeDate(0), 0));
     const newDates = DATE.workday.slice(
       curIndex - parseInt(selectDays, 10),
-      curIndex
+      curIndex + 1
     );
     const datesIsFirstWorkday = {};
     newDates?.forEach((i, k) => {
