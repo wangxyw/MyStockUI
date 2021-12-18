@@ -7,6 +7,7 @@ import { groupBy } from 'lodash';
 import DATE from './date.json';
 import { get, post } from '../lib/request';
 import { cloneDeep } from 'lodash';
+import './alarm.css';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -256,6 +257,7 @@ export const AlarmComponent = (props) => {
   const [viewedDate, setViewedDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
+  const [showLines, setShowLines] = React.useState(false);
 
   const saveSearchResult = ({
     consday,
@@ -1452,48 +1454,74 @@ export const AlarmComponent = (props) => {
           Add to My Focus
         </Button>
       </div>
-      <ReactEcharts
-        style={{ height: 350, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={option}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={priceOption}
-      />
-      <ReactEcharts
-        style={{ height: 350, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={averageOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={udSumOption}
-      />{' '}
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={volOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={udVolOption}
-      />
-      <ReactEcharts
-        style={{ height: 250, width: 1450 }}
-        notMerge={true}
-        lazyUpdate={true}
-        option={eachVolOption}
-      />
+      <div style={{ position: 'relative', maxWidth: '1450px' }}>
+        <div style={{ textAlign: 'right' }}>
+          <Button
+            type="dashed"
+            onClick={() => {
+              setShowLines(!showLines);
+            }}
+            style={{ zIndex: 1 }}
+          >
+            Toggle Lines
+          </Button>
+        </div>
+        {showLines && <GridLines />}
+        <ReactEcharts
+          style={{ height: 350, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={option}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={priceOption}
+        />
+        <ReactEcharts
+          style={{ height: 350, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={averageOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={udSumOption}
+        />{' '}
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={volOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={udVolOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={eachVolOption}
+        />
+      </div>
     </div>
   );
 };
+
+function GridLines() {
+  return (
+    <div className="alm-grid-lines">
+      {Array(36)
+        .fill(0)
+        .map((_, i) => (
+          <div key={i} className="alm-grid-line" />
+        ))}
+    </div>
+  );
+}
