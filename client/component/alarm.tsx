@@ -442,9 +442,7 @@ export const AlarmComponent = (props) => {
   const reLoadAllAlarms = useCallback(
     (applyTimeFilter) => {
       setIsLoading(true);
-      fetch(
-        `/api/get_viewed_stock?datestr=${moment(new Date()).format(dateFormat)}`
-      )
+      fetch(`/api/get_viewed_stock?datestr=${viewedDate}`)
         .then((result) => result.json())
         .then((viewedStocks) => {
           const addViewed =
@@ -464,7 +462,7 @@ export const AlarmComponent = (props) => {
         });
       // })
     },
-    [selectAlarmType, selectDate, stockOptions]
+    [selectAlarmType, selectDate, stockOptions, viewedDate]
   );
 
   const clearAdvanced = useCallback(() => {
@@ -473,11 +471,7 @@ export const AlarmComponent = (props) => {
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        fetch(
-          `/api/get_viewed_stock?datestr=${moment(new Date()).format(
-            dateFormat
-          )}`
-        )
+        fetch(`/api/get_viewed_stock?datestr=${viewedDate}`)
           .then((result) => result.json())
           .then((viewedStocks) => {
             const addViewed =
@@ -496,7 +490,7 @@ export const AlarmComponent = (props) => {
             setTotalNum(addViewed && addViewed.length);
           });
       });
-  }, [selectAlarmType, selectDate, stockOptions, from100]);
+  }, [selectAlarmType, selectDate, stockOptions, from100, viewedDate]);
 
   const dateArrNew = useMemo(() => {
     const curIndex = DATE.workday.indexOf(caculateDate(getBeforeDate(0), 0));
@@ -1263,7 +1257,6 @@ export const AlarmComponent = (props) => {
       { method: 'GET' }
     ).then((res) => res.json());
   }, [comments, selectStock, predict]);
-
   return (
     <div style={{ padding: '20px' }}>
       <h2>Alarm</h2>
@@ -1345,7 +1338,7 @@ export const AlarmComponent = (props) => {
       <DatePicker
         defaultValue={moment(viewedDate, dateFormat)}
         format={dateFormat}
-        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
+        onChange={(v: any) => setViewedDate(v.format(dateFormat))}
       />
       <Select
         style={{ width: '200px' }}
