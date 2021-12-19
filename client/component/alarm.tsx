@@ -1,6 +1,6 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import React from 'react';
-import { Button, Input, Select, DatePicker, Radio, Tag } from 'antd';
+import { Button, Input, Select, DatePicker, Radio, Tag, Switch } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
@@ -213,6 +213,17 @@ const caculatefiveAverage = (data: any[], key = 'kuvolume', days) => {
   return newData;
 };
 
+const isAverageDistribution = (item, selectPriceMargin) => {
+  const averagePrice =
+    item.map((i) => i.finalprice).reduce((p, c) => p + c) / item.length;
+  let isAverage = item.every((i) => {
+    return (
+      Math.abs(i.finalprice - averagePrice) / averagePrice <=
+      selectPriceMargin / 100
+    );
+  });
+  return isAverage;
+};
 export const AlarmComponent = (props) => {
   const { from100 } = props;
   const [selectStock, setSelectStock] = useState<any>('');
@@ -254,6 +265,7 @@ export const AlarmComponent = (props) => {
   const [udVolOption, setUDVolOption] = useState({});
   const [selectedFocusPlate, setSelectedFocusPlate] = useState('');
   const [advancedSearchR, setAdvancedSearchR] = useState<any[]>();
+  const [caculatePriceBy, setCaculatePriceBy] = useState(false);
   const [viewedDate, setViewedDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
@@ -337,13 +349,18 @@ export const AlarmComponent = (props) => {
                 if (typeB) item[0].typeA2 = true;
                 if (typeC) item[0].typeA3 = true;
                 if (isTrue) {
-                  const startPrice = item[start].finalprice;
-                  const endPrice = item[end].finalprice;
-                  if (
-                    Math.abs((endPrice - startPrice) / startPrice) <
-                    selectPriceMargin / 100
-                  ) {
-                    upDownStocks.push(item[0]);
+                  if (caculatePriceBy) {
+                    isAverageDistribution(item, selectPriceMargin) &&
+                      upDownStocks.push(data[k][0]);
+                  } else {
+                    const startPrice = item[start].finalprice;
+                    const endPrice = item[end].finalprice;
+                    if (
+                      Math.abs((endPrice - startPrice) / startPrice) <
+                      selectPriceMargin / 100
+                    ) {
+                      upDownStocks.push(item[0]);
+                    }
                   }
                 }
               }
@@ -357,7 +374,12 @@ export const AlarmComponent = (props) => {
                 if (typeB) item[0].typeA2 = true;
                 if (typeC) item[0].typeA3 = true;
                 if (isTrue) {
-                  upDownStocks.push(data[k][0]);
+                  if (caculatePriceBy) {
+                    isAverageDistribution(item, selectPriceMargin) &&
+                      upDownStocks.push(data[k][0]);
+                  } else {
+                    upDownStocks.push(data[k][0]);
+                  }
                 }
               }
             });
@@ -383,6 +405,7 @@ export const AlarmComponent = (props) => {
       stockOptions,
       selectConsAllDays,
       selectDate,
+      caculatePriceBy,
       selectPriceMargin,
       viewedDate,
     ]
@@ -1404,6 +1427,14 @@ export const AlarmComponent = (props) => {
           }}
         />
         days
+        <Switch
+          unCheckedChildren="Former"
+          checkedChildren="Latter"
+          style={{ margin: '0 10px' }}
+          // defaultChecked
+          checked={caculatePriceBy}
+          onChange={setCaculatePriceBy}
+        />
         <Button
           type="primary"
           onClick={() => {
