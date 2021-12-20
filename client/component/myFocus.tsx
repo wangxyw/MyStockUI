@@ -1,4 +1,4 @@
-import { Table, Form, Input, Popconfirm } from 'antd';
+import { Table, Form, Input, Popconfirm, Tag } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
@@ -13,6 +13,52 @@ interface Item {
 interface EditableRowProps {
   index: number;
 }
+const caculateMaxPrice = (priceByDayData) => {
+  let maxPrice = priceByDayData[0].finalprice;
+  let maxPriceDay = 0;
+  priceByDayData.forEach((i, k) => {
+    if (i.finalprice && i.finalprice > maxPrice) {
+      maxPrice = i.finalprice;
+      maxPriceDay = k;
+    }
+  });
+  return { maxPrice, maxPriceDay };
+};
+
+const caculateMinPrice = (priceByDayData) => {
+  let minPrice = priceByDayData[0].finalprice;
+  let minPriceDay = 0;
+  priceByDayData.forEach((i, k) => {
+    if (i.finalprice && i.finalprice < minPrice) {
+      minPrice = i.finalprice;
+      minPriceDay = k;
+    }
+  });
+  return { minPrice, minPriceDay };
+};
+
+const caculatePriceData = (stockData, stockPriceByDay) => {
+  const priceData = stockData.map((i) => {
+    const priceByDayData = stockPriceByDay?.filter(
+      (e) => e.symbol === i.symbol && e.datestr >= i.datestr
+    );
+    const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);
+    const { minPrice, minPriceDay } = caculateMinPrice(priceByDayData);
+    const oneStock = i;
+    const maxPriceDiff = ((maxPrice - i.finalprice) / i.finalprice) * 100;
+    const minPriceDiff = ((minPrice - i.finalprice) / i.finalprice) * 100;
+    oneStock.firstMaxPrice = 1;
+    oneStock.maxPrice = maxPrice;
+    oneStock.minPrice = minPrice;
+    oneStock.firstMaxPriceDay = 1;
+    oneStock.maxPriceDay = maxPriceDay;
+    oneStock.maxPriceDiff = maxPriceDiff.toFixed(2);
+    oneStock.minPriceDay = minPriceDay;
+    oneStock.minPriceDiff = minPriceDiff.toFixed(2);
+    return oneStock;
+  });
+  return priceData;
+};
 
 const EditableContext = React.createContext<FormInstance<any> | null>(null);
 
@@ -105,7 +151,15 @@ async function getAllFocusedStocks() {
   const symbols = stockData.map((d) => d.symbol);
   const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
 
-  return stockData.map((s) => {
+  const stockPriceByDay = await get(
+    `/api/get_focus_stock_price?stocks=${symbols
+      .map((i) => `'${i}'`)
+      .join(',')}`
+  );
+  //caculate stock price
+  const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
+
+  return stockPriceData.map((s) => {
     const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
 
     return {
@@ -199,7 +253,61 @@ export const MyFocusListComponent = () => {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
-      sorter: (a: any, b: any): any => {return (Number(a.datestr.replaceAll('-', '')) - Number(b.datestr.replaceAll('-', '')))},
+      defaultSortOrder: 'descend',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.datestr.replaceAll('-', '')) -
+          Number(b.datestr.replaceAll('-', ''))
+        );
+      },
+    },
+    {
+      title: '流通股本',
+      dataIndex: 'circulation_stock',
+      key: 'circulation_stock',
+      render: (c, record) => {
+        const re = (record.marketvalue / record.finalprice).toFixed(3);
+        return <>{re}</>;
+      },
+    },
+    {
+      title: 'MaxPrice',
+      dataIndex: 'maxPrice',
+      key: 'maxPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.maxPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MaxPriceDay',
+      dataIndex: 'maxPriceDay',
+      key: 'maxPriceDay',
+    },
+    {
+      title: 'MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      render: (c, record) => {
+        const diff = record.minPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MinPriceDay',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
     },
     {
       title: 'Action',
@@ -227,7 +335,7 @@ export const MyFocusListComponent = () => {
       ),
     },
   ];
-  
+
   useEffect(() => {
     async function handleAllStockData() {
       const data = await getAllFocusedStocks();
@@ -254,7 +362,7 @@ export const MyFocusListComponent = () => {
       cell: EditableCell,
     },
   };
-  const mergedColumns = columns.map((col) => {
+  const mergedColumns: any = columns.map((col) => {
     if (!col.editable) {
       return col;
     }
@@ -273,6 +381,7 @@ export const MyFocusListComponent = () => {
     <div style={{ padding: '20px' }}>
       My Focus Stocks
       <Table
+        pagination={{ defaultPageSize: 100 }}
         columns={mergedColumns}
         dataSource={data}
         components={components}
