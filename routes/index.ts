@@ -57,12 +57,23 @@ router.get('/add_focus', function (req, res, next) {
   const datestr = req.query.datestr;
   const comments = req.query.comments;
   const predict = req.query.predict;
-  const sql = `INSERT INTO focus_stocks (symbol, datestr, comments, predict) VALUES ('${symbol}', '${datestr}', '${comments}', '${predict}');`;
-  pool.query(sql, function (err, rows, fields) {
+  const querySql = `SELECT * from focus_stocks where symbol = '${symbol}'`;
+  let sql = `INSERT INTO focus_stocks (symbol, datestr, comments, predict) VALUES ('${symbol}', '${datestr}', '${comments}', '${predict}');`;
+  pool.query(querySql, function (err, rows, fields) {
     if (err) {
       res.json(err);
     } else {
-      res.json(rows);
+      if (rows?.length >= 1) {
+        sql = `UPDATE focus_stocks SET datestr= '${datestr}' WHERE symbol = '${symbol}';`;
+      }
+      // res.json(rows);
+      pool.query(sql, function (err, rows, fields) {
+        if (err) {
+          res.json(err);
+        } else {
+          res.json(rows);
+        }
+      });
     }
   });
 });
