@@ -171,6 +171,8 @@ async function getAllFocusedStocks() {
 
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
+  const [rateByCur, setRateByCur] = useState();
+  const [rateByMax, setRateByMax] = useState();
   const columns = [
     {
       title: 'Symbol',
@@ -262,6 +264,78 @@ export const MyFocusListComponent = () => {
       },
     },
     {
+      title: 'Recent 10 days',
+      dataIndex: 'recentTen',
+      key: 'recentTen',
+      render: (c, record) => {
+        const upA1 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A1'
+        ).length;
+        const upA2 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A2'
+        ).length;
+        const upA3 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A3'
+        ).length;
+        const upNA = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === ''
+        ).length;
+        const downA1 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A1'
+        ).length;
+        const downA2 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A1'
+        ).length;
+        const downA3 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A1'
+        ).length;
+        const downNA = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === ''
+        ).length;
+        return (
+          <div>
+            <table>
+              <thead>
+                <tr>
+                  <td>A1</td>
+                  <td>A2</td>
+                  <td>A3</td>
+                  <td>NA</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: '#f1b4b0' }}>
+                  <td>{upA1}</td>
+                  <td>{upA2}</td>
+                  <td>{upA3}</td>
+                  <td>{upNA}</td>
+                </tr>
+                <tr style={{ background: '#cbeba8' }}>
+                  <td>{downA1}</td>
+                  <td>{downA2}</td>
+                  <td>{downA3}</td>
+                  <td>{downNA}</td>
+                </tr>
+              </tbody>
+            </table>
+            {/* <Tag color="red">
+              {upA1}
+              {upA2}
+              {upA3}
+              {upNA}
+              <br />
+            </Tag>
+            <Tag color="green">
+              {downA1}
+              {downA2}
+              {downA3}
+              {downNA} <br />
+            </Tag> */}
+          </div>
+        );
+      },
+    },
+    {
       title: '流通股本',
       dataIndex: 'circulation_stock',
       key: 'circulation_stock',
@@ -339,6 +413,18 @@ export const MyFocusListComponent = () => {
   useEffect(() => {
     async function handleAllStockData() {
       const data = await getAllFocusedStocks();
+      const rateByCur = data?.filter(
+        (i) =>
+          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
+          (i.currentPrice < i.finalprice && i.predict === 'Down')
+      ).length;
+      const rateByMax = data?.filter(
+        (i) =>
+          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
+          (i.maxPriceDiff === 0 && i.predict === 'Down')
+      )?.length;
+      setRateByCur(`${rateByCur}/${data.length}` as any);
+      setRateByMax(`${rateByMax}/${data.length}` as any);
       setData(data);
     }
 
@@ -349,11 +435,11 @@ export const MyFocusListComponent = () => {
     post('/api/edit_focus', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
     }).then(() => {
-      fetch('/api/all_focus_stock')
-        .then((res) => res.json())
-        .then((data) => {
-          setData(data);
-        });
+      async function handleAllStockData() {
+        const data = await getAllFocusedStocks();
+        setData(data);
+      }
+      handleAllStockData();
     });
   };
   const components = {
