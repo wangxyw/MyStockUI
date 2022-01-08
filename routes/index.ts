@@ -187,7 +187,24 @@ router.get('/all_focus_stock', function (req, res, next) {
   const sql = `SELECT * FROM focus_stocks a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
-    res.json(rows);
+    //res.json(rows);
+    let batchSql = '';
+    console.log(rows);
+    rows?.forEach(
+      (i) =>
+        (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
+    );
+    //console.log(batchSql);
+    pool.query(batchSql, function (newerr, newrows, newfields) {
+      if (err) throw err;
+      //...newrows.forEach(i => {})
+      const newResult = rows?.map((item, key) => ({
+        ...item,
+        //recentTen: newrows?.flat()?.filter((i) => i.symbol === item.symbol),
+        recentTen: newrows[key],
+      }));
+      res.json(newResult);
+    });
   });
 });
 
