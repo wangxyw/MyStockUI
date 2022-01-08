@@ -278,19 +278,21 @@ export const MyFocusListComponent = () => {
           (i) => i.status === 'up' && i.alarmtype === 'A3'
         ).length;
         const upNA = c.filter(
-          (i) => i.status === 'up' && i.alarmtype === ''
+          (i) =>
+            i.status === 'up' && (i.alarmtype === '' || i.alarmtype === null)
         ).length;
         const downA1 = c.filter(
           (i) => i.status === 'down' && i.alarmtype === 'A1'
         ).length;
         const downA2 = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === 'A1'
+          (i) => i.status === 'down' && i.alarmtype === 'A2'
         ).length;
         const downA3 = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === 'A1'
+          (i) => i.status === 'down' && i.alarmtype === 'A3'
         ).length;
         const downNA = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === ''
+          (i) =>
+            i.status === 'down' && (i.alarmtype === '' || i.alarmtype === null)
         ).length;
         return (
           <div>
