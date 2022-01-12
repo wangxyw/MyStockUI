@@ -157,6 +157,15 @@ router.post('/edit_focus_plate', function (req, res, next) {
     res.json(rows);
   });
 });
+router.post('/edit_focus_status', function (req, res, next) {
+  const status = req.body.status;
+  const code = req.body.symbol;
+  const sql = `UPDATE focus_stocks set focus_status=${status} where symbol='${code}'`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
 
 router.get('/get_viewed_stock', function (req, res, next) {
   const datestr = req.query.datestr;
