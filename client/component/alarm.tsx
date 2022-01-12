@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo, useEffect } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import React from 'react';
 import { Button, Input, Select, DatePicker, Radio, Tag, Switch } from 'antd';
 import ReactEcharts from 'echarts-for-react';
@@ -694,7 +694,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -842,7 +842,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -924,7 +924,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -1008,7 +1008,6 @@ export const AlarmComponent = (props) => {
               },
             ],
           });
-
           setPriceOption({
             title: {
               text: 'Final Price',
@@ -1017,7 +1016,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -1050,7 +1049,10 @@ export const AlarmComponent = (props) => {
               {
                 name: 'Final Price',
                 type: 'line',
-                data: priceArr,
+                data: priceArr.map((item, idx) => ({
+                  value: item,
+                  name: `item_${idx}`,
+                })),
                 itemStyle: {
                   normal: {
                     color: 'blue',
@@ -1068,7 +1070,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -1138,7 +1140,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -1188,7 +1190,7 @@ export const AlarmComponent = (props) => {
             tooltip: {
               trigger: 'axis',
               axisPointer: {
-                type: 'shadow',
+                type: 'cross',
               },
             },
             toolbox: {
@@ -1257,6 +1259,22 @@ export const AlarmComponent = (props) => {
       { method: 'GET' }
     ).then((res) => res.json());
   }, [comments, selectStock, predict]);
+
+  const priceChartRef = useRef<any>();
+  const mainChartRef = useRef<any>();
+  const showMarkPoint = useCallback(() => {
+    const mainChartInstance = mainChartRef?.current?.getEchartsInstance();
+    mainChartInstance.setOption({
+      series: [
+        {
+          markPoint: {
+            data: null,
+          },
+        },
+      ],
+    });
+  }, []);
+
   return (
     <div style={{ padding: '20px' }}>
       <h2>Alarm</h2>
@@ -1355,11 +1373,6 @@ export const AlarmComponent = (props) => {
           <Tag>{i}</Tag>
         ))}
       </div>
-      {/* <span style={{display:'inline-block', marginLeft:'100px'}}>From</span>
-            <DatePicker defaultValue={moment(selectStartDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectStartDate(v.format(dateFormat))}/> {'  TO  '}
-            <DatePicker defaultValue={moment(selectEndDate, dateFormat)} format={dateFormat} onChange={(v) =>setSelectEndDate(v.format(dateFormat))}/>
-            <Button onClick={() => {reLoadAllAlarms(true)}}>Load</Button>
-            <Button onClick={() => {reLoadAllAlarms(false)}}>Remove Time Filter</Button> */}
       <div style={{ marginTop: '10px' }}>
         Advanced Filter:
         <Select
@@ -1489,6 +1502,7 @@ export const AlarmComponent = (props) => {
           >
             Toggle Lines
           </Button>
+          <Button onClick={showMarkPoint}>Hide Mark</Button>
         </div>
         {showLines && <GridLines />}
         <ReactEcharts
@@ -1496,12 +1510,14 @@ export const AlarmComponent = (props) => {
           notMerge={true}
           lazyUpdate={true}
           option={option}
+          ref={mainChartRef}
         />
         <ReactEcharts
           style={{ height: 250, width: 1450 }}
           notMerge={true}
           lazyUpdate={true}
           option={priceOption}
+          ref={priceChartRef}
         />
         <ReactEcharts
           style={{ height: 350, width: 1450 }}
