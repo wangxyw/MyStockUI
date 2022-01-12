@@ -1,8 +1,26 @@
-import { Table, Form, Input, Popconfirm, Tag } from 'antd';
+import { Table, Form, Input, Popconfirm, Tag, Dropdown, Menu } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+const focusStatusMap = {
+  '1': {
+    name: '测试中',
+    color: 'blue',
+  },
+  '2': {
+    name: '时间未到',
+    color: 'yellow',
+  },
+  '3': {
+    name: '时机已到',
+    color: 'green',
+  },
+  '4': {
+    name: '时间过了',
+    color: 'grey',
+  },
+};
 
 interface Item {
   key: string;
@@ -173,6 +191,23 @@ export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
   const [rateByMax, setRateByMax] = useState();
+  const onClickMenu = (item, tableIndex) => {
+    console.log(`Click on item ${item.key}, ${tableIndex}`);
+
+    post('/api/edit_focus_status', {
+      body: JSON.stringify({
+        symbol: tableIndex,
+        status: item.key,
+      }),
+    }).then(() => {
+      async function handleAllStockData() {
+        const data = await getAllFocusedStocks();
+        setData(data);
+      }
+      handleAllStockData();
+    });
+  };
+
   const columns = [
     {
       title: 'Symbol',
@@ -207,6 +242,30 @@ export const MyFocusListComponent = () => {
           return '看跌';
         }
       },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'focus_status',
+      key: 'focus_status',
+      render: (txt, row) => {
+        return (
+          <Dropdown
+            overlay={
+              <Menu onClick={(item) => onClickMenu(item, row.symbol)}>
+                {Object.keys(focusStatusMap).map((i) => (
+                  <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
+                ))}
+              </Menu>
+            }
+          >
+            <Tag color={focusStatusMap[txt]?.color}>
+              {focusStatusMap[txt]?.name || '未标注'}
+            </Tag>
+          </Dropdown>
+        );
+      },
+      sorter: (a, b) =>
+        parseInt(a.focus_status || 0, 10) - parseInt(b.focus_status || 0, 10),
     },
     {
       title: 'Current Price',
@@ -320,19 +379,6 @@ export const MyFocusListComponent = () => {
                 </tr>
               </tbody>
             </table>
-            {/* <Tag color="red">
-              {upA1}
-              {upA2}
-              {upA3}
-              {upNA}
-              <br />
-            </Tag>
-            <Tag color="green">
-              {downA1}
-              {downA2}
-              {downA3}
-              {downNA} <br />
-            </Tag> */}
           </div>
         );
       },
