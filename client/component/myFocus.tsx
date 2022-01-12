@@ -57,9 +57,14 @@ const caculateMinPrice = (priceByDayData) => {
 
 const caculatePriceData = (stockData, stockPriceByDay) => {
   const priceData = stockData.map((i) => {
-    const priceByDayData = stockPriceByDay?.filter(
-      (e) => e.symbol === i.symbol && e.datestr >= i.datestr
-    );
+    const priceByDayData = stockPriceByDay?.filter((e) => {
+      let a = e.symbol === i.symbol && e.datestr >= i.datestr;
+
+      if (i.focus_status === '4') {
+        a = a && e.datestr <= i.updated_at;
+      }
+      return a;
+    });
     const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);
     const { minPrice, minPriceDay } = caculateMinPrice(priceByDayData);
     const oneStock = i;
@@ -191,13 +196,12 @@ export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
   const [rateByMax, setRateByMax] = useState();
-  const onClickMenu = (item, tableIndex) => {
-    console.log(`Click on item ${item.key}, ${tableIndex}`);
-
+  const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
       body: JSON.stringify({
         symbol: tableIndex,
         status: item.key,
+        datestr: datestr,
       }),
     }).then(() => {
       async function handleAllStockData() {
@@ -251,7 +255,9 @@ export const MyFocusListComponent = () => {
         return (
           <Dropdown
             overlay={
-              <Menu onClick={(item) => onClickMenu(item, row.symbol)}>
+              <Menu
+                onClick={(item) => onClickMenu(item, row.symbol, row.datestr)}
+              >
                 {Object.keys(focusStatusMap).map((i) => (
                   <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
                 ))}
@@ -457,6 +463,7 @@ export const MyFocusListComponent = () => {
       ),
     },
   ];
+  const [selectStatus, setSelectStatus] = useState<any>(null);
 
   useEffect(() => {
     async function handleAllStockData() {
@@ -473,11 +480,18 @@ export const MyFocusListComponent = () => {
       )?.length;
       setRateByCur(`${rateByCur}/${data.length}` as any);
       setRateByMax(`${rateByMax}/${data.length}` as any);
-      setData(data);
+      setData(
+        selectStatus
+          ? data.filter(
+              (i) =>
+                i.focus_status === (selectStatus === '0' ? null : selectStatus)
+            )
+          : data
+      );
     }
 
     handleAllStockData();
-  }, []);
+  }, [selectStatus]);
 
   const handleSave = (row: any) => {
     post('/api/edit_focus', {
@@ -511,9 +525,27 @@ export const MyFocusListComponent = () => {
       }),
     };
   });
+
   return (
     <div style={{ padding: '20px' }}>
-      My Focus Stocks
+      Filter By Status:
+      <Dropdown
+        overlay={
+          <Menu onClick={(ob) => setSelectStatus(ob.key)}>
+            {Object.keys(focusStatusMap)
+              .map((i) => (
+                <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
+              ))
+              .concat(<Menu.Item key={'0'}>{'未标注'}</Menu.Item>)}
+          </Menu>
+        }
+      >
+        <Tag color={focusStatusMap[selectStatus]?.color}>
+          {selectStatus === '0'
+            ? '未标注'
+            : focusStatusMap[selectStatus]?.name || 'All'}
+        </Tag>
+      </Dropdown>
       <Table
         pagination={{ defaultPageSize: 100 }}
         columns={mergedColumns}
