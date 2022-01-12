@@ -149,7 +149,8 @@ router.post('/edit_focus_plate', function (req, res, next) {
 router.post('/edit_focus_status', function (req, res, next) {
   const status = req.body.status;
   const code = req.body.symbol;
-  const sql = `UPDATE focus_stocks set focus_status=${status} where symbol='${code}'`;
+  const datestr = req.body.datestr;
+  const sql = `UPDATE focus_stocks set focus_status=${status} where symbol='${code}' and datestr='${datestr}'`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
