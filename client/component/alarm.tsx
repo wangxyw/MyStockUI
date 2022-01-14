@@ -6,7 +6,7 @@ import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
 import { get, post } from '../lib/request';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, orderBy } from 'lodash';
 import './alarm.css';
 
 const getBeforeOneDate = (date, n) => {
@@ -271,23 +271,23 @@ export const AlarmComponent = (props) => {
   );
   const [showLines, setShowLines] = React.useState(false);
 
-  const saveSearchResult = ({
-    consday,
-    totalday,
-    pricemargin,
-    datestr,
-    result,
-  }) => {
-    post('/api/save_advanced_search', {
-      body: JSON.stringify({
-        consday,
-        totalday,
-        pricemargin,
-        datestr,
-        result,
-      }),
-    });
-  };
+  // const saveSearchResult = ({
+  //   consday,
+  //   totalday,
+  //   pricemargin,
+  //   datestr,
+  //   result,
+  // }) => {
+  //   post('/api/save_advanced_search', {
+  //     body: JSON.stringify({
+  //       consday,
+  //       totalday,
+  //       pricemargin,
+  //       datestr,
+  //       result,
+  //     }),
+  //   });
+  // };
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
@@ -318,9 +318,69 @@ export const AlarmComponent = (props) => {
     [advancedSearchR]
   );
 
-  const advancedSearch = useCallback(
-    (selectConsDays, selectConsTotal, selectConsUpDown) => {
+  const chooseResults = useCallback(
+    (result) => {
       const upDownStocks: any[] = [];
+      const data = groupBy(result, 'symbol');
+      Object.keys(data).forEach((k) => {
+        const item = data[k];
+        if (selectConsTotal === 'CONS') {
+          const { isTrue, start, end, typeA, typeB, typeC } = validateCons(
+            item,
+            selectConsUpDown,
+            selectConsDays
+          );
+          if (typeA) item[0].typeA1 = true;
+          if (typeB) item[0].typeA2 = true;
+          if (typeC) item[0].typeA3 = true;
+          if (isTrue) {
+            if (caculatePriceBy) {
+              isAverageDistribution(item, selectPriceMargin) &&
+                upDownStocks.push(data[k][0]);
+            } else {
+              const startPrice = item[start].finalprice;
+              const endPrice = item[end].finalprice;
+              if (
+                Math.abs((endPrice - startPrice) / startPrice) <
+                selectPriceMargin / 100
+              ) {
+                upDownStocks.push(item[0]);
+              }
+            }
+          }
+        }
+        if (selectConsTotal === 'TOTAL') {
+          const { isTrue, typeA, typeB, typeC } = validateTotal(
+            item,
+            selectConsUpDown,
+            selectConsDays
+          );
+          if (typeA) item[0].typeA1 = true;
+          if (typeB) item[0].typeA2 = true;
+          if (typeC) item[0].typeA3 = true;
+          if (isTrue) {
+            if (caculatePriceBy) {
+              isAverageDistribution(item, selectPriceMargin) &&
+                upDownStocks.push(data[k][0]);
+            } else {
+              upDownStocks.push(data[k][0]);
+            }
+          }
+        }
+      });
+      return upDownStocks;
+    },
+    [
+      caculatePriceBy,
+      selectPriceMargin,
+      selectConsUpDown,
+      selectConsDays,
+      selectConsTotal,
+    ]
+  );
+
+  const advancedSearch = useCallback(
+    (selectConsDays) => {
       fetch(
         `/api/all_alarm_data?date_str=${caculateDate(
           selectDate,
@@ -339,63 +399,88 @@ export const AlarmComponent = (props) => {
                 return i;
               }
             });
-            const data = groupBy(result, 'symbol');
-            Object.keys(data).forEach((k) => {
-              const item = data[k];
-              if (selectConsTotal === 'CONS') {
-                const { isTrue, start, end, typeA, typeB, typeC } =
-                  validateCons(item, selectConsUpDown, selectConsDays);
-                if (typeA) item[0].typeA1 = true;
-                if (typeB) item[0].typeA2 = true;
-                if (typeC) item[0].typeA3 = true;
-                if (isTrue) {
-                  if (caculatePriceBy) {
-                    isAverageDistribution(item, selectPriceMargin) &&
-                      upDownStocks.push(data[k][0]);
-                  } else {
-                    const startPrice = item[start].finalprice;
-                    const endPrice = item[end].finalprice;
-                    if (
-                      Math.abs((endPrice - startPrice) / startPrice) <
-                      selectPriceMargin / 100
-                    ) {
-                      upDownStocks.push(item[0]);
-                    }
-                  }
-                }
-              }
-              if (selectConsTotal === 'TOTAL') {
-                const { isTrue, typeA, typeB, typeC } = validateTotal(
-                  item,
-                  selectConsUpDown,
-                  selectConsDays
-                );
-                if (typeA) item[0].typeA1 = true;
-                if (typeB) item[0].typeA2 = true;
-                if (typeC) item[0].typeA3 = true;
-                if (isTrue) {
-                  if (caculatePriceBy) {
-                    isAverageDistribution(item, selectPriceMargin) &&
-                      upDownStocks.push(data[k][0]);
-                  } else {
-                    upDownStocks.push(data[k][0]);
-                  }
-                }
-              }
-            });
+            const upDownStocks = chooseResults(result);
             setIsLoading(false);
             setStockOptions([...upDownStocks]);
             listPlate(upDownStocks);
             setTotalNum(upDownStocks.length);
-            saveSearchResult({
-              consday: selectConsDays,
-              totalday: selectConsAllDays,
-              datestr: caculateDate(selectDate, 0),
-              pricemargin: selectPriceMargin,
-              result: upDownStocks.length,
-            });
+            // saveSearchResult({
+            //   consday: selectConsDays,
+            //   totalday: selectConsAllDays,
+            //   datestr: caculateDate(selectDate, 0),
+            //   pricemargin: selectPriceMargin,
+            //   result: upDownStocks.length,
+            // });
           });
         });
+    },
+    [
+      setStockOptions,
+      from100,
+      selectAlarmType,
+      selectConsDays,
+      stockOptions,
+      selectConsAllDays,
+      selectDate,
+      caculatePriceBy,
+      selectPriceMargin,
+      viewedDate,
+    ]
+  );
+
+  const advancedSearchByWeek = useCallback(
+    (selectConsDays) => {
+      setIsLoading(true);
+      const promise = [0, 1, 2, 3, 4].map((i) => {
+        const allDays = parseInt(selectConsAllDays, 10) + i;
+        return new Promise((resolve, reject) => {
+          get(
+            `/api/all_alarm_data?date_str=${caculateDate(
+              selectDate,
+              allDays
+            )}&end_date_str=${caculateDate(selectDate, i)}&from100=${from100}`
+          ).then((res) => {
+            resolve(res);
+          });
+        });
+      });
+
+      Promise.all(promise).then((d: any) => {
+        get(`/api/get_viewed_stock?datestr=${viewedDate}`).then((viewed) => {
+          // const result = d.map((i) => {
+          //   if (viewed.find((e) => e.symbol === i.symbol)) {
+          //     i.viewed = true;
+          //     return i;
+          //   } else {
+          //     return i;
+          //   }
+          // });
+          const allStocks: any = [];
+          d?.forEach((i) => {
+            allStocks.push(...chooseResults(i));
+          });
+          const allStocksGroupBySymbol = groupBy(allStocks, 'symbol');
+          const upDownStocks = orderBy(
+            Object.keys(allStocksGroupBySymbol)?.map((i) => ({
+              ...allStocksGroupBySymbol[i][0],
+              dupCount: allStocksGroupBySymbol[i]?.length,
+            })),
+            ['dupCount'],
+            ['desc']
+          );
+          setIsLoading(false);
+          setStockOptions([...upDownStocks]);
+          listPlate(upDownStocks);
+          setTotalNum(upDownStocks.length);
+          // saveSearchResult({
+          //   consday: selectConsDays,
+          //   totalday: selectConsAllDays,
+          //   datestr: caculateDate(selectDate, 0),
+          //   pricemargin: selectPriceMargin,
+          //   result: upDownStocks.length,
+          // });
+        });
+      });
     },
     [
       setStockOptions,
@@ -1234,7 +1319,6 @@ export const AlarmComponent = (props) => {
           });
         })
         .catch((error) => {
-          console.log('error: ', error);
           throw error;
         });
 
@@ -1302,6 +1386,7 @@ export const AlarmComponent = (props) => {
             value={i.symbol}
             style={{ color: `${i.viewed ? 'red' : '#222'}` }}
           >{`${i.name} ${i.symbol} ${i['count(*)'] ? `(${i['count(*)']})` : ''}
+            ${i.dupCount ? `(${i.dupCount})` : ''}
             ${i.typeA1 ? 'A1' : ''}
             ${i.typeA2 ? 'A2' : ''}
             ${i.typeA3 ? 'A3' : ''}
@@ -1398,15 +1483,20 @@ export const AlarmComponent = (props) => {
           <Select.Option value="down">Down</Select.Option>
         </Select>
         {' for '}
-        <Input
-          style={{ width: '50px', height: '32px' }}
-          size="small"
-          placeholder="Input Days"
+        <Select
+          style={{ width: '80px' }}
           value={selectConsDays}
-          onChange={(e) => {
-            setSelectConsDays(parseInt(e.target.value, 10));
+          onChange={(v) => {
+            setSelectConsDays(v);
           }}
-        />
+          size="small"
+        >
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+            <Select.Option key={i} value={i}>
+              {i}
+            </Select.Option>
+          ))}
+        </Select>
         days
         <Select
           style={{ width: '80px' }}
@@ -1423,15 +1513,20 @@ export const AlarmComponent = (props) => {
           ))}
         </Select>
         % price margin in
-        <Input
-          style={{ width: '50px', height: '32px' }}
-          size="small"
-          placeholder="Input Days"
+        <Select
+          style={{ width: '80px' }}
           value={selectConsAllDays}
-          onChange={(e) => {
-            setSelectConsAllDays(e.target.value);
+          onChange={(v) => {
+            setSelectConsAllDays(v);
           }}
-        />
+          size="small"
+        >
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+            <Select.Option key={i} value={i}>
+              {i}
+            </Select.Option>
+          ))}
+        </Select>
         days
         <Switch
           unCheckedChildren="Former"
@@ -1446,7 +1541,7 @@ export const AlarmComponent = (props) => {
           onClick={() => {
             if (selectConsDays && !isNaN(selectConsDays)) {
               setIsLoading(true);
-              advancedSearch(selectConsDays, selectConsTotal, selectConsUpDown);
+              advancedSearch(selectConsDays);
             }
           }}
         >
@@ -1462,6 +1557,16 @@ export const AlarmComponent = (props) => {
         >
           {' '}
           Clear Advanced Search
+        </Button>
+        <Button
+          style={{ marginLeft: '10px' }}
+          type="primary"
+          onClick={() => {
+            advancedSearchByWeek(selectConsDays);
+          }}
+        >
+          {' '}
+          Search By Week
         </Button>
       </div>
       <div>
