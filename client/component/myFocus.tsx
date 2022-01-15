@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-const focusStatusMap = {
+export const focusStatusMap = {
   '1': {
     name: '测试中',
     color: 'blue',
@@ -206,7 +206,15 @@ export const MyFocusListComponent = () => {
     }).then(() => {
       async function handleAllStockData() {
         const data = await getAllFocusedStocks();
-        setData(data);
+        setData(
+          selectStatus
+            ? data.filter(
+                (i) =>
+                  i.focus_status ===
+                  (selectStatus === '0' ? null : selectStatus)
+              )
+            : data
+        );
       }
       handleAllStockData();
     });
@@ -452,7 +460,15 @@ export const MyFocusListComponent = () => {
             }).then(() => {
               async function handleAllStockData() {
                 const data = await getAllFocusedStocks();
-                setData(data);
+                setData(
+                  selectStatus
+                    ? data.filter(
+                        (i) =>
+                          i.focus_status ===
+                          (selectStatus === '0' ? null : selectStatus)
+                      )
+                    : data
+                );
               }
               handleAllStockData();
             })
@@ -499,7 +515,15 @@ export const MyFocusListComponent = () => {
     }).then(() => {
       async function handleAllStockData() {
         const data = await getAllFocusedStocks();
-        setData(data);
+        setData(
+          selectStatus
+            ? data.filter(
+                (i) =>
+                  i.focus_status ===
+                  (selectStatus === '0' ? null : selectStatus)
+              )
+            : data
+        );
       }
       handleAllStockData();
     });

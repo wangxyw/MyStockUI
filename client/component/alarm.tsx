@@ -8,6 +8,7 @@ import DATE from './date.json';
 import { get, post } from '../lib/request';
 import { cloneDeep, orderBy } from 'lodash';
 import './alarm.css';
+import { focusStatusMap } from './myFocus';
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -270,6 +271,7 @@ export const AlarmComponent = (props) => {
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
   const [showLines, setShowLines] = React.useState(false);
+  const [selectFocusStatus, setSelectFocusStatus] = useState<any>(null);
 
   // const saveSearchResult = ({
   //   consday,
@@ -447,20 +449,12 @@ export const AlarmComponent = (props) => {
 
       Promise.all(promise).then((d: any) => {
         get(`/api/get_viewed_stock?datestr=${viewedDate}`).then((viewed) => {
-          // const result = d.map((i) => {
-          //   if (viewed.find((e) => e.symbol === i.symbol)) {
-          //     i.viewed = true;
-          //     return i;
-          //   } else {
-          //     return i;
-          //   }
-          // });
           const allStocks: any = [];
           d?.forEach((i) => {
             allStocks.push(...chooseResults(i));
           });
           const allStocksGroupBySymbol = groupBy(allStocks, 'symbol');
-          const upDownStocks = orderBy(
+          const upDownStocksR = orderBy(
             Object.keys(allStocksGroupBySymbol)?.map((i) => ({
               ...allStocksGroupBySymbol[i][0],
               dupCount: allStocksGroupBySymbol[i]?.length,
@@ -468,17 +462,18 @@ export const AlarmComponent = (props) => {
             ['dupCount'],
             ['desc']
           );
+          const upDownStocks = upDownStocksR.map((i) => {
+            if (viewed.find((e) => e.symbol === i.symbol)) {
+              i.viewed = true;
+              return i;
+            } else {
+              return i;
+            }
+          });
           setIsLoading(false);
           setStockOptions([...upDownStocks]);
           listPlate(upDownStocks);
           setTotalNum(upDownStocks.length);
-          // saveSearchResult({
-          //   consday: selectConsDays,
-          //   totalday: selectConsAllDays,
-          //   datestr: caculateDate(selectDate, 0),
-          //   pricemargin: selectPriceMargin,
-          //   result: upDownStocks.length,
-          // });
         });
       });
     },
@@ -1339,7 +1334,7 @@ export const AlarmComponent = (props) => {
       `/api/add_focus?stock_id=${selectStock}&datestr=${caculateDate(
         selectDate,
         0
-      )}&comments=${comments}&predict=${predict}`,
+      )}&comments=${comments}&predict=${predict}&focus_status=${selectFocusStatus}`,
       { method: 'GET' }
     ).then((res) => res.json());
   }, [comments, selectStock, predict]);
@@ -1587,6 +1582,26 @@ export const AlarmComponent = (props) => {
           <Radio value={'up'}>看涨</Radio>
           <Radio value={'down'}>看跌</Radio>
         </Radio.Group>
+        <Select
+          style={{ width: '80px' }}
+          value={selectFocusStatus}
+          onChange={(v) => {
+            setSelectFocusStatus(v);
+          }}
+          size="small"
+        >
+          {Object.keys(focusStatusMap)
+            .map((i) => (
+              <Select.Option key={i} value={i}>
+                {focusStatusMap[i]?.name || '未标注'}
+              </Select.Option>
+            ))
+            .concat(
+              <Select.Option key={null as any} value={null as any}>
+                {'未标注'}
+              </Select.Option>
+            )}
+        </Select>
         <Button
           type="primary"
           onClick={() => {

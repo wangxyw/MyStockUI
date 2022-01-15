@@ -57,7 +57,8 @@ router.get('/add_focus', function (req, res, next) {
   const datestr = req.query.datestr;
   const comments = req.query.comments;
   const predict = req.query.predict;
-  const sql = `INSERT INTO focus_stocks (symbol, datestr, comments, predict) VALUES ('${symbol}', '${datestr}', '${comments}', '${predict}');`;
+  const status = req.query.focus_status;
+  const sql = `INSERT INTO focus_stocks (symbol, datestr, comments, predict, focus_status) VALUES ('${symbol}', '${datestr}', '${comments}', '${predict}', ${status});`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
