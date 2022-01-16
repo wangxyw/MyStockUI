@@ -1318,9 +1318,7 @@ export const AlarmComponent = (props) => {
         });
 
     fetch(
-      `/api/update_stock_status?stock_id=${selectStock}&datestr=${moment(
-        new Date()
-      ).format(dateFormat)}`,
+      `/api/update_stock_status?stock_id=${selectStock}&datestr=${moment(viewedDate, dateFormat).format(dateFormat)}`,
       { method: 'GET' }
     )
       .then((res) => res.json())
