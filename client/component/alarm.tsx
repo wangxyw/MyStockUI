@@ -1317,14 +1317,21 @@ export const AlarmComponent = (props) => {
         });
 
     fetch(
-      `/api/update_stock_status?stock_id=${selectStock}&datestr=${moment(viewedDate, dateFormat).format(dateFormat)}`,
+      `/api/update_stock_status?stock_id=${selectStock}&datestr=${viewedDate}`,
       { method: 'GET' }
     )
       .then((res) => res.json())
       .then(() => {
         reLoadAllAlarms(false);
       });
-  }, [selectStock, selectAlarmType, selectDays, stockOptions, from100]);
+  }, [
+    selectStock,
+    selectAlarmType,
+    selectDays,
+    stockOptions,
+    from100,
+    viewedDate,
+  ]);
 
   const addtoFocus = useCallback(() => {
     fetch(
@@ -1334,7 +1341,7 @@ export const AlarmComponent = (props) => {
       )}&comments=${comments}&predict=${predict}&focus_status=${selectFocusStatus}`,
       { method: 'GET' }
     ).then((res) => res.json());
-  }, [comments, selectStock, predict]);
+  }, [comments, selectStock, predict, selectFocusStatus]);
 
   const priceChartRef = useRef<any>();
   const mainChartRef = useRef<any>();
