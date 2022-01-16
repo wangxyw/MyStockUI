@@ -36,9 +36,8 @@ const getBeforeOneDate = (date, n) => {
     (day < 10 ? '0' + day : day);
   return s;
 };
-
-const caculateDate = (startDatestr, days) => {
-  const workdays = DATE.workday;
+export const workdays = DATE.workday;
+export const caculateDate = (startDatestr, days) => {
   const startDateStrIndex = workdays.indexOf(startDatestr);
   if (startDateStrIndex !== -1) {
     const endDateStr = workdays[startDateStrIndex - days];
@@ -95,7 +94,7 @@ const getBeforeDate = (n) => {
   return s;
 };
 
-const validateCons = (data, selectConsUpDown, selectConsDays) => {
+export const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let consNum = 0;
   let end = 0;
   let j = 0;
@@ -140,7 +139,7 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   }
 };
 
-const validateTotal = (data, selectConsUpDown, selectConsDays) => {
+export const validateTotal = (data, selectConsUpDown, selectConsDays) => {
   let typeA = false;
   let typeB = false;
   let typeC = false;

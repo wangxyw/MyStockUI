@@ -7,21 +7,29 @@ import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 import { AdvancedSearchCom } from './component/advanced_search_result';
 import { Alarm100Component } from './component/alarm100';
 import { PlateComponent } from './component/focus_plate';
+import { DataAnalysisCom } from './component/data_analysis';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_SELECTED = 'selected';
 const MENU_ALARM_100 = 'alarm100';
 const MENU_AD = 'advanced_search_result';
 const MENU_PLATE = 'plate';
+const MENU_DATA_ANA = 'data_analysis';
 
 function getInitPath() {
   if (window) {
     const path = window.location.pathname;
 
     if (
-      [MENU_ALARM, MENU_FOCUSED, MENU_SELECTED, MENU_ALARM_100, MENU_AD, MENU_PLATE].find((p) =>
-        path.startsWith(`/${p}`)
-      )
+      [
+        MENU_ALARM,
+        MENU_FOCUSED,
+        MENU_SELECTED,
+        MENU_ALARM_100,
+        MENU_AD,
+        MENU_DATA_ANA,
+        MENU_PLATE,
+      ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
     } else {
@@ -62,6 +70,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_AD}>
           <Link to="/advanced_search_result">Advanced Search Result</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_DATA_ANA}>
+          <Link to="/data_analysis">Data Analysis</Link>
+        </Menu.Item>
         <Menu.Item key={MENU_PLATE}>
           <Link to="/plate">Plate List</Link>
         </Menu.Item>
@@ -76,6 +87,9 @@ const App = (): JSX.Element => {
         <Route path="/advanced_search_result" component={AdvancedSearchCom}>
           <AdvancedSearchCom />
         </Route>
+        <Route path="/data_analysis" component={DataAnalysisCom}>
+          <DataAnalysisCom />
+        </Route>
         <Route path="/alarm100" component={AlarmComponent}>
           <AlarmComponent from100={true} />
         </Route>
@@ -83,7 +97,7 @@ const App = (): JSX.Element => {
           <PlateComponent />
         </Route>
         <Route path="/" component={AlarmComponent}>
-          <AlarmComponent from100={false}/>
+          <AlarmComponent from100={false} />
         </Route>
       </Switch>
     </BrowserRouter>
