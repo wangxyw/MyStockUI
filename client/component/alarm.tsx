@@ -36,9 +36,8 @@ const getBeforeOneDate = (date, n) => {
     (day < 10 ? '0' + day : day);
   return s;
 };
-
-const caculateDate = (startDatestr, days) => {
-  const workdays = DATE.workday;
+export const workdays = DATE.workday;
+export const caculateDate = (startDatestr, days) => {
   const startDateStrIndex = workdays.indexOf(startDatestr);
   if (startDateStrIndex !== -1) {
     const endDateStr = workdays[startDateStrIndex - days];
@@ -95,7 +94,7 @@ const getBeforeDate = (n) => {
   return s;
 };
 
-const validateCons = (data, selectConsUpDown, selectConsDays) => {
+export const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let consNum = 0;
   let end = 0;
   let j = 0;
@@ -140,7 +139,7 @@ const validateCons = (data, selectConsUpDown, selectConsDays) => {
   }
 };
 
-const validateTotal = (data, selectConsUpDown, selectConsDays) => {
+export const validateTotal = (data, selectConsUpDown, selectConsDays) => {
   let typeA = false;
   let typeB = false;
   let typeC = false;
@@ -1318,14 +1317,21 @@ export const AlarmComponent = (props) => {
         });
 
     fetch(
-      `/api/update_stock_status?stock_id=${selectStock}&datestr=${moment(viewedDate, dateFormat).format(dateFormat)}`,
+      `/api/update_stock_status?stock_id=${selectStock}&datestr=${viewedDate}`,
       { method: 'GET' }
     )
       .then((res) => res.json())
       .then(() => {
         reLoadAllAlarms(false);
       });
-  }, [selectStock, selectAlarmType, selectDays, stockOptions, from100]);
+  }, [
+    selectStock,
+    selectAlarmType,
+    selectDays,
+    stockOptions,
+    from100,
+    viewedDate,
+  ]);
 
   const addtoFocus = useCallback(() => {
     fetch(
@@ -1335,7 +1341,7 @@ export const AlarmComponent = (props) => {
       )}&comments=${comments}&predict=${predict}&focus_status=${selectFocusStatus}`,
       { method: 'GET' }
     ).then((res) => res.json());
-  }, [comments, selectStock, predict]);
+  }, [comments, selectStock, predict, selectFocusStatus]);
 
   const priceChartRef = useRef<any>();
   const mainChartRef = useRef<any>();
