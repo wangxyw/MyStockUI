@@ -34,7 +34,7 @@ const dapanOption = (data) => {
     series: [
       {
         name: 'TotalPct',
-        type: 'bar',
+        type: 'line',
         data: yData,
         itemStyle: {
           normal: {
@@ -125,7 +125,6 @@ export const DataAnalysisCom = () => {
         stockDataByDate[date] = selectedStocks;
         allSelectStocks.push(...selectedStocks);
       });
-      console.log(allSelectStocks);
       const allStocksGroupBySymbol = groupBy(allSelectStocks, 'symbol');
       const upDownStocks = orderBy(
         Object.keys(allStocksGroupBySymbol)?.map((i) => ({

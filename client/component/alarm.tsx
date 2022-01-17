@@ -5,10 +5,18 @@ import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import { groupBy } from 'lodash';
 import DATE from './date.json';
-import { get, post } from '../lib/request';
+import { get } from '../lib/request';
 import { cloneDeep, orderBy } from 'lodash';
 import './alarm.css';
-import { focusStatusMap } from './myFocus';
+import { caculateMinPrice, focusStatusMap } from './myFocus';
+import { match } from 'assert';
+
+const curDate = new Date();
+const year = curDate.getFullYear();
+const month = curDate.getMonth() + 1;
+const day = curDate.getDate();
+const dateFormat = 'YYYY-MM-DD';
+export const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 
 const getBeforeOneDate = (date, n) => {
   //const n = n;
@@ -48,6 +56,21 @@ export const caculateDate = (startDatestr, days) => {
       startDatestr = getBeforeOneDate(startDatestr, i);
     }
     const endDateStr = workdays[workdays.indexOf(startDatestr) - days];
+    return endDateStr;
+  }
+};
+
+export const caculateAfterDate = (startDatestr, days) => {
+  const startDateStrIndex = workdays.indexOf(startDatestr);
+  if (startDateStrIndex !== -1) {
+    const endDateStr = workdays[startDateStrIndex + days];
+    return endDateStr;
+  } else {
+    let i = 1;
+    while (workdays.indexOf(startDatestr) === -1) {
+      startDatestr = getBeforeOneDate(startDatestr, i);
+    }
+    const endDateStr = workdays[workdays.indexOf(startDatestr) + days];
     return endDateStr;
   }
 };
@@ -224,6 +247,7 @@ const isAverageDistribution = (item, selectPriceMargin) => {
   });
   return isAverage;
 };
+
 export const AlarmComponent = (props) => {
   const { from100 } = props;
   const [selectStock, setSelectStock] = useState<any>('');
@@ -243,11 +267,7 @@ export const AlarmComponent = (props) => {
   const [stockPlate, setStockPlate] = useState('');
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
-  const curDate = new Date();
-  const year = curDate.getFullYear();
-  const month = curDate.getMonth() + 1;
-  const day = curDate.getDate();
-  const dateFormat = 'YYYY-MM-DD';
+
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
@@ -271,6 +291,8 @@ export const AlarmComponent = (props) => {
   );
   const [showLines, setShowLines] = React.useState(false);
   const [selectFocusStatus, setSelectFocusStatus] = useState<any>(null);
+  const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
+  const [selectMinPriceDays, setSelectMinPriceDays] = useState(20);
 
   // const saveSearchResult = ({
   //   consday,
@@ -289,6 +311,40 @@ export const AlarmComponent = (props) => {
   //     }),
   //   });
   // };
+  const searchByPrice = useCallback(() => {
+    setIsLoading(true);
+    const ids = stockOptions?.map((i) => `'${i.symbol}'`).join(',');
+    get(
+      `/api/get_focus_stock_price?stocks=${ids}&datestr=${caculateDate(
+        selectDate,
+        0
+      )}&start_date=${caculateDate(selectDate, selectMinPriceDays)}`
+    ).then((d) => {
+      get(`/api/get_viewed_stock?datestr=${viewedDate}`).then((viewed) => {
+        const result = d.map((i) => {
+          if (viewed.find((e) => e.symbol === i.symbol)) {
+            i.viewed = true;
+            return i;
+          } else {
+            return i;
+          }
+        });
+        const groupStocks = groupBy(result, 'symbol');
+        const matchStocks: any = [];
+        Object.keys(groupStocks)?.forEach((key) => {
+          const stockArr = groupStocks[key];
+          const { minPrice } = caculateMinPrice(stockArr);
+          const curPrice = stockArr[stockArr?.length - 1]?.finalprice;
+          if ((curPrice - minPrice) / minPrice < selectMinPriceMargin / 100) {
+            matchStocks.push(stockArr[stockArr?.length - 1]);
+          }
+        });
+        setStockOptions(matchStocks);
+        setTotalNum(matchStocks.length);
+        setIsLoading(false);
+      });
+    });
+  }, [stockOptions, selectDate, selectMinPriceDays, selectMinPriceMargin]);
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
@@ -1566,6 +1622,42 @@ export const AlarmComponent = (props) => {
         >
           {' '}
           Search By Week
+        </Button>
+      </div>
+      <div style={{ margin: '10px 0' }}>
+        {'Filter By Min Price:CurrentPrice - MinPrice / MinPrice < '}
+        <Select
+          style={{ width: '80px' }}
+          value={selectMinPriceMargin}
+          onChange={(v) => {
+            setSelectMinPriceMargin(v);
+          }}
+          size="small"
+        >
+          {[5, 10, 15, 20].map((i) => (
+            <Select.Option key={i} value={i}>
+              {i}
+            </Select.Option>
+          ))}
+        </Select>
+        in
+        <Select
+          style={{ width: '80px' }}
+          value={selectMinPriceDays}
+          onChange={(v) => {
+            setSelectMinPriceDays(v);
+          }}
+          size="small"
+        >
+          {[20, 30, 40, 50, 60].map((i) => (
+            <Select.Option key={i} value={i}>
+              {i}
+            </Select.Option>
+          ))}
+        </Select>{' '}
+        days
+        <Button type="primary" onClick={searchByPrice}>
+          Search(Need Click After Set Advanced Search)
         </Button>
       </div>
       <div>

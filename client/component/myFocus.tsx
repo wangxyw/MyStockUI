@@ -3,21 +3,22 @@ import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { caculateAfterDate, caculateDate, today } from './alarm';
 export const focusStatusMap = {
   '1': {
     name: '测试中',
     color: 'blue',
   },
   '2': {
-    name: '时间未到',
+    name: '未到买点',
     color: 'yellow',
   },
   '3': {
-    name: '时机已到',
+    name: '已到买点',
     color: 'green',
   },
   '4': {
-    name: '时间过了',
+    name: '买点已过',
     color: 'grey',
   },
 };
@@ -43,7 +44,7 @@ const caculateMaxPrice = (priceByDayData) => {
   return { maxPrice, maxPriceDay };
 };
 
-const caculateMinPrice = (priceByDayData) => {
+export const caculateMinPrice = (priceByDayData) => {
   let minPrice = priceByDayData[0].finalprice;
   let minPriceDay = 0;
   priceByDayData.forEach((i, k) => {
@@ -58,11 +59,10 @@ const caculateMinPrice = (priceByDayData) => {
 const caculatePriceData = (stockData, stockPriceByDay) => {
   const priceData = stockData.map((i) => {
     const priceByDayData = stockPriceByDay?.filter((e) => {
-      let a = e.symbol === i.symbol && e.datestr >= i.datestr;
-
-      if (i.focus_status === '4') {
-        a = a && e.datestr <= i.updated_at;
-      }
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr >= i.datestr &&
+        e.datestr <= caculateAfterDate(i.datestr, 60);
       return a;
     });
     const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);
@@ -204,6 +204,21 @@ export const MyFocusListComponent = () => {
         datestr: datestr,
       }),
     }).then(() => {
+      if (item.key === '3') {
+        console.log(item, tableIndex);
+        post('/api/edit_focus_datestr', {
+          body: JSON.stringify({
+            symbol: tableIndex,
+            status: item.key,
+            datestr: datestr,
+            newDatestr: caculateDate(today, 0),
+          }),
+        }).then((i) => {
+          if (i.code) {
+            alert(i.sqlMessage);
+          }
+        });
+      }
       async function handleAllStockData() {
         const data = await getAllFocusedStocks();
         setData(
@@ -304,13 +319,6 @@ export const MyFocusListComponent = () => {
       title: 'Final Price',
       dataIndex: 'finalprice',
       key: 'finalprice',
-    },
-    {
-      title: 'Price Change Pct',
-      dataIndex: 'pricechangepct',
-      key: 'pricechangepct',
-      sorter: (a, b) => a.pricechangepct - b.pricechangepct,
-      // render: txt => (<>{(+txt < 0? <ArrowDownOutlined twoToneColor={"green"}/> : <ArrowUpOutlined twoToneColor={"red"}/>)}</>)
     },
     {
       title: 'Turnover Rate',
