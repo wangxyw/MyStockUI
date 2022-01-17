@@ -157,6 +157,21 @@ router.post('/edit_focus_status', function (req, res, next) {
     res.json(rows);
   });
 });
+router.post('/edit_focus_datestr', function (req, res, next) {
+  // const status = req.body.status;
+  const code = req.body.symbol;
+  const datestr = req.body.datestr;
+  const newDatestr = req.body.newDatestr;
+  const sql = `UPDATE focus_stocks set datestr='${newDatestr}' where symbol='${code}' and datestr='${datestr}'`;
+  console.log(sql);
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
 
 router.get('/get_viewed_stock', function (req, res, next) {
   const datestr = req.query.datestr;
@@ -189,7 +204,6 @@ router.get('/all_focus_stock', function (req, res, next) {
     if (err) throw err;
     //res.json(rows);
     let batchSql = '';
-    console.log(rows);
     rows?.forEach(
       (i) =>
         (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
@@ -210,11 +224,12 @@ router.get('/all_focus_stock', function (req, res, next) {
 
 router.get('/get_focus_stock_price', function (req, res, next) {
   const symbols = req.query.stocks;
-
-  const sql = `SELECT * FROM stock_big_data where symbol in (${symbols})`;
-
-  console.log(sql);
-
+  const endDate = req.query.datestr;
+  const startDate = req.query.start_date;
+  let sql = `SELECT * FROM stock_big_data where symbol in (${symbols})`;
+  if (startDate && endDate) {
+    sql = `SELECT * FROM stock_big_data where symbol in (${symbols}) and datestr <= '${endDate}' and datestr > '${startDate}'`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
