@@ -240,13 +240,15 @@ export const MyFocusListComponent = () => {
       title: 'Symbol',
       dataIndex: 'symbol',
       key: 'symbol',
-      render: (text) => {
+      render: (text, record) => {
         return (
           <a
             target="_blank"
             href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
           >
             {text}
+            {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
+              '*'}
           </a>
         );
       },
@@ -255,6 +257,15 @@ export const MyFocusListComponent = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      render: (text, record) => {
+        return (
+          <span>
+            {text}
+            {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
+              '*'}
+          </span>
+        );
+      },
     },
     {
       title: 'Predict',
