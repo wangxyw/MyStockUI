@@ -334,9 +334,14 @@ export const AlarmComponent = (props) => {
         Object.keys(groupStocks)?.forEach((key) => {
           const stockArr = groupStocks[key];
           const { minPrice } = caculateMinPrice(stockArr);
-          const curPrice = stockArr[stockArr?.length - 1]?.finalprice;
+          let curItem = stockArr[stockArr?.length - 1];
+          let curPrice = curItem?.finalprice;
+          if (!curPrice) {
+            curPrice = stockArr[stockArr?.length - 2]?.finalprice;
+            curItem = stockArr[stockArr?.length - 2];
+          }
           if ((curPrice - minPrice) / minPrice < selectMinPriceMargin / 100) {
-            matchStocks.push(stockArr[stockArr?.length - 1]);
+            matchStocks.push(curItem);
           }
         });
         setStockOptions(matchStocks);
