@@ -1,4 +1,6 @@
 import request from 'axios';
+import { chooseResults, filterByCondition2 } from './biz';
+import { caculateDate } from './utils';
 var express = require('express');
 var router = express.Router();
 const YAML = require('yamljs');
@@ -19,6 +21,18 @@ var pool = mysql.createPool({
   database: mysqlConfig.dbsql.database,
   multipleStatements: true,
 });
+
+let queryDB = function (sql) {
+  return new Promise((resolve, reject) => {
+    pool.query(sql, (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+};
 
 router.get('/stock_info', function (req, res, next) {
   const symbol = req.query.stock_id;
@@ -163,7 +177,6 @@ router.post('/edit_focus_datestr', function (req, res, next) {
   const datestr = req.body.datestr;
   const newDatestr = req.body.newDatestr;
   const sql = `UPDATE focus_stocks set datestr='${newDatestr}' where symbol='${code}' and datestr='${datestr}'`;
-  console.log(sql);
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -252,19 +265,8 @@ router.get('/stock_alarm', function (req, res, next) {
   }
 
   const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
-  // let sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = '${alarm_type}' and a.symbol='${symbol}' and a.datestr=b.datestr;`
-  // if (alarm_type === 'All') {
-  //   sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.symbol='${symbol}' and a.datestr=b.datestr;`
-  // }
-  // if (alarm_type === 'A1A2') {
-  //   sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.symbol='${symbol}' and alarmtype !='A3' and a.datestr=b.datestr;`
-  //   //sql = `SELECT * FROM stock_alarms where symbol='${symbol}' and alarmtype !='A3'`
-  // }
-  // if (alarm_type === 'A1Today') {
-  //   sql = `SELECT * FROM stock_alarms a join stock_daily b on a.symbol = b.symbol where a.alarmtype = 'A1' and a.symbol='${symbol}' and a.datestr=b.datestr;`
-  // }
   pool.query(`${sql}${plateSQL}`, function (err, rows, fields) {
-    //if (err) throw err;
+    if (err) throw err;
     res.json(rows?.[0].map((i) => ({ ...i, plates: rows?.[1]?.[0]?.plates })));
   });
 });
@@ -276,9 +278,61 @@ router.get('/all_alarm_data', function (req, res, next) {
   let table = 'stock_big_data';
   if (from100 === 'true') table = 'stock_big_data_100';
   let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
+  console.log(sql);
   pool.query(sql, function (err, rows, fields) {
-    //if (err) throw err;
+    if (err) throw err;
     res.json(rows);
+  });
+});
+
+router.get('/searchByDay', async function (req, res, next) {
+  const {
+    datestr,
+    selectConsTotal,
+    selectConsUpDown,
+    selectConsDays,
+    selectConsAllDays,
+    hasCondition1,
+    selectPriceMargin,
+    caculatePriceBy,
+    hasCondition2,
+    minOrAverage,
+    selectMinPriceMargin,
+    selectMinPriceDays,
+    from100,
+  } = req.query;
+  const startDateStr = caculateDate(datestr, selectConsAllDays);
+  let table = 'stock_big_data';
+  if (from100 === 'true') table = 'stock_big_data_100';
+  let sql = `select * from ${table} a where a.datestr > '${startDateStr}' and a.datestr <= '${datestr}' and a.name not like "%ST%"`;
+  console.log(sql);
+  pool.query(sql, async function (err, rows, fields) {
+    if (err) throw err;
+    let results: any = chooseResults({
+      rows,
+      selectConsTotal,
+      selectConsUpDown,
+      selectConsDays,
+      hasCondition1,
+      selectPriceMargin,
+      caculatePriceBy,
+    });
+    if (hasCondition2 === 'true') {
+      const ids = results?.map((i) => `'${i.symbol}'`).join(',');
+      sql = `SELECT * FROM stock_big_data where symbol in (${ids}) and datestr <= '${datestr}' and datestr > '${caculateDate(
+        datestr,
+        selectMinPriceDays
+      )}'`;
+      const rows1: any = await queryDB(sql);
+      const matchResults = filterByCondition2({
+        rows1,
+        minOrAverage,
+        selectMinPriceMargin,
+      });
+      res.json(matchResults);
+    } else {
+      res.json(results);
+    }
   });
 });
 
