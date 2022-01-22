@@ -1484,7 +1484,7 @@ export const AlarmComponent = (props) => {
             }}
           >
             {' '}
-            Set Advanced Search
+            Search By Day
           </Button>
           <Button
             style={{
