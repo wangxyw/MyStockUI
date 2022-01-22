@@ -10,6 +10,7 @@ import {
   Switch,
   Space,
   Checkbox,
+  InputNumber,
 } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
@@ -163,7 +164,7 @@ export const AlarmComponent = (props) => {
   const [volOption, setVolOption] = useState({});
   const [averageOption, setAverageOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
-  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
+  const [selectConsAllDays, setSelectConsAllDays] = useState(5);
   const [stockOptions, setStockOptions] = useState<any[]>([]);
   const [focusPlateOptions, setFocusPlateOptions] = useState<any[]>([]);
   const [totalNum, setTotalNum] = useState<number>(null as unknown as number);
@@ -250,7 +251,7 @@ export const AlarmComponent = (props) => {
     { key: 'selectConsTotal', value: selectConsTotal },
     { key: 'selectConsUpDown', value: selectConsUpDown },
     { key: 'selectConsDays', value: selectConsDays },
-    { key: 'selectConsAllDays', value: parseInt(selectConsAllDays, 10) },
+    { key: 'selectConsAllDays', value: selectConsAllDays },
     { key: 'hasCondition1', value: hasCondition1 },
     { key: 'selectPriceMargin', value: selectPriceMargin },
     { key: 'caculatePriceBy', value: caculatePriceBy },
@@ -1335,35 +1336,19 @@ export const AlarmComponent = (props) => {
               <Select.Option value="down">Down</Select.Option>
             </Select>
             {' for '}
-            <Select
-              style={{ width: '80px' }}
+            <InputNumber
+              min={1}
+              max={100}
               value={selectConsDays}
-              onChange={(v) => {
-                setSelectConsDays(v);
-              }}
-              size="small"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                <Select.Option key={i} value={i}>
-                  {i}
-                </Select.Option>
-              ))}
-            </Select>
+              onChange={setSelectConsDays}
+            />
             days in
-            <Select
-              style={{ width: '80px' }}
+            <InputNumber
+              min={1}
+              max={100}
               value={selectConsAllDays}
-              onChange={(v) => {
-                setSelectConsAllDays(v);
-              }}
-              size="small"
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-                <Select.Option key={i} value={i}>
-                  {i}
-                </Select.Option>
-              ))}
-            </Select>
+              onChange={setSelectConsAllDays}
+            />
             days
           </Space>
         </div>
