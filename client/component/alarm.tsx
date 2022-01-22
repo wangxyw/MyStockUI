@@ -633,7 +633,9 @@ export const AlarmComponent = (props) => {
   }, [selectAlarmType, selectDate, stockOptions, from100, viewedDate]);
 
   const dateArrNew = useMemo(() => {
-    const curIndex = DATE.workday.indexOf(caculateDate(getBeforeDate(0), 0));
+    const curIndex = DATE.workday.indexOf(
+      caculateDate(getBeforeOneDate(selectDate, 0), 0)
+    );
     const newDates = DATE.workday.slice(
       curIndex - parseInt(selectDays, 10),
       curIndex + 1
@@ -647,7 +649,7 @@ export const AlarmComponent = (props) => {
       }
     });
     return datesIsFirstWorkday;
-  }, [selectDays]);
+  }, [selectDays, selectDate]);
   const dateArr = useMemo(() => {
     return Object.keys(dateArrNew);
   }, [dateArrNew]);
