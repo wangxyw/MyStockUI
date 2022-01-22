@@ -163,7 +163,7 @@ export const AlarmComponent = (props) => {
   const [volOption, setVolOption] = useState({});
   const [averageOption, setAverageOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
-  const [selectConsAllDays, setSelectConsAllDays] = useState('10');
+  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [stockOptions, setStockOptions] = useState<any[]>([]);
   const [focusPlateOptions, setFocusPlateOptions] = useState<any[]>([]);
   const [totalNum, setTotalNum] = useState<number>(null as unknown as number);
@@ -190,7 +190,7 @@ export const AlarmComponent = (props) => {
   // );
   const [comments, setComments] = useState('');
   const [predict, setPredict] = useState('up');
-  const [selectPriceMargin, setSelectPriceMargin] = useState(3);
+  const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [eachVolOption, setEachVolOption] = useState({});
   const [udSumOption, setUdSumOption] = useState({});
   const [udVolOption, setUDVolOption] = useState({});
@@ -284,7 +284,7 @@ export const AlarmComponent = (props) => {
       }
     );
   };
-  const advancedSearchByWeek = useCallback(() => {
+  const advancedSearchByWeek = () => {
     setIsLoading(true);
     const promise = [0, 1, 2, 3, 4].map((i) => {
       return new Promise((resolve, reject) => {
@@ -326,18 +326,7 @@ export const AlarmComponent = (props) => {
         setTotalNum(upDownStocks.length);
       });
     });
-  }, [
-    setStockOptions,
-    from100,
-    selectAlarmType,
-    selectConsDays,
-    stockOptions,
-    selectConsAllDays,
-    selectDate,
-    caculatePriceBy,
-    selectPriceMargin,
-    viewedDate,
-  ]);
+  };
 
   useEffect(() => {
     setIsLoading(true);
