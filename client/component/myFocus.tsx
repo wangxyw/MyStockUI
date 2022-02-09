@@ -32,7 +32,7 @@ interface Item {
 interface EditableRowProps {
   index: number;
 }
-const caculateMaxPrice = (priceByDayData) => {
+export const caculateMaxPrice = (priceByDayData) => {
   let maxPrice = priceByDayData[0].finalprice;
   let maxPriceDay = 0;
   priceByDayData.forEach((i, k) => {
@@ -56,7 +56,7 @@ export const caculateMinPrice = (priceByDayData) => {
   return { minPrice, minPriceDay };
 };
 
-const caculatePriceData = (stockData, stockPriceByDay) => {
+export const caculatePriceData = (stockData, stockPriceByDay) => {
   const priceData = stockData.map((i) => {
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a =
