@@ -54,9 +54,6 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_ALARM}>
           <Link to="/">Alarm</Link>
         </Menu.Item>
-        <Menu.Item key={MENU_OLD_ALARM}>
-          <Link to="/old_alarm">Old Alarm</Link>
-        </Menu.Item>
         <Menu.Item key={MENU_ALARM_100}>
           <Link to="/alarm100">Alarm100</Link>
         </Menu.Item>
@@ -68,6 +65,9 @@ const App = (): JSX.Element => {
         </Menu.Item>
         <Menu.Item key={MENU_PLATE}>
           <Link to="/plate">Plate List</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_OLD_ALARM}>
+          <Link to="/old_alarm">Old Alarm</Link>
         </Menu.Item>
       </Menu>
       <Switch>
