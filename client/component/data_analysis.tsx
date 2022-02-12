@@ -73,12 +73,22 @@ const columns: any = [
     key: 'symbol',
     render: (text, record) => {
       return (
-        <a
-          target="_blank"
-          href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
-        >
-          {text}
-        </a>
+        <>
+          <a
+            target="_blank"
+            href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+          >
+            {text}
+          </a>
+          <Tag>
+            <a
+              target="_blank"
+              href={`${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+            >
+              {'Show alarm'}
+            </a>
+          </Tag>
+        </>
       );
     },
   },

@@ -242,14 +242,24 @@ export const MyFocusListComponent = () => {
       key: 'symbol',
       render: (text, record) => {
         return (
-          <a
-            target="_blank"
-            href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
-          >
-            {text}
-            {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
-              '*'}
-          </a>
+          <div>
+            <a
+              target="_blank"
+              href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+            >
+              {text}
+              {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
+                '*'}
+            </a>
+            <Tag>
+              <a
+                target="_blank"
+                href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+              >
+                {'Show alarm'}
+              </a>
+            </Tag>
+          </div>
         );
       },
     },

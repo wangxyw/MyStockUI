@@ -354,6 +354,15 @@ export const AlarmComponent = (props) => {
             // setSavedStockOptions(addViewed);
             setStockOptions(addViewed);
             setTotalNum(addViewed && addViewed.length);
+
+            const jumpParam = location?.href?.split('?')?.[1]?.split('&');
+            const jumpSymbol = jumpParam?.[0]?.split('=')?.[1];
+            const jumpDate = jumpParam?.[1]?.split('=')?.[1];
+            if (jumpSymbol && jumpDate) {
+              setSelectStock(jumpSymbol);
+              setSelectDate(jumpDate);
+              getStockAlarm(jumpSymbol, jumpDate);
+            }
           });
       });
   }, [selectAlarmType, selectDate, viewedDate, from100]);
@@ -415,29 +424,27 @@ export const AlarmComponent = (props) => {
       });
   }, [selectAlarmType, selectDate, stockOptions, from100, viewedDate]);
 
-  const dateArrNew = useMemo(() => {
-    const curIndex = DATE.workday.indexOf(
-      caculateDate(getBeforeOneDate(selectDate, 0), 0)
-    );
-    const newDates = DATE.workday.slice(
-      curIndex - parseInt(selectDays, 10),
-      curIndex + 1
-    );
-    const datesIsFirstWorkday = {};
-    newDates?.forEach((i, k) => {
-      if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
-        datesIsFirstWorkday[i] = true;
-      } else {
-        datesIsFirstWorkday[i] = false;
-      }
-    });
-    return datesIsFirstWorkday;
-  }, [selectDays, selectDate]);
-  const dateArr = useMemo(() => {
-    return Object.keys(dateArrNew);
-  }, [dateArrNew]);
+  const getStockAlarm = (selectStock, selectDate) => {
+    const dateArrNew = () => {
+      const curIndex = DATE.workday.indexOf(
+        caculateDate(getBeforeOneDate(selectDate, 0), 0)
+      );
+      const newDates = DATE.workday.slice(
+        curIndex - parseInt(selectDays, 10),
+        curIndex + 1
+      );
+      const datesIsFirstWorkday = {};
+      newDates?.forEach((i, k) => {
+        if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
+          datesIsFirstWorkday[i] = true;
+        } else {
+          datesIsFirstWorkday[i] = false;
+        }
+      });
+      return datesIsFirstWorkday;
+    };
+    const dateArr = Object.keys(dateArrNew());
 
-  const getStockAlarm = useCallback(() => {
     validateStock(selectStock) &&
       fetch(
         `/api/stock_alarm?stock_id=${selectStock}&afterDate=${dateArr[0]}&from100=${from100}`,
@@ -1224,14 +1231,7 @@ export const AlarmComponent = (props) => {
       .then(() => {
         reLoadAllAlarms(false);
       });
-  }, [
-    selectStock,
-    selectAlarmType,
-    selectDays,
-    stockOptions,
-    from100,
-    viewedDate,
-  ]);
+  };
 
   const addtoFocus = useCallback(() => {
     fetch(
@@ -1277,6 +1277,7 @@ export const AlarmComponent = (props) => {
         onChange={(v) => {
           setSelectStock(v);
         }}
+        value={selectStock}
         loading={isLoading}
       >
         {stockOptions.map((i) => (
@@ -1310,7 +1311,10 @@ export const AlarmComponent = (props) => {
         <Select.Option value="A2">A2</Select.Option>
         <Select.Option value="A3">A3</Select.Option>
       </Select>
-      <Button type="primary" onClick={() => getStockAlarm()}>
+      <Button
+        type="primary"
+        onClick={() => getStockAlarm(selectStock, selectDate)}
+      >
         Show Alarm
       </Button>
       <div style={{ display: 'inline-block', marginLeft: '10px' }}>
@@ -1332,9 +1336,11 @@ export const AlarmComponent = (props) => {
         days Data till
       </div>
       <DatePicker
-        defaultValue={moment(selectDate, dateFormat)}
+        value={moment(selectDate, dateFormat)}
         format={dateFormat}
-        onChange={(v: any) => setSelectDate(v.format(dateFormat))}
+        onChange={(v: any) => {
+          setSelectDate(v.format(dateFormat));
+        }}
       />
       Viewed Date
       <DatePicker
