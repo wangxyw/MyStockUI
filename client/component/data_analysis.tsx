@@ -83,7 +83,7 @@ const columns: any = [
           <Tag>
             <a
               target="_blank"
-              href={`${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+              href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
             >
               {'Show alarm'}
             </a>
