@@ -182,7 +182,7 @@ export const DataAnalysisCom = () => {
   const [selectPriceMargin, setSelectPriceMargin] = useState(3);
   const [option, setOption] = useState<any>({});
 
-  const runAnalysis = useCallback(() => {
+  const runAnalysis = () => {
     setIsLoading(true);
     const days = parseInt(selectDays, 10) + parseInt(selectConsAllDays, 10);
     get(
@@ -258,7 +258,7 @@ export const DataAnalysisCom = () => {
       setSelectDateTab(dateArr[0]);
       setIsLoading(false);
     });
-  }, [selectDate, selectDays, selectConsAllDays, selectConsDays]);
+  };
 
   useEffect(() => {
     console.log(stockData, selectDateTab);
