@@ -1442,7 +1442,7 @@ export const AlarmComponent = (props) => {
               }}
               size="small"
             >
-              {[20, 30, 40, 50, 60].map((i) => (
+              {[20, 30, 40, 50, 60, 90].map((i) => (
                 <Select.Option key={i} value={i}>
                   {i}
                 </Select.Option>
