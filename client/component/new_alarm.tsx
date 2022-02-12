@@ -163,6 +163,7 @@ export const AlarmComponent = (props) => {
   const [priceOption, setPriceOption] = useState({});
   const [volOption, setVolOption] = useState({});
   const [averageOption, setAverageOption] = useState({});
+  const [turnOverRateOption, setTurnOverRateOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState(5);
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -834,6 +835,60 @@ export const AlarmComponent = (props) => {
                   },
                 },
                 lineStyle: { width: 1 },
+              },
+            ],
+          });
+          setTurnOverRateOption({
+            title: {
+              text: '',
+              left: 0,
+            },
+            legend: {
+              data: ['OverRate'],
+            },
+            // grid: [{
+            //     left: '10%',
+            //     right: '1%',
+            //     top: '1%',
+            //     height: '70%'
+            // }],
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'cross',
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLine: {
+                lineStyle: {
+                  color: function (params) {
+                    var colorList;
+                    if (dateArrNew[params]) {
+                      colorList = 'red';
+                    } else {
+                      colorList = 'black';
+                    }
+                    return colorList;
+                  },
+                },
+              },
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+            },
+            series: [
+              {
+                name: 'OverRate',
+                type: 'line',
+                data: overRateArr,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
               },
             ],
           });
@@ -1579,6 +1634,12 @@ export const AlarmComponent = (props) => {
           lazyUpdate={true}
           option={priceOption}
           ref={priceChartRef}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={turnOverRateOption}
         />
         <ReactEcharts
           style={{ height: 350, width: 1450 }}
