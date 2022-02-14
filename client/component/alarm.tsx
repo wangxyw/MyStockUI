@@ -236,7 +236,7 @@ const caculatefiveAverage = (data: any[], key = 'kuvolume', days) => {
   return newData;
 };
 
-const isAverageDistribution = (item, selectPriceMargin) => {
+export const isAverageDistribution = (item, selectPriceMargin) => {
   const averagePrice =
     item.map((i) => i.finalprice).reduce((p, c) => p + c) / item.length;
   let isAverage = item.every((i) => {

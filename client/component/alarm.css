@@ -12,3 +12,7 @@
   width: 1px;
   border-right: 1px dashed #ccc;
 }
+
+.red-row {
+  background-color: red;
+}

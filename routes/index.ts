@@ -300,12 +300,16 @@ router.get('/searchByDay', async function (req, res, next) {
     selectMinPriceMargin,
     selectMinPriceDays,
     from100,
+    hasCondition3,
+    hasCondition4,
+    givenPrice,
+    givenCirculation,
   } = req.query;
   const startDateStr = caculateDate(datestr, selectConsAllDays);
   let table = 'stock_big_data';
   if (from100 === 'true') table = 'stock_big_data_100';
   let sql = `select * from ${table} a where a.datestr > '${startDateStr}' and a.datestr <= '${datestr}' and a.name not like "%ST%"`;
-  console.log(sql);
+
   pool.query(sql, async function (err, rows, fields) {
     if (err) throw err;
     let results: any = chooseResults({
@@ -317,6 +321,16 @@ router.get('/searchByDay', async function (req, res, next) {
       selectPriceMargin,
       caculatePriceBy,
     });
+    if (hasCondition3 === 'true') {
+      results = results?.filter((i) => i.finalprice < givenPrice);
+    }
+    if (hasCondition4 === 'true') {
+      results = results?.filter(
+        (i) =>
+          Number((i.marketvalue / i.finalprice).toFixed(3)) < givenCirculation
+      );
+    }
+
     if (hasCondition2 === 'true') {
       const ids = results?.map((i) => `'${i.symbol}'`).join(',');
       sql = `SELECT * FROM stock_big_data where symbol in (${ids}) and datestr <= '${datestr}' and datestr > '${caculateDate(

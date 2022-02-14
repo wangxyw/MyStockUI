@@ -21,7 +21,7 @@ import { cloneDeep, orderBy } from 'lodash';
 import './alarm.css';
 import { focusStatusMap } from './myFocus';
 
-const SELECT_COLOR = '#e7f1fa';
+export const SELECT_COLOR = '#e7f1fa';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -150,7 +150,7 @@ const caculatefiveAverage = (data: any[], key = 'kuvolume', days) => {
   return newData;
 };
 
-const minOrAverageMap = [
+export const minOrAverageMap = [
   { key: 'min', value: '最低价' },
   { key: 'average', value: '横盘' },
 ];
@@ -176,9 +176,13 @@ export const AlarmComponent = (props) => {
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   const [hasCondition1, setHasCondition1] = useState(true);
   const [hasCondition2, setHasCondition2] = useState(false);
+  const [hasCondition3, setHasCondition3] = useState(false);
+  const [hasCondition4, setHasCondition4] = useState(false);
   const [minOrAverage, setMinOrAverage] = useState('min');
   const [isSearchByDay, setIsSearchByDay] = useState(false);
   const [isSearchByWeek, setIsSearchByWeek] = useState(false);
+  const [givenPrice, setGivenPrice] = useState(10);
+  const [givenCirculation, setGivenCirculation] = useState(100);
   // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
 
   const [selectDate, setSelectDate] = useState(
@@ -260,6 +264,10 @@ export const AlarmComponent = (props) => {
     { key: 'minOrAverage', value: minOrAverage },
     { key: 'selectMinPriceMargin', value: selectMinPriceMargin },
     { key: 'selectMinPriceDays', value: selectMinPriceDays },
+    { key: 'hasCondition3', value: hasCondition3 },
+    { key: 'hasCondition4', value: hasCondition4 },
+    { key: 'givenPrice', value: givenPrice },
+    { key: 'givenCirculation', value: givenCirculation },
     { key: 'from100', value: from100 },
   ];
 
@@ -365,7 +373,7 @@ export const AlarmComponent = (props) => {
             }
           });
       });
-  }, [selectAlarmType, selectDate, viewedDate, from100]);
+  }, [selectAlarmType, viewedDate, from100]);
 
   const reLoadAllAlarms = useCallback(
     (applyTimeFilter) => {
@@ -1201,9 +1209,6 @@ export const AlarmComponent = (props) => {
             },
             yAxis: {
               type: 'value',
-              // min: function (value) {
-              //   return value.min;
-              // },
             },
             series: [
               {
@@ -1362,6 +1367,14 @@ export const AlarmComponent = (props) => {
         {stockPlate?.split(',')?.map((i) => (
           <Tag>{i}</Tag>
         ))}
+        <Tag color="blue">
+          流通股本:
+          {(
+            stockOptions?.find((i) => i.symbol === selectStock)?.marketvalue /
+            stockOptions?.find((i) => i.symbol === selectStock)?.finalprice
+          ).toFixed(3)}
+          亿
+        </Tag>
       </div>
       <div style={{ padding: '5px 10px', background: '#f6f6f6' }}>
         <div style={{ marginTop: '10px' }}>
@@ -1510,6 +1523,49 @@ export const AlarmComponent = (props) => {
               ))}
             </Select>{' '}
             days
+          </Space>
+        </div>
+        <div style={{ marginTop: '10px' }}>
+          <Space
+            style={{
+              padding: '10px',
+              boxShadow: '1px 1px 3px #ccc',
+              background: `${hasCondition3 ? SELECT_COLOR : '#fff'}`,
+            }}
+          >
+            <Checkbox
+              checked={hasCondition3}
+              onChange={() => setHasCondition3(!hasCondition3)}
+            />
+            Condition 3<span>{'Final Price <'}</span>
+            <InputNumber
+              min={1}
+              max={500}
+              value={givenPrice}
+              onChange={setGivenPrice}
+            />
+            元
+          </Space>
+          <Space
+            style={{
+              padding: '10px',
+              boxShadow: '1px 1px 3px #ccc',
+              marginLeft: '10px',
+              background: `${hasCondition4 ? SELECT_COLOR : '#fff'}`,
+            }}
+          >
+            <Checkbox
+              checked={hasCondition4}
+              onChange={() => setHasCondition4(!hasCondition4)}
+            />
+            Condition 4<span>{'流通股本 <'}</span>
+            <InputNumber
+              min={1}
+              max={500}
+              value={givenCirculation}
+              onChange={setGivenCirculation}
+            />
+            亿
           </Space>
         </div>
         <div style={{ textAlign: 'right' }}>
