@@ -381,7 +381,7 @@ export const DataAnalysisCom = () => {
           ...condition1Data,
           ...condition2Data,
           ...condition3Data,
-          condition4Data,
+          ...condition4Data,
         ],
         'symbol'
       );
