@@ -659,7 +659,7 @@ export const AlarmComponent = (props) => {
                 lineStyle: {
                   color: function (params) {
                     var colorList;
-                    if (dateArrNew[params]) {
+                    if (dateArrNew()[params]) {
                       colorList = 'red';
                     } else {
                       colorList = 'black';
@@ -880,7 +880,7 @@ export const AlarmComponent = (props) => {
                 lineStyle: {
                   color: function (params) {
                     var colorList;
-                    if (dateArrNew[params]) {
+                    if (dateArrNew()[params]) {
                       colorList = 'red';
                     } else {
                       colorList = 'black';
