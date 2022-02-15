@@ -181,26 +181,18 @@ const columns: any = [
 
 const composeCompareData = (stockData) => {
   const more100 = stockData?.filter((i) => i.maxPriceDiff > 100)?.length;
-  const form80to100 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 80
+  const form20to100 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 20
   )?.length;
-  const from60to80 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 80 && i.maxPriceDiff > 60
+  const from0to20 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 20 && i.maxPriceDiff > 0
   )?.length;
-  const from40to60 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 60 && i.maxPriceDiff > 40
-  )?.length;
-  const from20to40 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 40 && i.maxPriceDiff > 20
-  )?.length;
-  const less20 = stockData?.filter((i) => i.maxPriceDiff <= 20)?.length;
+  const less0 = stockData?.filter((i) => i.maxPriceDiff <= 0)?.length;
   return {
     more100,
-    form80to100,
-    from60to80,
-    from40to60,
-    from20to40,
-    less20,
+    form20to100,
+    from0to20,
+    less0,
   };
 };
 const composeData = (stockData) => {
@@ -243,26 +235,18 @@ const composeConditionData = (
     condition4Data,
   ].reduce((a, b) => a.filter((c) => b.includes(c)));
   const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
-  const form80to100 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 80
+  const form20to100 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 20
   )?.length;
-  const from60to80 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 80 && i.maxPriceDiff > 60
+  const from0to20 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 20 && i.maxPriceDiff > 0
   )?.length;
-  const from40to60 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 60 && i.maxPriceDiff > 40
-  )?.length;
-  const from20to40 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 40 && i.maxPriceDiff > 20
-  )?.length;
-  const less20 = eachDayData?.filter((i) => i.maxPriceDiff <= 20)?.length;
+  const less0 = eachDayData?.filter((i) => i.maxPriceDiff <= 0)?.length;
   return {
     more100,
-    form80to100,
-    from60to80,
-    from40to60,
-    from20to40,
-    less20,
+    form20to100,
+    from0to20,
+    less0,
   };
 };
 export const DataAnalysisCom = () => {
@@ -614,7 +598,6 @@ export const DataAnalysisCom = () => {
               }}
             >
               <Checkbox
-                disabled={!stockData}
                 checked={hasCondition1}
                 onChange={() => setHasCondition1(!hasCondition1)}
               />
@@ -715,7 +698,6 @@ export const DataAnalysisCom = () => {
               }}
             >
               <Checkbox
-                disabled={!stockData}
                 checked={hasCondition3}
                 onChange={() => setHasCondition3(!hasCondition3)}
               />
@@ -737,7 +719,6 @@ export const DataAnalysisCom = () => {
               }}
             >
               <Checkbox
-                disabled={!stockData}
                 checked={hasCondition4}
                 onChange={() => setHasCondition4(!hasCondition4)}
               />
@@ -828,27 +809,17 @@ export const DataAnalysisCom = () => {
                         </p>
                         <p>
                           <Tag>
-                            80-100: <b>{text?.form80to100}</b>
+                            20-100: <b>{text?.form20to100}</b>
                           </Tag>
                         </p>
                         <p>
                           <Tag>
-                            60-80: <b>{text?.from60to80}</b>
+                            0-20: <b>{text?.from0to20}</b>
                           </Tag>
                         </p>
                         <p>
                           <Tag>
-                            40-60: <b>{text?.from40to60}</b>
-                          </Tag>
-                        </p>
-                        <p>
-                          <Tag>
-                            20-40: <b>{text?.from20to40}</b>
-                          </Tag>
-                        </p>
-                        <p>
-                          <Tag>
-                            -20: <b>{text?.less20}</b>
+                            0-: <b>{text?.less0}</b>
                           </Tag>
                         </p>
                       </>
