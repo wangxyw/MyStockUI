@@ -178,9 +178,96 @@ const columns: any = [
     key: 'minPriceDay',
   },
 ];
+
+const composeCompareData = (stockData) => {
+  const more100 = stockData?.filter((i) => i.maxPriceDiff > 100)?.length;
+  const form80to100 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 80
+  )?.length;
+  const from60to80 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 80 && i.maxPriceDiff > 60
+  )?.length;
+  const from40to60 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 60 && i.maxPriceDiff > 40
+  )?.length;
+  const from20to40 = stockData?.filter(
+    (i) => i.maxPriceDiff <= 40 && i.maxPriceDiff > 20
+  )?.length;
+  const less20 = stockData?.filter((i) => i.maxPriceDiff <= 20)?.length;
+  return {
+    more100,
+    form80to100,
+    from60to80,
+    from40to60,
+    from20to40,
+    less20,
+  };
+};
+const composeData = (stockData) => {
+  const total = stockData?.length;
+  const up = stockData?.filter((i) => i.maxPriceDay > 0)?.length;
+  const down = stockData?.filter((i) => i.maxPriceDay === 0)?.length;
+  return {
+    total,
+    up,
+    down,
+  };
+};
+const composeConditionData = (
+  eachDayData,
+  hasCondition1,
+  hasCondition2,
+  hasCondition3,
+  hasCondition4
+) => {
+  let condition1Data = eachDayData;
+  let condition2Data = eachDayData;
+  let condition3Data = eachDayData;
+  let condition4Data = eachDayData;
+  if (hasCondition1) {
+    condition1Data = eachDayData?.filter((i) => i.Condition1);
+  }
+  if (hasCondition2) {
+    condition2Data = eachDayData?.filter((i) => i.Condition2);
+  }
+  if (hasCondition3) {
+    condition3Data = eachDayData?.filter((i) => i.Condition3);
+  }
+  if (hasCondition4) {
+    condition4Data = eachDayData?.filter((i) => i.Condition4);
+  }
+  eachDayData = [
+    condition1Data,
+    condition2Data,
+    condition3Data,
+    condition4Data,
+  ].reduce((a, b) => a.filter((c) => b.includes(c)));
+  const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
+  const form80to100 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 80
+  )?.length;
+  const from60to80 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 80 && i.maxPriceDiff > 60
+  )?.length;
+  const from40to60 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 60 && i.maxPriceDiff > 40
+  )?.length;
+  const from20to40 = eachDayData?.filter(
+    (i) => i.maxPriceDiff <= 40 && i.maxPriceDiff > 20
+  )?.length;
+  const less20 = eachDayData?.filter((i) => i.maxPriceDiff <= 20)?.length;
+  return {
+    more100,
+    form80to100,
+    from60to80,
+    from40to60,
+    from20to40,
+    less20,
+  };
+};
 export const DataAnalysisCom = () => {
   const [selectDays, setSelectDays] = useState('40');
-  const [selectConsAllDays, setSelectConsAllDays] = useState('10');
+  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
   const [dateArray, setDateArray] = useState<any>([]);
@@ -207,14 +294,15 @@ export const DataAnalysisCom = () => {
   const [hasCondition4, setHasCondition4] = useState(false);
   const [minOrAverage, setMinOrAverage] = useState('min');
   const [givenPrice, setGivenPrice] = useState(10);
-  const [givenCirculation, setGivenCirculation] = useState(100);
-  const [selectPriceMargin, setSelectPriceMargin] = useState(3);
+  const [givenCirculation, setGivenCirculation] = useState(10);
+  const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
-  const [selectMinPriceDays, setSelectMinPriceDays] = useState(20);
+  const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);
   const [caculatePriceBy, setCaculatePriceBy] = useState(false);
   const [option, setOption] = useState<any>({});
   const [baseResult, setBaseResult] = useState<any>({});
   const [conditionResult, setConditionResult] = useState<any>({});
+  const [compareData, setCompareData] = useState<any>([]);
 
   const runAnalysis = () => {
     setIsLoading(true);
@@ -351,6 +439,14 @@ export const DataAnalysisCom = () => {
         from40to60,
         from20to40,
       });
+
+      const compareData = {};
+      const totalData = {};
+      dateArray?.forEach((i) => {
+        compareData[i] = composeCompareData(stockData[i]);
+        totalData[i] = composeData(stockData[i]);
+      });
+      setCompareData([totalData, compareData]);
     }
 
     if (
@@ -359,10 +455,10 @@ export const DataAnalysisCom = () => {
       (hasCondition1 || hasCondition2 || hasCondition3 || hasCondition4)
     ) {
       let eachDayData = stockData?.[selectDateTab];
-      let condition1Data = [];
-      let condition2Data = [];
-      let condition3Data = [];
-      let condition4Data = [];
+      let condition1Data = stockData?.[selectDateTab];
+      let condition2Data = stockData?.[selectDateTab];
+      let condition3Data = stockData?.[selectDateTab];
+      let condition4Data = stockData?.[selectDateTab];
       if (hasCondition1) {
         condition1Data = eachDayData?.filter((i) => i.Condition1);
       }
@@ -376,15 +472,13 @@ export const DataAnalysisCom = () => {
         condition4Data = eachDayData?.filter((i) => i.Condition4);
       }
 
-      eachDayData = uniqBy(
-        [
-          ...condition1Data,
-          ...condition2Data,
-          ...condition3Data,
-          ...condition4Data,
-        ],
-        'symbol'
-      );
+      eachDayData = [
+        condition1Data,
+        condition2Data,
+        condition3Data,
+        condition4Data,
+      ].reduce((a, b) => a.filter((c) => b.includes(c)));
+
       const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
       const form80to100 = eachDayData?.filter(
         (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 80
@@ -406,12 +500,29 @@ export const DataAnalysisCom = () => {
         from20to40,
       });
       const eachDayDataSymbols = eachDayData?.map((i) => i.symbol);
-      stockData[selectDateTab]
-        ?.filter((i) => eachDayDataSymbols.includes(i.symbol))
-        ?.forEach((e) => {
+      stockData[selectDateTab]?.forEach((e) => {
+        if (eachDayDataSymbols.includes(e.symbol)) {
           e.chosen = true;
-        });
+        } else {
+          e.chosen = false;
+        }
+      });
       setData(stockData[selectDateTab]);
+      const compareData = {};
+      const totalData = {};
+      const conditionData = {};
+      dateArray?.forEach((i) => {
+        compareData[i] = composeCompareData(stockData[i]);
+        totalData[i] = composeData(stockData[i]);
+        conditionData[i] = composeConditionData(
+          stockData[i],
+          hasCondition1,
+          hasCondition2,
+          hasCondition3,
+          hasCondition4
+        );
+      });
+      setCompareData([totalData, compareData, conditionData]);
     }
   }, [
     stockData,
@@ -423,101 +534,77 @@ export const DataAnalysisCom = () => {
   ]);
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '2px' }}>
       <div style={{ marginTop: '20px' }}>
-        Condition:
-        <Select
-          style={{ width: '180px' }}
-          value={selectConsTotal}
-          onChange={(v) => {
-            setSelectConsTotal(v);
-          }}
-          size="small"
-        >
-          <Select.Option value="CONS">Continuously Appear</Select.Option>
-          <Select.Option value="TOTAL">Total Appear</Select.Option>
-        </Select>
-        <Select
-          style={{ width: '80px' }}
-          value={selectConsUpDown}
-          onChange={(v) => {
-            setSelectConsUpDown(v);
-          }}
-          size="small"
-        >
-          <Select.Option value="up">Up</Select.Option>
-          <Select.Option value="down">Down</Select.Option>
-        </Select>
-        {' for '}
-        <Input
-          style={{ width: '50px', height: '32px' }}
-          size="small"
-          placeholder="Input Days"
-          value={selectConsDays}
-          onChange={(e) => {
-            setSelectConsDays(parseInt(e.target.value, 10));
-          }}
-        />
-        days{' '}
-        {/* <Select
-          style={{ width: '80px' }}
-          value={selectPriceMargin}
-          onChange={(v) => {
-            setSelectPriceMargin(v);
-          }}
-          size="small"
-        >
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-            <Select.Option key={i} value={i}>
-              {i}
-            </Select.Option>
-          ))}
-        </Select>
-        % price margin in */}
-        in
-        <Input
-          style={{ width: '50px', height: '32px' }}
-          size="small"
-          placeholder="Input Days"
-          value={selectConsAllDays}
-          onChange={(e) => {
-            setSelectConsAllDays(e.target.value);
-          }}
-        />
-        days
-        <Select
-          style={{ width: '80px' }}
-          value={selectDays}
-          onChange={(v) => {
-            setSelectDays(v);
-          }}
-          size="small"
-        >
-          {[40, 50, 60].map((i) => (
-            <Select.Option key={i} value={i}>
-              {i}
-            </Select.Option>
-          ))}
-        </Select>
-        Days Till
-        <DatePicker
-          defaultValue={moment(selectDate, dateFormat)}
-          format={dateFormat}
-          onChange={(v: any) => setSelectDate(v.format(dateFormat))}
-        />
-        <Button
-          type="primary"
-          onClick={() => {
-            if (selectConsDays && !isNaN(selectConsDays)) {
-              setIsLoading(true);
-              runAnalysis();
-            }
-          }}
-        >
-          {' '}
-          Run
-        </Button>
         <div style={{ padding: '5px 10px', background: '#f6f6f6' }}>
+          <div>
+            <Space>
+              Condition:
+              <Select
+                style={{ width: '180px' }}
+                value={selectConsTotal}
+                onChange={(v) => {
+                  setSelectConsTotal(v);
+                }}
+                size="small"
+              >
+                <Select.Option value="CONS">Continuously Appear</Select.Option>
+                <Select.Option value="TOTAL">Total Appear</Select.Option>
+              </Select>
+              <Select
+                style={{ width: '80px' }}
+                value={selectConsUpDown}
+                onChange={(v) => {
+                  setSelectConsUpDown(v);
+                }}
+                size="small"
+              >
+                <Select.Option value="up">Up</Select.Option>
+                <Select.Option value="down">Down</Select.Option>
+              </Select>
+              {' for '}
+              <Input
+                style={{ width: '50px', height: '32px' }}
+                size="small"
+                placeholder="Input Days"
+                value={selectConsDays}
+                onChange={(e) => {
+                  setSelectConsDays(parseInt(e.target.value, 10));
+                }}
+              />
+              days in
+              <Input
+                style={{ width: '50px', height: '32px' }}
+                size="small"
+                placeholder="Input Days"
+                value={selectConsAllDays}
+                onChange={(e) => {
+                  setSelectConsAllDays(e.target.value);
+                }}
+              />
+              days
+              <Select
+                style={{ width: '80px' }}
+                value={selectDays}
+                onChange={(v) => {
+                  setSelectDays(v);
+                }}
+                size="small"
+              >
+                {[40, 50, 60].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
+              Days Till
+              <DatePicker
+                defaultValue={moment(selectDate, dateFormat)}
+                format={dateFormat}
+                onChange={(v: any) => setSelectDate(v.format(dateFormat))}
+              />
+            </Space>
+          </div>
           <div style={{ marginTop: '10px' }}>
             <Space
               style={{
@@ -663,7 +750,23 @@ export const DataAnalysisCom = () => {
               />
               亿
             </Space>
+            <Space style={{ marginLeft: '10px' }}>
+              <Button
+                type="primary"
+                size="large"
+                onClick={() => {
+                  if (selectConsDays && !isNaN(selectConsDays)) {
+                    setIsLoading(true);
+                    runAnalysis();
+                  }
+                }}
+              >
+                {' '}
+                Run
+              </Button>
+            </Space>
           </div>
+
           {/* <div style={{ textAlign: 'right' }}>
             <Button
               type="primary"
@@ -688,47 +791,117 @@ export const DataAnalysisCom = () => {
             option={option}
           />
           {dateArray?.length > 0 && (
-            <Tabs
-              defaultActiveKey="1"
-              tabPosition={'top'}
-              style={{ height: 220 }}
-              onChange={(v) => setSelectDateTab(v)}
-            >
-              {dateArray?.map((i) => (
-                <Tabs.TabPane tab={i} key={i}>
-                  <p>
-                    Total:{dataTotal}{' '}
-                    <span style={{ color: 'red' }}>Up:{dataUp}</span>{' '}
-                    <span style={{ color: 'green' }}>Down:{dataDown}</span>
-                  </p>
-                  <p>
-                    <Space>
-                      BaseResult:
-                      <Tag>100+: {baseResult?.more100}</Tag>
-                      <Tag>80-100: {baseResult?.form80to100}</Tag>
-                      <Tag>60-80: {baseResult?.from60to80}</Tag>
-                      <Tag>40-60: {baseResult?.from40to60}</Tag>
-                      <Tag>20-40: {baseResult?.from20to40}</Tag>
-                    </Space>
-                  </p>
-                  <p>
-                    <Space>
-                      {hasCondition1 && 'Condition1'}{' '}
-                      {hasCondition2 && 'Condition2'}
-                      {hasCondition3 && 'Condition3'}
-                      {hasCondition4 && 'Condition4'}Result:
-                      <Tag>100+: {conditionResult?.more100}</Tag>
-                      <Tag>80-100: {conditionResult?.form80to100}</Tag>
-                      <Tag>60-80: {conditionResult?.from60to80}</Tag>
-                      <Tag>40-60: {conditionResult?.from40to60}</Tag>
-                      <Tag>20-40: {conditionResult?.from20to40}</Tag>
-                    </Space>
-                  </p>
-                  {/* <p>Up 表示选出来的中 近60天有过上涨的数量</p>
+            <>
+              <Table
+                columns={dateArray?.map((i) => ({
+                  title: i,
+                  dataIndex: i,
+                  key: i,
+                  render: (text, record) => {
+                    if (text?.total) {
+                      return (
+                        <>
+                          <p>
+                            <Tag>
+                              Total: <b>{text?.total}</b>
+                            </Tag>
+                          </p>
+                          <p>
+                            <Tag>
+                              Up: <b>{text?.up}</b>
+                            </Tag>
+                          </p>
+                          <p>
+                            <Tag>
+                              Down: <b>{text?.down}</b>
+                            </Tag>
+                          </p>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <p>
+                          <Tag>
+                            100+: <b>{text?.more100}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            80-100: <b>{text?.form80to100}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            60-80: <b>{text?.from60to80}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            40-60: <b>{text?.from40to60}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            20-40: <b>{text?.from20to40}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            -20: <b>{text?.less20}</b>
+                          </Tag>
+                        </p>
+                      </>
+                    );
+                  },
+                }))}
+                style={{ width: '100%' }}
+                scroll={{ x: true }}
+                dataSource={compareData}
+                pagination={false}
+              />
+              <Tabs
+                defaultActiveKey="1"
+                tabPosition={'top'}
+                style={{ height: 220 }}
+                onChange={(v) => setSelectDateTab(v)}
+              >
+                {dateArray?.map((i) => (
+                  <Tabs.TabPane tab={i} key={i}>
+                    <p>
+                      Total:{dataTotal}{' '}
+                      <span style={{ color: 'red' }}>Up:{dataUp}</span>{' '}
+                      <span style={{ color: 'green' }}>Down:{dataDown}</span>
+                    </p>
+                    <p>
+                      <Space>
+                        BaseResult:
+                        <Tag>100+: {baseResult?.more100}</Tag>
+                        <Tag>80-100: {baseResult?.form80to100}</Tag>
+                        <Tag>60-80: {baseResult?.from60to80}</Tag>
+                        <Tag>40-60: {baseResult?.from40to60}</Tag>
+                        <Tag>20-40: {baseResult?.from20to40}</Tag>
+                      </Space>
+                    </p>
+                    <p>
+                      <Space>
+                        {hasCondition1 && 'Condition1'}{' '}
+                        {hasCondition2 && 'Condition2'}
+                        {hasCondition3 && 'Condition3'}
+                        {hasCondition4 && 'Condition4'}Result:
+                        <Tag>100+: {conditionResult?.more100}</Tag>
+                        <Tag>80-100: {conditionResult?.form80to100}</Tag>
+                        <Tag>60-80: {conditionResult?.from60to80}</Tag>
+                        <Tag>40-60: {conditionResult?.from40to60}</Tag>
+                        <Tag>20-40: {conditionResult?.from20to40}</Tag>
+                      </Space>
+                    </p>
+                    {/* <p>Up 表示选出来的中 近60天有过上涨的数量</p>
                   <p>Down 表示选出来的中 近60天从未有过上涨的数量</p> */}
-                </Tabs.TabPane>
-              ))}
-            </Tabs>
+                  </Tabs.TabPane>
+                ))}
+              </Tabs>
+            </>
           )}
           {data && (
             <Table
@@ -738,10 +911,6 @@ export const DataAnalysisCom = () => {
               rowClassName={(record: any) => {
                 if (record?.chosen) {
                   return 'red-row';
-                }
-
-                function uniqBy(arg0: never[][], arg1: string): any {
-                  throw new Error('Function not implemented.');
                 }
                 return 'grey-row';
               }}

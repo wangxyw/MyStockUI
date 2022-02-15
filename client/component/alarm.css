@@ -14,5 +14,6 @@
 }
 
 .red-row {
-  background-color: red;
+  pointer-events: none;
+  background-color: #f58181;
 }
