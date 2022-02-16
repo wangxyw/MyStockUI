@@ -321,13 +321,20 @@ router.get('/searchByDay', async function (req, res, next) {
       selectPriceMargin,
       caculatePriceBy,
     });
+    let condition3Results = results;
+    let condition4Results = results;
     if (hasCondition3 === 'true') {
-      results = results?.filter((i) => i.finalprice < givenPrice);
+      condition3Results = results?.filter((i) => i.finalprice < givenPrice);
     }
     if (hasCondition4 === 'true') {
-      results = results?.filter(
+      condition4Results = results?.filter(
         (i) =>
           Number((i.marketvalue / i.finalprice).toFixed(3)) < givenCirculation
+      );
+    }
+    if (hasCondition3 === 'true' || hasCondition4 === 'true') {
+      results = [condition3Results, condition4Results].reduce((a, b) =>
+        a.filter((c) => b.includes(c))
       );
     }
 

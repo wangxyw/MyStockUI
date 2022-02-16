@@ -288,6 +288,7 @@ export const DataAnalysisCom = () => {
   const [baseResult, setBaseResult] = useState<any>({});
   const [conditionResult, setConditionResult] = useState<any>({});
   const [compareData, setCompareData] = useState<any>([]);
+  const [from100, setFrom100] = useState<boolean>(false);
 
   const runAnalysis = () => {
     setIsLoading(true);
@@ -299,10 +300,9 @@ export const DataAnalysisCom = () => {
       `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${today}&from100=${false}`,
+      )}&end_date_str=${today}&from100=${from100}`,
       { method: 'GET' }
     ).then((res) => {
-      // console.log(res);
       const dateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
       const stockDataByDate = {};
       const allSelectStocks: any = [];
@@ -393,7 +393,6 @@ export const DataAnalysisCom = () => {
   };
   useEffect(() => {
     if (stockData && selectDateTab) {
-      console.log(stockData[selectDateTab]?.filter((i) => i.maxPriceDay > 0));
       setData(stockData[selectDateTab]);
       setDataTotal(stockData[selectDateTab]?.length);
       setDataUp(
@@ -431,7 +430,7 @@ export const DataAnalysisCom = () => {
         compareData[i] = composeCompareData(stockData[i]);
         totalData[i] = composeData(stockData[i]);
       });
-      setCompareData([totalData, compareData]);
+      setCompareData([compareData]);
     }
 
     if (
@@ -456,7 +455,6 @@ export const DataAnalysisCom = () => {
       if (hasCondition4) {
         condition4Data = eachDayData?.filter((i) => i.Condition4);
       }
-
       eachDayData = [
         condition1Data,
         condition2Data,
@@ -494,11 +492,11 @@ export const DataAnalysisCom = () => {
       });
       setData(stockData[selectDateTab]);
       const compareData = {};
-      const totalData = {};
+      // const totalData = {};
       const conditionData = {};
       dateArray?.forEach((i) => {
         compareData[i] = composeCompareData(stockData[i]);
-        totalData[i] = composeData(stockData[i]);
+        // totalData[i] = composeData(stockData[i]);
         conditionData[i] = composeConditionData(
           stockData[i],
           hasCondition1,
@@ -507,7 +505,7 @@ export const DataAnalysisCom = () => {
           hasCondition4
         );
       });
-      setCompareData([totalData, compareData, conditionData]);
+      setCompareData([compareData, conditionData]);
     }
   }, [
     stockData,
@@ -588,6 +586,14 @@ export const DataAnalysisCom = () => {
                 format={dateFormat}
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
+              <Switch
+                unCheckedChildren="Ture"
+                checkedChildren="False"
+                style={{ margin: '0 10px' }}
+                // defaultChecked
+                checked={from100}
+                onChange={setFrom100}
+              ></Switch>
             </Space>
           </div>
           <div style={{ marginTop: '10px' }}>
@@ -622,8 +628,8 @@ export const DataAnalysisCom = () => {
               </Select>
               % price margin
               <Switch
-                unCheckedChildren="Former"
-                checkedChildren="Latter"
+                unCheckedChildren="Not100"
+                checkedChildren="From100"
                 style={{ margin: '0 10px' }}
                 // defaultChecked
                 checked={caculatePriceBy}
@@ -780,27 +786,6 @@ export const DataAnalysisCom = () => {
                   dataIndex: i,
                   key: i,
                   render: (text, record) => {
-                    if (text?.total) {
-                      return (
-                        <>
-                          <p>
-                            <Tag>
-                              Total: <b>{text?.total}</b>
-                            </Tag>
-                          </p>
-                          <p>
-                            <Tag>
-                              Up: <b>{text?.up}</b>
-                            </Tag>
-                          </p>
-                          <p>
-                            <Tag>
-                              Down: <b>{text?.down}</b>
-                            </Tag>
-                          </p>
-                        </>
-                      );
-                    }
                     return (
                       <>
                         <p>
@@ -821,6 +806,32 @@ export const DataAnalysisCom = () => {
                         <p>
                           <Tag>
                             0-: <b>{text?.less0}</b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            Total:{' '}
+                            <b>
+                              {Number(text?.more100) +
+                                Number(text?.form20to100) +
+                                Number(text?.from0to20) +
+                                Number(text?.less0)}
+                            </b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            Up:{' '}
+                            <b>
+                              {text?.more100 +
+                                text?.form20to100 +
+                                text?.from0to20}
+                            </b>
+                          </Tag>
+                        </p>
+                        <p>
+                          <Tag>
+                            Down: <b>{text?.less0}</b>
                           </Tag>
                         </p>
                       </>

@@ -21,20 +21,21 @@ export const chooseResults = (props) => {
   const data = groupBy(rows, 'symbol');
   Object.keys(data).forEach((k) => {
     const item = data[k];
+    const lastStock = item?.[item?.length - 1];
     if (selectConsTotal === 'CONS') {
       const { isTrue, start, end, typeA, typeB, typeC } = validateCons(
         item,
         selectConsUpDown,
         selectConsDays
       );
-      if (typeA) item[0].typeA1 = true;
-      if (typeB) item[0].typeA2 = true;
-      if (typeC) item[0].typeA3 = true;
+      if (typeA) lastStock.typeA1 = true;
+      if (typeB) lastStock.typeA2 = true;
+      if (typeC) lastStock.typeA3 = true;
       if (isTrue) {
         if (hasCondition1 === 'true') {
           if (caculatePriceBy === 'true') {
             isAverageDistribution(item, selectPriceMargin) &&
-              upDownStocks.push(data[k][0]);
+              upDownStocks.push(lastStock);
           } else {
             const startPrice = item[start].finalprice;
             const endPrice = item[end].finalprice;
@@ -42,11 +43,11 @@ export const chooseResults = (props) => {
               Math.abs((endPrice - startPrice) / startPrice) <
               selectPriceMargin / 100
             ) {
-              upDownStocks.push(item[0]);
+              upDownStocks.push(lastStock);
             }
           }
         } else {
-          upDownStocks.push(item[0]);
+          upDownStocks.push(lastStock);
         }
       }
     }
@@ -56,15 +57,15 @@ export const chooseResults = (props) => {
         selectConsUpDown,
         selectConsDays
       );
-      if (typeA) item[0].typeA1 = true;
-      if (typeB) item[0].typeA2 = true;
-      if (typeC) item[0].typeA3 = true;
+      if (typeA) lastStock.typeA1 = true;
+      if (typeB) lastStock.typeA2 = true;
+      if (typeC) lastStock.typeA3 = true;
       if (isTrue) {
         if (hasCondition1 === 'true' && caculatePriceBy === 'true') {
           isAverageDistribution(item, selectPriceMargin) &&
-            upDownStocks.push(data[k][0]);
+            upDownStocks.push(lastStock);
         } else {
-          upDownStocks.push(data[k][0]);
+          upDownStocks.push(lastStock);
         }
       }
     }
