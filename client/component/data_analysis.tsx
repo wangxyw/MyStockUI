@@ -20,6 +20,7 @@ import { post, get } from '../lib/request';
 import {
   caculateDate,
   isAverageDistribution,
+  today,
   validateCons,
   validateTotal,
   workdays,
@@ -298,7 +299,7 @@ export const DataAnalysisCom = () => {
       `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${selectDate}&from100=${false}`,
+      )}&end_date_str=${today}&from100=${false}`,
       { method: 'GET' }
     ).then((res) => {
       // console.log(res);

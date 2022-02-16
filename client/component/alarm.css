@@ -17,3 +17,7 @@
   pointer-events: none;
   background-color: #f58181;
 }
+
+.red-row a {
+  pointer-events: auto;
+}
