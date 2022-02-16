@@ -587,8 +587,8 @@ export const DataAnalysisCom = () => {
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
               <Switch
-                unCheckedChildren="Ture"
-                checkedChildren="False"
+                unCheckedChildren="Not100"
+                checkedChildren="From100"
                 style={{ margin: '0 10px' }}
                 // defaultChecked
                 checked={from100}
@@ -628,8 +628,8 @@ export const DataAnalysisCom = () => {
               </Select>
               % price margin
               <Switch
-                unCheckedChildren="Not100"
-                checkedChildren="From100"
+                unCheckedChildren="Former"
+                checkedChildren="Latter"
                 style={{ margin: '0 10px' }}
                 // defaultChecked
                 checked={caculatePriceBy}
