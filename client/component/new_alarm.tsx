@@ -178,22 +178,15 @@ export const AlarmComponent = (props) => {
   const [hasCondition2, setHasCondition2] = useState(false);
   const [hasCondition3, setHasCondition3] = useState(false);
   const [hasCondition4, setHasCondition4] = useState(false);
+  const [hasCondition5, setHasCondition5] = useState(false);
   const [minOrAverage, setMinOrAverage] = useState('min');
   const [isSearchByDay, setIsSearchByDay] = useState(false);
   const [isSearchByWeek, setIsSearchByWeek] = useState(false);
   const [givenPrice, setGivenPrice] = useState(10);
-  const [givenCirculation, setGivenCirculation] = useState(100);
-  // const [savedStockOptions, setSavedStockOptions] = useState<any[]>([]);
-
+  const [givenCirculation, setGivenCirculation] = useState(10);
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
-  // const [selectStartDate, setSelectStartDate] = useState(
-  //   moment(`${year}-${month}-${day}`).format(dateFormat)
-  // );
-  // const [selectEndDate, setSelectEndDate] = useState(
-  //   moment(`${year}-${month}-${day}`).format(dateFormat)
-  // );
   const [comments, setComments] = useState('');
   const [predict, setPredict] = useState('up');
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
@@ -210,6 +203,8 @@ export const AlarmComponent = (props) => {
   const [selectFocusStatus, setSelectFocusStatus] = useState<any>(null);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
   const [selectMinPriceDays, setSelectMinPriceDays] = useState(20);
+  const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
+  const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
@@ -266,6 +261,9 @@ export const AlarmComponent = (props) => {
     { key: 'selectMinPriceDays', value: selectMinPriceDays },
     { key: 'hasCondition3', value: hasCondition3 },
     { key: 'hasCondition4', value: hasCondition4 },
+    { key: 'selectHorPriceMargin', value: selectHorPriceMargin },
+    { key: 'selectHorPriceDays', value: selectHorPriceDays },
+    { key: 'hasCondition5', value: hasCondition5 },
     { key: 'givenPrice', value: givenPrice },
     { key: 'givenCirculation', value: givenCirculation },
     { key: 'from100', value: from100 },
@@ -1478,21 +1476,7 @@ export const AlarmComponent = (props) => {
               checked={hasCondition2}
               onChange={() => setHasCondition2(!hasCondition2)}
             />
-            Condition 2
-            <Select
-              style={{ width: '80px' }}
-              value={minOrAverage}
-              onChange={(v) => {
-                setMinOrAverage(v);
-              }}
-              size="small"
-            >
-              {minOrAverageMap.map((i) => (
-                <Select.Option key={i.key} value={i.key}>
-                  {i.value}
-                </Select.Option>
-              ))}
-            </Select>
+            Condition 2{'MinPrice <'}
             <Select
               style={{ width: '80px' }}
               value={selectMinPriceMargin}
@@ -1507,12 +1491,56 @@ export const AlarmComponent = (props) => {
                 </Select.Option>
               ))}
             </Select>
-            %price in
+            % in
             <Select
               style={{ width: '80px' }}
               value={selectMinPriceDays}
               onChange={(v) => {
                 setSelectMinPriceDays(v);
+              }}
+              size="small"
+            >
+              {[20, 30, 40, 50, 60, 90].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>{' '}
+            days
+          </Space>
+          <Space
+            style={{
+              padding: '10px',
+              boxShadow: '1px 1px 3px #ccc',
+              marginLeft: '10px',
+              background: `${hasCondition5 ? SELECT_COLOR : '#fff'}`,
+            }}
+          >
+            <Checkbox
+              checked={hasCondition5}
+              onChange={() => setHasCondition5(!hasCondition5)}
+            />
+            Condition 5{'横盘<'}
+            <Select
+              style={{ width: '80px' }}
+              value={selectHorPriceMargin}
+              onChange={(v) => {
+                setSelectHorPriceMargin(v);
+              }}
+              size="small"
+            >
+              {[5, 10, 15, 20].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>
+            % in
+            <Select
+              style={{ width: '80px' }}
+              value={selectHorPriceDays}
+              onChange={(v) => {
+                setSelectHorPriceDays(v);
               }}
               size="small"
             >

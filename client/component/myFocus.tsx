@@ -205,7 +205,6 @@ export const MyFocusListComponent = () => {
       }),
     }).then(() => {
       if (item.key === '3') {
-        console.log(item, tableIndex);
         post('/api/edit_focus_datestr', {
           body: JSON.stringify({
             symbol: tableIndex,

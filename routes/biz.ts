@@ -1,4 +1,3 @@
-import { groupBy } from 'lodash';
 import {
   caculateMaxPrice,
   caculateMinPrice,
@@ -6,6 +5,7 @@ import {
   validateCons,
   validateTotal,
 } from './utils';
+import { groupBy } from 'lodash';
 
 export const chooseResults = (props) => {
   const {
@@ -74,29 +74,36 @@ export const chooseResults = (props) => {
 };
 
 export const filterByCondition2 = (props) => {
-  const { rows1, minOrAverage, selectMinPriceMargin } = props;
+  const { rows1, selectMinPriceMargin } = props;
   const groupStocks = groupBy(rows1, 'symbol');
   const matchStocks: any = [];
   Object.keys(groupStocks)?.forEach((key) => {
     const stockArr = groupStocks[key];
     let curItem = stockArr[stockArr?.length - 1];
-    if (minOrAverage === 'min') {
-      const { minPrice } = caculateMinPrice(stockArr);
-      let curPrice = curItem?.finalprice;
-      if (!curPrice) {
-        curPrice = stockArr[stockArr?.length - 2]?.finalprice;
-        curItem = stockArr[stockArr?.length - 2];
-      }
-      if ((curPrice - minPrice) / minPrice < selectMinPriceMargin / 100) {
-        matchStocks.push(curItem);
-      }
+    const { minPrice } = caculateMinPrice(stockArr);
+    let curPrice = curItem?.finalprice;
+    if (!curPrice) {
+      curPrice = stockArr[stockArr?.length - 2]?.finalprice;
+      curItem = stockArr[stockArr?.length - 2];
     }
-    if (minOrAverage === 'average') {
-      const { maxPrice } = caculateMaxPrice(stockArr);
-      const { minPrice } = caculateMinPrice(stockArr);
-      if ((maxPrice - minPrice) / minPrice < selectMinPriceMargin / 100) {
-        matchStocks.push(curItem);
-      }
+    if ((curPrice - minPrice) / minPrice < selectMinPriceMargin / 100) {
+      matchStocks.push(curItem);
+    }
+  });
+  return matchStocks;
+};
+
+export const filterByCondition5 = (props) => {
+  const { rows1, selectHorPriceMargin } = props;
+  const groupStocks = groupBy(rows1, 'symbol');
+  const matchStocks: any = [];
+  Object.keys(groupStocks)?.forEach((key) => {
+    const stockArr = groupStocks[key];
+    let curItem = stockArr[stockArr?.length - 1];
+    const { maxPrice } = caculateMaxPrice(stockArr);
+    const { minPrice } = caculateMinPrice(stockArr);
+    if ((maxPrice - minPrice) / minPrice < selectHorPriceMargin / 100) {
+      matchStocks.push(curItem);
     }
   });
   return matchStocks;

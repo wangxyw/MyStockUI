@@ -9,7 +9,6 @@ import { get } from '../lib/request';
 import { cloneDeep, orderBy } from 'lodash';
 import './alarm.css';
 import { caculateMinPrice, focusStatusMap } from './myFocus';
-import { match } from 'assert';
 
 const curDate = new Date();
 const year = curDate.getFullYear();

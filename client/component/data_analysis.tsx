@@ -27,8 +27,58 @@ import {
 } from './alarm';
 import { groupBy, orderBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
-import { caculatePriceData } from './myFocus';
-import { minOrAverageMap, SELECT_COLOR } from './new_alarm';
+import {
+  caculateMaxPrice,
+  caculateMinPrice,
+  caculatePriceData,
+} from './myFocus';
+import { SELECT_COLOR } from './new_alarm';
+
+export const filterByCondition25 = (
+  priceData,
+  stocks,
+  price,
+  hasCondition2,
+  hasCondition5
+) => {
+  const newStocks = stocks?.map((item) => {
+    const pData = priceData?.filter((i) => i.symbol === item.symbol);
+    const { minPrice } = caculateMinPrice(pData);
+    if (hasCondition2) {
+      let curPrice = item?.finalprice;
+      if (!curPrice) {
+        curPrice = priceData[priceData?.length - 2]?.finalprice;
+      }
+      if ((curPrice - minPrice) / minPrice < price / 100) {
+        item.Condition2 = true;
+      }
+    }
+    if (hasCondition5) {
+      const { maxPrice } = caculateMaxPrice(pData);
+      if ((maxPrice - minPrice) / minPrice < price / 100) {
+        item.Condition5 = true;
+      }
+    }
+    return { ...item };
+  });
+  return newStocks;
+};
+
+export const filterByCondition5 = (props) => {
+  const { rows1, selectHorPriceMargin } = props;
+  const groupStocks = groupBy(rows1, 'symbol');
+  const matchStocks: any = [];
+  Object.keys(groupStocks)?.forEach((key) => {
+    const stockArr = groupStocks[key];
+    let curItem = stockArr[stockArr?.length - 1];
+    const { maxPrice } = caculateMaxPrice(stockArr);
+    const { minPrice } = caculateMinPrice(stockArr);
+    if ((maxPrice - minPrice) / minPrice < selectHorPriceMargin / 100) {
+      matchStocks.push(curItem);
+    }
+  });
+  return matchStocks;
+};
 
 const dapanOption = (data) => {
   const yData = Object.keys(data)?.map((i) => data[i]?.length);
@@ -75,7 +125,6 @@ const dapanOption = (data) => {
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
   const workDaysArray = workdays.slice(endIndex - days + 1, endIndex + 1);
-  console.log(endIndex, endIndex - days, workDaysArray);
   return workDaysArray;
 };
 
@@ -211,12 +260,14 @@ const composeConditionData = (
   hasCondition1,
   hasCondition2,
   hasCondition3,
-  hasCondition4
+  hasCondition4,
+  hasCondition5
 ) => {
   let condition1Data = eachDayData;
   let condition2Data = eachDayData;
   let condition3Data = eachDayData;
   let condition4Data = eachDayData;
+  let condition5Data = eachDayData;
   if (hasCondition1) {
     condition1Data = eachDayData?.filter((i) => i.Condition1);
   }
@@ -229,11 +280,15 @@ const composeConditionData = (
   if (hasCondition4) {
     condition4Data = eachDayData?.filter((i) => i.Condition4);
   }
+  if (hasCondition5) {
+    condition5Data = eachDayData?.filter((i) => i.Condition5);
+  }
   eachDayData = [
     condition1Data,
     condition2Data,
     condition3Data,
     condition4Data,
+    condition5Data,
   ].reduce((a, b) => a.filter((c) => b.includes(c)));
   const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
   const form20to100 = eachDayData?.filter(
@@ -277,12 +332,14 @@ export const DataAnalysisCom = () => {
   const [hasCondition2, setHasCondition2] = useState(false);
   const [hasCondition3, setHasCondition3] = useState(false);
   const [hasCondition4, setHasCondition4] = useState(false);
-  const [minOrAverage, setMinOrAverage] = useState('min');
+  const [hasCondition5, setHasCondition5] = useState(false);
   const [givenPrice, setGivenPrice] = useState(10);
   const [givenCirculation, setGivenCirculation] = useState(10);
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
   const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);
+  const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
+  const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
   const [caculatePriceBy, setCaculatePriceBy] = useState(false);
   const [option, setOption] = useState<any>({});
   const [baseResult, setBaseResult] = useState<any>({});
@@ -295,6 +352,9 @@ export const DataAnalysisCom = () => {
     let days = parseInt(selectDays, 10) + parseInt(selectConsAllDays, 10);
     if (hasCondition2 && selectMinPriceDays > days) {
       days = selectMinPriceDays;
+    }
+    if (hasCondition2 && selectHorPriceDays > days) {
+      days = selectHorPriceDays + selectConsDays;
     }
     get(
       `/api/all_alarm_data?date_str=${caculateDate(
@@ -313,7 +373,7 @@ export const DataAnalysisCom = () => {
             e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
         );
         const data = groupBy(allStockDataByDate, 'symbol');
-        const selectedStocks: any = [];
+        let selectedStocks: any = [];
         Object.keys(data).forEach((k) => {
           const item = data[k];
           const lastStock = item?.[item?.length - 1];
@@ -373,11 +433,40 @@ export const DataAnalysisCom = () => {
             }
           }
         });
-
         const selectSymbols = selectedStocks?.map((i) => i.symbol);
         const priceSymbolData = res?.filter((i) =>
           selectSymbols?.includes(i.symbol)
         );
+
+        if (hasCondition2 && selectedStocks?.length > 0) {
+          const priceData = priceSymbolData?.filter(
+            (i) =>
+              i?.datestr > caculateDate(selectDate, selectMinPriceDays) &&
+              i?.datestr <= selectDate
+          );
+          selectedStocks = filterByCondition25(
+            priceData,
+            selectedStocks,
+            selectMinPriceMargin,
+            hasCondition2,
+            hasCondition5
+          );
+        }
+
+        if (hasCondition5 && selectedStocks?.length > 0) {
+          const priceData = priceSymbolData?.filter(
+            (i) =>
+              i?.datestr > caculateDate(selectDate, selectHorPriceDays) &&
+              i?.datestr <= caculateDate(selectDate, selectConsDays)
+          );
+          selectedStocks = filterByCondition25(
+            priceData,
+            selectedStocks,
+            selectMinPriceMargin,
+            hasCondition2,
+            hasCondition5
+          );
+        }
         stockDataByDate[date] = caculatePriceData(
           selectedStocks,
           priceSymbolData
@@ -436,13 +525,18 @@ export const DataAnalysisCom = () => {
     if (
       stockData &&
       selectDateTab &&
-      (hasCondition1 || hasCondition2 || hasCondition3 || hasCondition4)
+      (hasCondition1 ||
+        hasCondition2 ||
+        hasCondition3 ||
+        hasCondition4 ||
+        hasCondition5)
     ) {
       let eachDayData = stockData?.[selectDateTab];
       let condition1Data = stockData?.[selectDateTab];
       let condition2Data = stockData?.[selectDateTab];
       let condition3Data = stockData?.[selectDateTab];
       let condition4Data = stockData?.[selectDateTab];
+      let condition5Data = stockData?.[selectDateTab];
       if (hasCondition1) {
         condition1Data = eachDayData?.filter((i) => i.Condition1);
       }
@@ -455,11 +549,15 @@ export const DataAnalysisCom = () => {
       if (hasCondition4) {
         condition4Data = eachDayData?.filter((i) => i.Condition4);
       }
+      if (hasCondition5) {
+        condition5Data = eachDayData?.filter((i) => i.Condition5);
+      }
       eachDayData = [
         condition1Data,
         condition2Data,
         condition3Data,
         condition4Data,
+        condition5Data,
       ].reduce((a, b) => a.filter((c) => b.includes(c)));
 
       const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
@@ -492,17 +590,16 @@ export const DataAnalysisCom = () => {
       });
       setData(stockData[selectDateTab]);
       const compareData = {};
-      // const totalData = {};
       const conditionData = {};
       dateArray?.forEach((i) => {
         compareData[i] = composeCompareData(stockData[i]);
-        // totalData[i] = composeData(stockData[i]);
         conditionData[i] = composeConditionData(
           stockData[i],
           hasCondition1,
           hasCondition2,
           hasCondition3,
-          hasCondition4
+          hasCondition4,
+          hasCondition5
         );
       });
       setCompareData([compareData, conditionData]);
@@ -514,6 +611,7 @@ export const DataAnalysisCom = () => {
     hasCondition1,
     hasCondition2,
     hasCondition3,
+    hasCondition5,
   ]);
 
   return (
@@ -645,25 +743,10 @@ export const DataAnalysisCom = () => {
               }}
             >
               <Checkbox
-                disabled //todo Condition2
                 checked={hasCondition2}
                 onChange={() => setHasCondition2(!hasCondition2)}
               />
-              Condition 2
-              <Select
-                style={{ width: '80px' }}
-                value={minOrAverage}
-                onChange={(v) => {
-                  setMinOrAverage(v);
-                }}
-                size="small"
-              >
-                {minOrAverageMap.map((i) => (
-                  <Select.Option key={i.key} value={i.key}>
-                    {i.value}
-                  </Select.Option>
-                ))}
-              </Select>
+              Condition 2{'MinPrice <'}
               <Select
                 style={{ width: '80px' }}
                 value={selectMinPriceMargin}
@@ -684,6 +767,50 @@ export const DataAnalysisCom = () => {
                 value={selectMinPriceDays}
                 onChange={(v) => {
                   setSelectMinPriceDays(v);
+                }}
+                size="small"
+              >
+                {[20, 30, 40, 50, 60, 90].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>{' '}
+              days
+            </Space>
+            <Space
+              style={{
+                padding: '10px',
+                boxShadow: '1px 1px 3px #ccc',
+                marginLeft: '10px',
+                background: `${hasCondition5 ? SELECT_COLOR : '#fff'}`,
+              }}
+            >
+              <Checkbox
+                checked={hasCondition5}
+                onChange={() => setHasCondition5(!hasCondition5)}
+              />
+              Condition 5{'横盘<'}
+              <Select
+                style={{ width: '80px' }}
+                value={selectHorPriceMargin}
+                onChange={(v) => {
+                  setSelectHorPriceMargin(v);
+                }}
+                size="small"
+              >
+                {[5, 10, 15, 20].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
+              % in
+              <Select
+                style={{ width: '80px' }}
+                value={selectHorPriceDays}
+                onChange={(v) => {
+                  setSelectHorPriceDays(v);
                 }}
                 size="small"
               >
@@ -754,22 +881,6 @@ export const DataAnalysisCom = () => {
               </Button>
             </Space>
           </div>
-
-          {/* <div style={{ textAlign: 'right' }}>
-            <Button
-              type="primary"
-              disabled={!stockData}
-              onClick={() => {
-                if (selectConsDays && !isNaN(selectConsDays)) {
-                  setIsLoading(true);
-                  runToCompare();
-                }
-              }}
-            >
-              {' '}
-              Add To Compare
-            </Button>
-          </div> */}
         </div>
         <Spin spinning={isLoading} tip="Loading and caculating...">
           <ReactEcharts
@@ -851,12 +962,12 @@ export const DataAnalysisCom = () => {
               >
                 {dateArray?.map((i) => (
                   <Tabs.TabPane tab={i} key={i}>
-                    <p>
+                    <div>
                       Total:{dataTotal}{' '}
                       <span style={{ color: 'red' }}>Up:{dataUp}</span>{' '}
                       <span style={{ color: 'green' }}>Down:{dataDown}</span>
-                    </p>
-                    <p>
+                    </div>
+                    <div>
                       <Space>
                         BaseResult:
                         <Tag>100+: {baseResult?.more100}</Tag>
@@ -865,22 +976,21 @@ export const DataAnalysisCom = () => {
                         <Tag>40-60: {baseResult?.from40to60}</Tag>
                         <Tag>20-40: {baseResult?.from20to40}</Tag>
                       </Space>
-                    </p>
-                    <p>
+                    </div>
+                    <div>
                       <Space>
                         {hasCondition1 && 'Condition1'}{' '}
                         {hasCondition2 && 'Condition2'}
                         {hasCondition3 && 'Condition3'}
-                        {hasCondition4 && 'Condition4'}Result:
+                        {hasCondition4 && 'Condition4'}
+                        {hasCondition5 && 'Condition5'}Result:
                         <Tag>100+: {conditionResult?.more100}</Tag>
                         <Tag>80-100: {conditionResult?.form80to100}</Tag>
                         <Tag>60-80: {conditionResult?.from60to80}</Tag>
                         <Tag>40-60: {conditionResult?.from40to60}</Tag>
                         <Tag>20-40: {conditionResult?.from20to40}</Tag>
                       </Space>
-                    </p>
-                    {/* <p>Up 表示选出来的中 近60天有过上涨的数量</p>
-                  <p>Down 表示选出来的中 近60天从未有过上涨的数量</p> */}
+                    </div>
                   </Tabs.TabPane>
                 ))}
               </Tabs>

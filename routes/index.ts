@@ -1,5 +1,5 @@
 import request from 'axios';
-import { chooseResults, filterByCondition2 } from './biz';
+import { chooseResults, filterByCondition2, filterByCondition5 } from './biz';
 import { caculateDate } from './utils';
 var express = require('express');
 var router = express.Router();
@@ -221,7 +221,6 @@ router.get('/all_focus_stock', function (req, res, next) {
       (i) =>
         (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
     );
-    //console.log(batchSql);
     pool.query(batchSql, function (newerr, newrows, newfields) {
       if (err) throw err;
       //...newrows.forEach(i => {})
@@ -278,7 +277,6 @@ router.get('/all_alarm_data', function (req, res, next) {
   let table = 'stock_big_data';
   if (from100 === 'true') table = 'stock_big_data_100';
   let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
-  console.log(sql);
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -296,12 +294,14 @@ router.get('/searchByDay', async function (req, res, next) {
     selectPriceMargin,
     caculatePriceBy,
     hasCondition2,
-    minOrAverage,
     selectMinPriceMargin,
     selectMinPriceDays,
     from100,
     hasCondition3,
     hasCondition4,
+    hasCondition5,
+    selectHorPriceMargin,
+    selectHorPriceDays,
     givenPrice,
     givenCirculation,
   } = req.query;
@@ -321,39 +321,40 @@ router.get('/searchByDay', async function (req, res, next) {
       selectPriceMargin,
       caculatePriceBy,
     });
-    let condition3Results = results;
-    let condition4Results = results;
     if (hasCondition3 === 'true') {
-      condition3Results = results?.filter((i) => i.finalprice < givenPrice);
+      results = results?.filter((i) => i.finalprice < givenPrice);
     }
     if (hasCondition4 === 'true') {
-      condition4Results = results?.filter(
+      results = results?.filter(
         (i) =>
           Number((i.marketvalue / i.finalprice).toFixed(3)) < givenCirculation
       );
     }
-    if (hasCondition3 === 'true' || hasCondition4 === 'true') {
-      results = [condition3Results, condition4Results].reduce((a, b) =>
-        a.filter((c) => b.includes(c))
-      );
-    }
-
-    if (hasCondition2 === 'true') {
+    if (hasCondition2 === 'true' && results?.length > 0) {
       const ids = results?.map((i) => `'${i.symbol}'`).join(',');
-      sql = `SELECT * FROM stock_big_data where symbol in (${ids}) and datestr <= '${datestr}' and datestr > '${caculateDate(
+      sql = `SELECT * FROM ${table} where symbol in (${ids}) and datestr <= '${datestr}' and datestr > '${caculateDate(
         datestr,
         selectMinPriceDays
       )}'`;
       const rows1: any = await queryDB(sql);
-      const matchResults = filterByCondition2({
+      results = filterByCondition2({
         rows1,
-        minOrAverage,
         selectMinPriceMargin,
       });
-      res.json(matchResults);
-    } else {
-      res.json(results);
     }
+    if (hasCondition5 === 'true' && results?.length > 0) {
+      const ids = results?.map((i) => `'${i.symbol}'`).join(',');
+      sql = `SELECT * FROM ${table} where symbol in (${ids}) and datestr <= '${caculateDate(
+        datestr,
+        selectConsDays
+      )}' and datestr > '${caculateDate(datestr, selectHorPriceDays)}'`;
+      const rows1: any = await queryDB(sql);
+      results = filterByCondition5({
+        rows1,
+        selectHorPriceMargin,
+      });
+    }
+    res.json(results);
   });
 });
 
