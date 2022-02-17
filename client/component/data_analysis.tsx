@@ -43,8 +43,9 @@ export const filterByCondition25 = (
 ) => {
   const newStocks = stocks?.map((item) => {
     const pData = priceData?.filter((i) => i.symbol === item.symbol);
-    const { minPrice } = caculateMinPrice(pData);
-    if (hasCondition2) {
+
+    if (hasCondition2 && pData?.length > 0) {
+      const { minPrice } = caculateMinPrice(pData);
       let curPrice = item?.finalprice;
       if (!curPrice) {
         curPrice = priceData[priceData?.length - 2]?.finalprice;
@@ -53,7 +54,8 @@ export const filterByCondition25 = (
         item.Condition2 = true;
       }
     }
-    if (hasCondition5) {
+    if (hasCondition5 && pData?.length > 0) {
+      const { minPrice } = caculateMinPrice(pData);
       const { maxPrice } = caculateMaxPrice(pData);
       if ((maxPrice - minPrice) / minPrice < price / 100) {
         item.Condition5 = true;
@@ -62,22 +64,6 @@ export const filterByCondition25 = (
     return { ...item };
   });
   return newStocks;
-};
-
-export const filterByCondition5 = (props) => {
-  const { rows1, selectHorPriceMargin } = props;
-  const groupStocks = groupBy(rows1, 'symbol');
-  const matchStocks: any = [];
-  Object.keys(groupStocks)?.forEach((key) => {
-    const stockArr = groupStocks[key];
-    let curItem = stockArr[stockArr?.length - 1];
-    const { maxPrice } = caculateMaxPrice(stockArr);
-    const { minPrice } = caculateMinPrice(stockArr);
-    if ((maxPrice - minPrice) / minPrice < selectHorPriceMargin / 100) {
-      matchStocks.push(curItem);
-    }
-  });
-  return matchStocks;
 };
 
 const dapanOption = (data) => {
@@ -289,7 +275,7 @@ const composeConditionData = (
     condition3Data,
     condition4Data,
     condition5Data,
-  ].reduce((a, b) => a.filter((c) => b.includes(c)));
+  ].reduce((a, b) => a?.filter((c) => b.includes(c)));
   const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
   const form20to100 = eachDayData?.filter(
     (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 20
@@ -558,7 +544,7 @@ export const DataAnalysisCom = () => {
         condition3Data,
         condition4Data,
         condition5Data,
-      ].reduce((a, b) => a.filter((c) => b.includes(c)));
+      ].reduce((a, b) => a?.filter((c) => b.includes(c)));
 
       const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
       const form80to100 = eachDayData?.filter(
@@ -672,7 +658,7 @@ export const DataAnalysisCom = () => {
                 }}
                 size="small"
               >
-                {[40, 50, 60].map((i) => (
+                {[5, 10, 20, 40, 50, 60].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>
@@ -770,7 +756,7 @@ export const DataAnalysisCom = () => {
                 }}
                 size="small"
               >
-                {[20, 30, 40, 50, 60, 90].map((i) => (
+                {[5, 10, 20, 30, 40, 50, 60, 90].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>
@@ -814,7 +800,7 @@ export const DataAnalysisCom = () => {
                 }}
                 size="small"
               >
-                {[20, 30, 40, 50, 60, 90].map((i) => (
+                {[5, 10, 20, 30, 40, 50, 60, 90].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>

@@ -33,7 +33,7 @@ interface EditableRowProps {
   index: number;
 }
 export const caculateMaxPrice = (priceByDayData) => {
-  let maxPrice = priceByDayData[0].finalprice;
+  let maxPrice = priceByDayData[0]?.finalprice;
   let maxPriceDay = 0;
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice > maxPrice) {
@@ -45,7 +45,7 @@ export const caculateMaxPrice = (priceByDayData) => {
 };
 
 export const caculateMinPrice = (priceByDayData) => {
-  let minPrice = priceByDayData[0].finalprice;
+  let minPrice = priceByDayData[0]?.finalprice;
   let minPriceDay = 0;
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice < minPrice) {
