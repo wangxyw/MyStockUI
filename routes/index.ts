@@ -300,9 +300,11 @@ router.get('/searchByDay', async function (req, res, next) {
     hasCondition3,
     hasCondition4,
     hasCondition5,
+    hasCondition6,
     selectHorPriceMargin,
     selectHorPriceDays,
     givenPrice,
+    givenMinPrice,
     givenCirculation,
   } = req.query;
   const startDateStr = caculateDate(datestr, selectConsAllDays);
@@ -323,6 +325,9 @@ router.get('/searchByDay', async function (req, res, next) {
     });
     if (hasCondition3 === 'true') {
       results = results?.filter((i) => i.finalprice < givenPrice);
+    }
+    if (hasCondition6 === 'true') {
+      results = results?.filter((i) => i.finalprice > givenMinPrice);
     }
     if (hasCondition4 === 'true') {
       results = results?.filter(

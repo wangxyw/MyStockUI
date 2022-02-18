@@ -246,6 +246,7 @@ const composeConditionData = (
   hasCondition1,
   hasCondition2,
   hasCondition3,
+  hasCondition6,
   hasCondition4,
   hasCondition5
 ) => {
@@ -254,6 +255,7 @@ const composeConditionData = (
   let condition3Data = eachDayData;
   let condition4Data = eachDayData;
   let condition5Data = eachDayData;
+  let condition6Data = eachDayData;
   if (hasCondition1) {
     condition1Data = eachDayData?.filter((i) => i.Condition1);
   }
@@ -262,6 +264,9 @@ const composeConditionData = (
   }
   if (hasCondition3) {
     condition3Data = eachDayData?.filter((i) => i.Condition3);
+  }
+  if (hasCondition6) {
+    condition6Data = eachDayData?.filter((i) => i.Condition6);
   }
   if (hasCondition4) {
     condition4Data = eachDayData?.filter((i) => i.Condition4);
@@ -273,6 +278,7 @@ const composeConditionData = (
     condition1Data,
     condition2Data,
     condition3Data,
+    condition6Data,
     condition4Data,
     condition5Data,
   ].reduce((a, b) => a?.filter((c) => b.includes(c)));
@@ -317,9 +323,11 @@ export const DataAnalysisCom = () => {
   const [hasCondition1, setHasCondition1] = useState(false);
   const [hasCondition2, setHasCondition2] = useState(false);
   const [hasCondition3, setHasCondition3] = useState(false);
+  const [hasCondition6, setHasCondition6] = useState(false);
   const [hasCondition4, setHasCondition4] = useState(false);
   const [hasCondition5, setHasCondition5] = useState(false);
   const [givenPrice, setGivenPrice] = useState(10);
+  const [givenMinPrice, setGivenMinPrice] = useState(10);
   const [givenCirculation, setGivenCirculation] = useState(10);
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
@@ -386,6 +394,9 @@ export const DataAnalysisCom = () => {
               if (lastStock.finalprice < givenPrice) {
                 lastStock.Condition3 = true;
               }
+              if (lastStock.finalprice > givenMinPrice) {
+                lastStock.Condition6 = true;
+              }
               if (
                 lastStock.marketvalue / lastStock.finalprice <
                 givenCirculation
@@ -408,6 +419,9 @@ export const DataAnalysisCom = () => {
               }
               if (lastStock.finalprice < givenPrice) {
                 lastStock.Condition3 = true;
+              }
+              if (lastStock.finalprice > givenMinPrice) {
+                lastStock.Condition6 = true;
               }
               if (
                 lastStock.marketvalue / lastStock.finalprice <
@@ -528,6 +542,7 @@ export const DataAnalysisCom = () => {
       (hasCondition1 ||
         hasCondition2 ||
         hasCondition3 ||
+        hasCondition6 ||
         hasCondition4 ||
         hasCondition5)
     ) {
@@ -535,6 +550,7 @@ export const DataAnalysisCom = () => {
       let condition1Data = stockData?.[selectDateTab];
       let condition2Data = stockData?.[selectDateTab];
       let condition3Data = stockData?.[selectDateTab];
+      let condition6Data = stockData?.[selectDateTab];
       let condition4Data = stockData?.[selectDateTab];
       let condition5Data = stockData?.[selectDateTab];
       if (hasCondition1) {
@@ -545,6 +561,9 @@ export const DataAnalysisCom = () => {
       }
       if (hasCondition3) {
         condition3Data = eachDayData?.filter((i) => i.Condition3);
+      }
+      if (hasCondition6) {
+        condition6Data = eachDayData?.filter((i) => i.Condition6);
       }
       if (hasCondition4) {
         condition4Data = eachDayData?.filter((i) => i.Condition4);
@@ -558,6 +577,7 @@ export const DataAnalysisCom = () => {
         condition3Data,
         condition4Data,
         condition5Data,
+        condition6Data,
       ].reduce((a, b) => a?.filter((c) => b.includes(c)));
 
       const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
@@ -598,6 +618,7 @@ export const DataAnalysisCom = () => {
           hasCondition1,
           hasCondition2,
           hasCondition3,
+          hasCondition6,
           hasCondition4,
           hasCondition5
         );
@@ -611,6 +632,7 @@ export const DataAnalysisCom = () => {
     hasCondition1,
     hasCondition2,
     hasCondition3,
+    hasCondition6,
     hasCondition5,
   ]);
 
@@ -848,6 +870,26 @@ export const DataAnalysisCom = () => {
               style={{
                 padding: '10px',
                 boxShadow: '1px 1px 3px #ccc',
+                background: `${hasCondition6 ? SELECT_COLOR : '#fff'}`,
+              }}
+            >
+              <Checkbox
+                checked={hasCondition6}
+                onChange={() => setHasCondition6(!hasCondition6)}
+              />
+              Condition 6
+              <InputNumber
+                min={1}
+                max={500}
+                value={givenMinPrice}
+                onChange={setGivenMinPrice}
+              />
+              元<span>{'< Final Price'}</span>
+            </Space>
+            <Space
+              style={{
+                padding: '10px',
+                boxShadow: '1px 1px 3px #ccc',
                 marginLeft: '10px',
                 background: `${hasCondition4 ? SELECT_COLOR : '#fff'}`,
               }}
@@ -982,6 +1024,7 @@ export const DataAnalysisCom = () => {
                         {hasCondition1 && 'Condition1'}{' '}
                         {hasCondition2 && 'Condition2'}
                         {hasCondition3 && 'Condition3'}
+                        {hasCondition6 && 'Condition6'}
                         {hasCondition4 && 'Condition4'}
                         {hasCondition5 && 'Condition5'}Result:
                         <Tag>100+: {conditionResult?.more100}</Tag>
