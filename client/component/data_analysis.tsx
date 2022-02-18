@@ -468,6 +468,20 @@ export const DataAnalysisCom = () => {
   };
   useEffect(() => {
     if (stockData && selectDateTab) {
+      const beforeDaySymbols: any = [];
+      const curDaySymbols = stockData[selectDateTab];
+      dateArray?.forEach((i) => {
+        if (i < selectDateTab) {
+          beforeDaySymbols.push(...stockData[i]);
+        }
+      });
+      const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
+      const curDay = curDaySymbols?.filter(
+        (i) => !beforeSymbols?.includes(i.symbol)
+      );
+      stockData[selectDateTab] = curDay;
+    }
+    if (stockData && selectDateTab) {
       setData(stockData[selectDateTab]);
       setDataTotal(stockData[selectDateTab]?.length);
       setDataUp(
