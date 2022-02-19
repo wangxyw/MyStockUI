@@ -179,10 +179,12 @@ export const AlarmComponent = (props) => {
   const [hasCondition3, setHasCondition3] = useState(false);
   const [hasCondition4, setHasCondition4] = useState(false);
   const [hasCondition5, setHasCondition5] = useState(false);
+  const [hasCondition6, setHasCondition6] = useState(false);
   const [minOrAverage, setMinOrAverage] = useState('min');
   const [isSearchByDay, setIsSearchByDay] = useState(false);
   const [isSearchByWeek, setIsSearchByWeek] = useState(false);
   const [givenPrice, setGivenPrice] = useState(10);
+  const [givenMinPrice, setGivenMinPrice] = useState(10);
   const [givenCirculation, setGivenCirculation] = useState(10);
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
@@ -264,7 +266,9 @@ export const AlarmComponent = (props) => {
     { key: 'selectHorPriceMargin', value: selectHorPriceMargin },
     { key: 'selectHorPriceDays', value: selectHorPriceDays },
     { key: 'hasCondition5', value: hasCondition5 },
+    { key: 'hasCondition6', value: hasCondition6 },
     { key: 'givenPrice', value: givenPrice },
+    { key: 'givenMinPrice', value: givenMinPrice },
     { key: 'givenCirculation', value: givenCirculation },
     { key: 'from100', value: from100 },
   ];
@@ -1573,6 +1577,26 @@ export const AlarmComponent = (props) => {
               onChange={setGivenPrice}
             />
             元
+          </Space>
+          <Space
+            style={{
+              padding: '10px',
+              boxShadow: '1px 1px 3px #ccc',
+              background: `${hasCondition6 ? SELECT_COLOR : '#fff'}`,
+            }}
+          >
+            <Checkbox
+              checked={hasCondition6}
+              onChange={() => setHasCondition6(!hasCondition6)}
+            />
+            Condition 6
+            <InputNumber
+              min={1}
+              max={500}
+              value={givenMinPrice}
+              onChange={setGivenMinPrice}
+            />
+            元<span>{'< Final Price'}</span>
           </Space>
           <Space
             style={{

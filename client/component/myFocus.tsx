@@ -64,7 +64,7 @@ export const caculatePriceData = (
   const priceData = stockData.map((i) => {
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
-      if (timeWindow !== '无限') {
+      if (timeWindow !== '不限') {
         a = a && e.datestr <= caculateAfterDate(i.datestr, timeWindow);
       }
       return a;
