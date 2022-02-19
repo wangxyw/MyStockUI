@@ -56,13 +56,17 @@ export const caculateMinPrice = (priceByDayData) => {
   return { minPrice, minPriceDay };
 };
 
-export const caculatePriceData = (stockData, stockPriceByDay) => {
+export const caculatePriceData = (
+  stockData,
+  stockPriceByDay,
+  timeWindow: any = 60
+) => {
   const priceData = stockData.map((i) => {
     const priceByDayData = stockPriceByDay?.filter((e) => {
-      let a =
-        e.symbol === i.symbol &&
-        e.datestr >= i.datestr &&
-        e.datestr <= caculateAfterDate(i.datestr, 60);
+      let a = e.symbol === i.symbol && e.datestr >= i.datestr;
+      if (timeWindow !== '无限') {
+        a = a && e.datestr <= caculateAfterDate(i.datestr, timeWindow);
+      }
       return a;
     });
     const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);

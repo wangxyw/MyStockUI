@@ -297,6 +297,21 @@ const composeConditionData = (
     less0,
   };
 };
+const removeBeforeData = (stockData, selectDateTab, dateArray) => {
+  const beforeDaySymbols: any = [];
+  const curDaySymbols = stockData[selectDateTab];
+  dateArray?.forEach((i) => {
+    if (i < selectDateTab) {
+      beforeDaySymbols.push(...stockData[i]);
+    }
+  });
+  const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
+  const curDay = curDaySymbols?.filter(
+    (i) => !beforeSymbols?.includes(i.symbol)
+  );
+  return curDay;
+};
+
 export const DataAnalysisCom = () => {
   const [selectDays, setSelectDays] = useState('40');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
@@ -340,6 +355,25 @@ export const DataAnalysisCom = () => {
   const [conditionResult, setConditionResult] = useState<any>({});
   const [compareData, setCompareData] = useState<any>([]);
   const [from100, setFrom100] = useState<boolean>(false);
+  const [selectTimeWindow, setSelectTimeWindow] = useState<any>(60);
+  const [conditionData, setConditionData] = useState<any>();
+  const isSetCondition = useMemo(() => {
+    return (
+      hasCondition1 ||
+      hasCondition2 ||
+      hasCondition3 ||
+      hasCondition4 ||
+      hasCondition5 ||
+      hasCondition6
+    );
+  }, [
+    hasCondition1,
+    hasCondition2,
+    hasCondition3,
+    hasCondition4,
+    hasCondition5,
+    hasCondition6,
+  ]);
 
   const runAnalysis = () => {
     setIsLoading(true);
@@ -469,7 +503,8 @@ export const DataAnalysisCom = () => {
         }
         stockDataByDate[date] = caculatePriceData(
           selectedStocks,
-          priceSymbolData
+          priceSymbolData,
+          selectTimeWindow
         );
         allSelectStocks.push(...selectedStocks);
       });
@@ -482,18 +517,11 @@ export const DataAnalysisCom = () => {
   };
   useEffect(() => {
     if (stockData && selectDateTab) {
-      const beforeDaySymbols: any = [];
-      const curDaySymbols = stockData[selectDateTab];
-      dateArray?.forEach((i) => {
-        if (i < selectDateTab) {
-          beforeDaySymbols.push(...stockData[i]);
-        }
-      });
-      const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
-      const curDay = curDaySymbols?.filter(
-        (i) => !beforeSymbols?.includes(i.symbol)
+      stockData[selectDateTab] = removeBeforeData(
+        stockData,
+        selectDateTab,
+        dateArray
       );
-      stockData[selectDateTab] = curDay;
     }
     if (stockData && selectDateTab) {
       setData(stockData[selectDateTab]);
@@ -530,22 +558,15 @@ export const DataAnalysisCom = () => {
       const compareData = {};
       const totalData = {};
       dateArray?.forEach((i) => {
-        compareData[i] = composeCompareData(stockData[i]);
-        totalData[i] = composeData(stockData[i]);
+        compareData[i] = composeCompareData(
+          removeBeforeData(stockData, i, dateArray)
+        );
+        totalData[i] = composeData(removeBeforeData(stockData, i, dateArray));
       });
       setCompareData([compareData]);
     }
 
-    if (
-      stockData &&
-      selectDateTab &&
-      (hasCondition1 ||
-        hasCondition2 ||
-        hasCondition3 ||
-        hasCondition6 ||
-        hasCondition4 ||
-        hasCondition5)
-    ) {
+    if (stockData && selectDateTab && isSetCondition) {
       let eachDayData = stockData?.[selectDateTab];
       let condition1Data = stockData?.[selectDateTab];
       let condition2Data = stockData?.[selectDateTab];
@@ -609,12 +630,17 @@ export const DataAnalysisCom = () => {
         }
       });
       setData(stockData[selectDateTab]);
+      setConditionData(
+        stockData[selectDateTab]?.filter((i) => i.chosen === true)
+      );
       const compareData = {};
       const conditionData = {};
       dateArray?.forEach((i) => {
-        compareData[i] = composeCompareData(stockData[i]);
+        compareData[i] = composeCompareData(
+          removeBeforeData(stockData, i, dateArray)
+        );
         conditionData[i] = composeConditionData(
-          stockData[i],
+          removeBeforeData(stockData, i, dateArray),
           hasCondition1,
           hasCondition2,
           hasCondition3,
@@ -907,6 +933,23 @@ export const DataAnalysisCom = () => {
               />
               亿
             </Space>
+            <Space>
+              {'时间窗口'}
+              <Select
+                style={{ width: '80px' }}
+                value={selectTimeWindow}
+                onChange={(v) => {
+                  setSelectTimeWindow(v);
+                }}
+                size="small"
+              >
+                {[30, 40, 50, 60, '不限'].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Space>
             <Space style={{ marginLeft: '10px' }}>
               <Button
                 type="primary"
@@ -1038,6 +1081,19 @@ export const DataAnalysisCom = () => {
                 ))}
               </Tabs>
             </>
+          )}
+          {isSetCondition && data && (
+            <Table
+              pagination={{ defaultPageSize: 100 }}
+              columns={columns}
+              dataSource={conditionData}
+              rowClassName={(record: any) => {
+                if (record?.chosen) {
+                  return 'red-row';
+                }
+                return 'grey-row';
+              }}
+            />
           )}
           {data && (
             <Table
