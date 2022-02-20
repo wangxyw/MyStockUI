@@ -1,5 +1,6 @@
 import { useCallback, useState, useMemo, useEffect } from 'react';
 import './alarm.css';
+import DATE from './date.json';
 import React from 'react';
 import {
   Button,
@@ -32,7 +33,7 @@ import {
   caculateMinPrice,
   caculatePriceData,
 } from './myFocus';
-import { SELECT_COLOR } from './new_alarm';
+import { getBeforeOneDate, SELECT_COLOR } from './new_alarm';
 
 export const filterByCondition25 = (
   priceData,
@@ -306,9 +307,14 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
     }
   });
   const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
-  const curDay = curDaySymbols?.filter(
-    (i) => !beforeSymbols?.includes(i.symbol)
-  );
+  const curDay = curDaySymbols?.map((i) => {
+    if (beforeSymbols?.includes(i.symbol)) {
+      i.isNotFirst = true;
+    } else {
+      i.isNotFirst = false;
+    }
+    return i;
+  });
   return curDay;
 };
 
@@ -515,6 +521,23 @@ export const DataAnalysisCom = () => {
       setIsLoading(false);
     });
   };
+
+  const dateArrWithRed = useMemo(() => {
+    if (dateArray?.length > 0) {
+      const newDates = dateArray;
+      const datesIsFirstWorkday = {};
+      newDates?.forEach((i, k) => {
+        if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
+          datesIsFirstWorkday[i] = true;
+        } else {
+          datesIsFirstWorkday[i] = false;
+        }
+      });
+      return datesIsFirstWorkday;
+    }
+    return [];
+  }, [dateArray]);
+
   useEffect(() => {
     if (stockData && selectDateTab) {
       stockData[selectDateTab] = removeBeforeData(
@@ -978,7 +1001,11 @@ export const DataAnalysisCom = () => {
             <>
               <Table
                 columns={dateArray?.map((i) => ({
-                  title: i,
+                  title: (
+                    <div style={{ color: dateArrWithRed[i] ? 'red' : 'black' }}>
+                      {i}
+                    </div>
+                  ),
                   dataIndex: i,
                   key: i,
                   render: (text, record) => {
@@ -1046,7 +1073,18 @@ export const DataAnalysisCom = () => {
                 onChange={(v) => setSelectDateTab(v)}
               >
                 {dateArray?.map((i) => (
-                  <Tabs.TabPane tab={i} key={i}>
+                  <Tabs.TabPane
+                    tab={
+                      <div
+                        style={{
+                          color: dateArrWithRed[i] ? 'red' : '#000000d9',
+                        }}
+                      >
+                        {i}
+                      </div>
+                    }
+                    key={i}
+                  >
                     <div>
                       Total:{dataTotal}{' '}
                       <span style={{ color: 'red' }}>Up:{dataUp}</span>{' '}
@@ -1089,9 +1127,16 @@ export const DataAnalysisCom = () => {
               dataSource={conditionData}
               rowClassName={(record: any) => {
                 if (record?.chosen) {
+                  if (record?.isNotFirst) {
+                    return 'red-row-first';
+                  }
                   return 'red-row';
+                } else {
+                  if (record?.isNotFirst) {
+                    return 'grey-row-first';
+                  }
+                  return 'grey-row';
                 }
-                return 'grey-row';
               }}
             />
           )}
@@ -1102,9 +1147,16 @@ export const DataAnalysisCom = () => {
               dataSource={data}
               rowClassName={(record: any) => {
                 if (record?.chosen) {
+                  if (record?.isNotFirst) {
+                    return 'red-row-first';
+                  }
                   return 'red-row';
+                } else {
+                  if (record?.isNotFirst) {
+                    return 'grey-row-first';
+                  }
+                  return 'grey-row';
                 }
-                return 'grey-row';
               }}
             />
           )}

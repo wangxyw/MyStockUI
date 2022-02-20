@@ -30,7 +30,7 @@ const day = curDate.getDate();
 const dateFormat = 'YYYY-MM-DD';
 export const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 
-const getBeforeOneDate = (date, n) => {
+export const getBeforeOneDate = (date, n) => {
   //const n = n;
   let d = new Date(date);
   let year = d.getFullYear();

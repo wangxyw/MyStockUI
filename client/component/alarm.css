@@ -21,3 +21,17 @@
 .red-row a {
   pointer-events: auto;
 }
+
+.red-row-first {
+  pointer-events: none;
+  background-color: #f58181;
+  color: #0f83d6;
+}
+
+.red-row-first a {
+  pointer-events: auto;
+}
+
+.grey-row-first {
+  color: #0f83d6;
+}
