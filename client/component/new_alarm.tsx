@@ -11,6 +11,8 @@ import {
   Space,
   Checkbox,
   InputNumber,
+  Modal,
+  Typography,
 } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
@@ -207,6 +209,7 @@ export const AlarmComponent = (props) => {
   const [selectMinPriceDays, setSelectMinPriceDays] = useState(20);
   const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
   const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const listPlate = useCallback((results) => {
     const ids = results?.map((i) => `'${i.symbol}'`).join(',');
@@ -1301,6 +1304,9 @@ export const AlarmComponent = (props) => {
         ))}
       </Select>
       <span>Total: {totalNum}</span>
+      <Button type="primary" onClick={() => setIsModalVisible(true)}>
+        Export
+      </Button>
       <Select
         style={{ width: '100px' }}
         value={selectAlarmType}
@@ -1786,6 +1792,16 @@ export const AlarmComponent = (props) => {
           option={eachVolOption}
         />
       </div>
+      <Modal
+        title="Basic Modal"
+        visible={isModalVisible}
+        onOk={() => setIsModalVisible(false)}
+        onCancel={() => setIsModalVisible(false)}
+      >
+        <Typography.Paragraph copyable>
+          {stockOptions?.map((i) => i.symbol)?.join(',')}
+        </Typography.Paragraph>
+      </Modal>
     </div>
   );
 };
