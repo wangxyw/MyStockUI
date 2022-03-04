@@ -13,6 +13,10 @@
   border-right: 1px dashed #ccc;
 }
 
+.da-row a {
+  color: #000;
+}
+
 .red-row {
   pointer-events: none;
   background-color: #06CDE3;
@@ -24,8 +28,8 @@
 
 .red-row-first {
   pointer-events: none;
-  background-color: #f58181;
-  color: #0f83d6;
+  background-color: #06CDE3;
+  color: #FF0000;
 }
 
 .red-row-first a {
@@ -33,5 +37,5 @@
 }
 
 .grey-row-first {
-  color: #0f83d6;
+  color: #FF0000;
 }

@@ -1128,14 +1128,14 @@ export const DataAnalysisCom = () => {
               rowClassName={(record: any) => {
                 if (record?.chosen) {
                   if (record?.isNotFirst) {
-                    return 'red-row-first';
+                    return 'da-row red-row-first';
                   }
-                  return 'red-row';
+                  return 'da-row red-row';
                 } else {
                   if (record?.isNotFirst) {
-                    return 'grey-row-first';
+                    return 'da-row not-first-row';
                   }
-                  return 'grey-row';
+                  return 'da-row grey-row';
                 }
               }}
             />
@@ -1153,7 +1153,7 @@ export const DataAnalysisCom = () => {
                   return 'red-row';
                 } else {
                   if (record?.isNotFirst) {
-                    return 'grey-row-first';
+                    return 'not-first-row';
                   }
                   return 'grey-row';
                 }
