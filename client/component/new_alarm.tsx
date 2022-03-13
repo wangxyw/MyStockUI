@@ -1304,10 +1304,7 @@ export const AlarmComponent = (props) => {
         ))}
       </Select>
       <span>Total: {totalNum}</span>
-      <Button type="primary" onClick={() => setIsModalVisible(true)}>
-        Export
-      </Button>
-      <Select
+      {/* <Select
         style={{ width: '100px' }}
         value={selectAlarmType}
         onChange={(v) => {
@@ -1323,8 +1320,9 @@ export const AlarmComponent = (props) => {
         <Select.Option value="A1">A1</Select.Option>
         <Select.Option value="A2">A2</Select.Option>
         <Select.Option value="A3">A3</Select.Option>
-      </Select>
+      </Select> */}
       <Button
+        style={{ marginLeft: '10px' }}
         type="primary"
         onClick={() => getStockAlarm(selectStock, selectDate)}
       >
@@ -1371,6 +1369,9 @@ export const AlarmComponent = (props) => {
           </Select.Option>
         ))}
       </Select>
+      <Button type="primary" onClick={() => setIsModalVisible(true)}>
+        Export
+      </Button>
       <div>
         {stockPlate?.split(',')?.map((i) => (
           <Tag>{i}</Tag>
