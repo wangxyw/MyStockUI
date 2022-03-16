@@ -302,7 +302,7 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
   const beforeDaySymbols: any = [];
   const curDaySymbols = stockData[selectDateTab];
   dateArray?.forEach((i) => {
-    if (i < selectDateTab) {
+    if (i < selectDateTab && i > caculateDate(selectDateTab, 30)) {
       beforeDaySymbols.push(...stockData[i]);
     }
   });
@@ -324,6 +324,7 @@ export const DataAnalysisCom = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
   const [dateArray, setDateArray] = useState<any>([]);
+  const [showDateArray, setShowDateArray] = useState<any>([]);
   const [selectDateTab, setSelectDateTab] = useState<any>();
   const [stockData, setStockData] = useState<any>();
   const [dataTotal, setDataTotal] = useState<any>();
@@ -390,6 +391,8 @@ export const DataAnalysisCom = () => {
     if (hasCondition2 && selectHorPriceDays > days) {
       days = selectHorPriceDays + selectConsDays;
     }
+    // +30 to remove duplicated
+    days = days + 30;
     get(
       `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
@@ -397,7 +400,15 @@ export const DataAnalysisCom = () => {
       )}&end_date_str=${today}&from100=${from100}`,
       { method: 'GET' }
     ).then((res) => {
-      const dateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
+      // +30 to remove duplicated
+      const dateArr = pullWorkDaysArray(
+        selectDate,
+        parseInt(selectDays, 10) + 30
+      );
+      const showDateArr = pullWorkDaysArray(
+        selectDate,
+        parseInt(selectDays, 10)
+      );
       const stockDataByDate = {};
       const allSelectStocks: any = [];
       dateArr?.forEach((date) => {
@@ -515,16 +526,17 @@ export const DataAnalysisCom = () => {
         allSelectStocks.push(...selectedStocks);
       });
       setDateArray(dateArr);
+      setShowDateArray(showDateArr);
       setStockData(stockDataByDate);
       setOption(dapanOption(stockDataByDate));
-      setSelectDateTab(dateArr[0]);
+      setSelectDateTab(showDateArr[0]);
       setIsLoading(false);
     });
   };
 
   const dateArrWithRed = useMemo(() => {
-    if (dateArray?.length > 0) {
-      const newDates = dateArray;
+    if (showDateArray?.length > 0) {
+      const newDates = showDateArray;
       const datesIsFirstWorkday = {};
       newDates?.forEach((i, k) => {
         if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
@@ -536,7 +548,7 @@ export const DataAnalysisCom = () => {
       return datesIsFirstWorkday;
     }
     return [];
-  }, [dateArray]);
+  }, [showDateArray]);
 
   useEffect(() => {
     if (stockData && selectDateTab) {
@@ -580,7 +592,7 @@ export const DataAnalysisCom = () => {
 
       const compareData = {};
       const totalData = {};
-      dateArray?.forEach((i) => {
+      showDateArray?.forEach((i) => {
         compareData[i] = composeCompareData(
           removeBeforeData(stockData, i, dateArray)
         );
@@ -658,7 +670,7 @@ export const DataAnalysisCom = () => {
       );
       const compareData = {};
       const conditionData = {};
-      dateArray?.forEach((i) => {
+      showDateArray?.forEach((i) => {
         compareData[i] = composeCompareData(
           removeBeforeData(stockData, i, dateArray)
         );
@@ -997,10 +1009,10 @@ export const DataAnalysisCom = () => {
             lazyUpdate={true}
             option={option}
           />
-          {dateArray?.length > 0 && (
+          {showDateArray?.length > 0 && (
             <>
               <Table
-                columns={dateArray?.map((i) => ({
+                columns={showDateArray?.map((i) => ({
                   title: (
                     <div style={{ color: dateArrWithRed[i] ? 'red' : 'black' }}>
                       {i}
@@ -1072,7 +1084,7 @@ export const DataAnalysisCom = () => {
                 style={{ height: 220 }}
                 onChange={(v) => setSelectDateTab(v)}
               >
-                {dateArray?.map((i) => (
+                {showDateArray?.map((i) => (
                   <Tabs.TabPane
                     tab={
                       <div
@@ -1133,7 +1145,7 @@ export const DataAnalysisCom = () => {
                   return 'da-row red-row';
                 } else {
                   if (record?.isNotFirst) {
-                    return 'da-row not-first-row';
+                    return 'da-row grey-row-first';
                   }
                   return 'da-row grey-row';
                 }
@@ -1148,14 +1160,14 @@ export const DataAnalysisCom = () => {
               rowClassName={(record: any) => {
                 if (record?.chosen) {
                   if (record?.isNotFirst) {
-                    return 'red-row-first';
+                    return 'da-row red-row-first';
                   }
-                  return 'red-row';
+                  return 'da-row red-row';
                 } else {
                   if (record?.isNotFirst) {
-                    return 'not-first-row';
+                    return 'da-row grey-row-first';
                   }
-                  return 'grey-row';
+                  return 'da-row grey-row';
                 }
               }}
             />
