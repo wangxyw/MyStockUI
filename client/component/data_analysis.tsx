@@ -838,7 +838,7 @@ export const DataAnalysisCom = () => {
                 }}
                 size="small"
               >
-                {[5, 10, 30, 40, 50, 60, 90].map((i) => (
+                {[5, 10, 20, 30, 40, 50].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>
@@ -853,7 +853,7 @@ export const DataAnalysisCom = () => {
                 }}
                 size="small"
               >
-                {[5, 10, 20, 30, 40, 50, 60, 90].map((i) => (
+                {[5, 10, 20, 30, 40, 50, 60, 90, 120].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>
