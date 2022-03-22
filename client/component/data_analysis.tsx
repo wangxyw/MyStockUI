@@ -214,6 +214,12 @@ const columns: any = [
     dataIndex: 'minPriceDay',
     key: 'minPriceDay',
   },
+  {
+    title: 'BeforeDates',
+    width: '20%',
+    dataIndex: 'beforeDays',
+    key: 'beforeDays',
+  },
 ];
 
 const composeCompareData = (stockData) => {
@@ -301,15 +307,28 @@ const composeConditionData = (
 const removeBeforeData = (stockData, selectDateTab, dateArray) => {
   const beforeDaySymbols: any = [];
   const curDaySymbols = stockData[selectDateTab];
+  const symbolDayMap = {};
   dateArray?.forEach((i) => {
     if (i < selectDateTab && i > caculateDate(selectDateTab, 30)) {
       beforeDaySymbols.push(...stockData[i]);
     }
   });
+
   const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
+  beforeSymbols?.forEach((i) => {
+    symbolDayMap[i] = [];
+    dateArray?.forEach((d) => {
+      if (d < selectDateTab && d > caculateDate(selectDateTab, 30)) {
+        if (stockData[d]?.map((e) => e.symbol)?.includes(i)) {
+          symbolDayMap[i].push(d);
+        }
+      }
+    });
+  });
   const curDay = curDaySymbols?.map((i) => {
     if (beforeSymbols?.includes(i.symbol)) {
       i.isNotFirst = true;
+      i.beforeDays = symbolDayMap[i.symbol]?.join(', ');
     } else {
       i.isNotFirst = false;
     }
