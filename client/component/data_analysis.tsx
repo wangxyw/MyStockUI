@@ -26,7 +26,7 @@ import {
   validateTotal,
   workdays,
 } from './alarm';
-import { groupBy, orderBy, uniqBy } from 'lodash';
+import { groupBy, uniq } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
@@ -313,22 +313,12 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
       beforeDaySymbols.push(...stockData[i]);
     }
   });
-
-  const beforeSymbols = beforeDaySymbols?.map((i) => i.symbol);
-  beforeSymbols?.forEach((i) => {
-    symbolDayMap[i] = [];
-    dateArray?.forEach((d) => {
-      if (d < selectDateTab && d > caculateDate(selectDateTab, 30)) {
-        if (stockData[d]?.map((e) => e.symbol)?.includes(i)) {
-          symbolDayMap[i].push(d);
-        }
-      }
-    });
-  });
+  const bMap = groupBy(beforeDaySymbols, 'symbol');
+  const beforeSymbols = uniq(beforeDaySymbols?.map((i) => i.symbol));
   const curDay = curDaySymbols?.map((i) => {
     if (beforeSymbols?.includes(i.symbol)) {
       i.isNotFirst = true;
-      i.beforeDays = symbolDayMap[i.symbol]?.join(', ');
+      i.beforeDays = bMap[i.symbol]?.map((i) => i.datestr).join(', ');
     } else {
       i.isNotFirst = false;
     }
