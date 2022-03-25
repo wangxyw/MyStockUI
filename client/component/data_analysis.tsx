@@ -4,6 +4,7 @@ import DATE from './date.json';
 import React from 'react';
 import {
   Button,
+  Tooltip,
   Input,
   Select,
   DatePicker,
@@ -339,6 +340,7 @@ export const DataAnalysisCom = () => {
   const [dataTotal, setDataTotal] = useState<any>();
   const [dataUp, setDataUp] = useState<any>();
   const [dataDown, setDataDown] = useState<any>();
+  const [plates, setPlates] = useState<any>([]);
 
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
@@ -672,6 +674,15 @@ export const DataAnalysisCom = () => {
         } else {
           e.chosen = false;
         }
+      });
+      get(
+        `/api/get_stock_plate?ids=${stockData[selectDateTab]
+          ?.map((i) => `'${i.symbol}'`)
+          ?.join(',')}`
+      ).then((res) => {
+        const resbySymbols = res.symbols;
+        const resbyPlates = res.plates;
+        setPlates(resbyPlates);
       });
       setData(stockData[selectDateTab]);
       setConditionData(
@@ -1142,24 +1153,34 @@ export const DataAnalysisCom = () => {
             </>
           )}
           {isSetCondition && data && (
-            <Table
-              pagination={{ defaultPageSize: 100 }}
-              columns={columns}
-              dataSource={conditionData}
-              rowClassName={(record: any) => {
-                if (record?.chosen) {
-                  if (record?.isNotFirst) {
-                    return 'da-row red-row-first';
+            <div>
+              <div>
+                {plates?.length > 0 &&
+                  plates?.map((i) => (
+                    <Tooltip title={i['group_concat(a.symbol)']}>
+                      <Tag>{`${i.name}(${i.count})`}</Tag>
+                    </Tooltip>
+                  ))}
+              </div>
+              <Table
+                pagination={{ defaultPageSize: 100 }}
+                columns={columns}
+                dataSource={conditionData}
+                rowClassName={(record: any) => {
+                  if (record?.chosen) {
+                    if (record?.isNotFirst) {
+                      return 'da-row red-row-first';
+                    }
+                    return 'da-row red-row';
+                  } else {
+                    if (record?.isNotFirst) {
+                      return 'da-row grey-row-first';
+                    }
+                    return 'da-row grey-row';
                   }
-                  return 'da-row red-row';
-                } else {
-                  if (record?.isNotFirst) {
-                    return 'da-row grey-row-first';
-                  }
-                  return 'da-row grey-row';
-                }
-              }}
-            />
+                }}
+              />
+            </div>
           )}
           {data && (
             <Table
