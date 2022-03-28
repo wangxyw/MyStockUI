@@ -262,11 +262,17 @@ router.get('/stock_alarm', function (req, res, next) {
   if (datestr) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
-
   const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
-  pool.query(`${sql}${plateSQL}`, function (err, rows, fields) {
+  const commonDataSQL = `SELECT finalprice, turnoverrate, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
+  pool.query(`${sql}${plateSQL}${commonDataSQL}`, function (err, rows, fields) {
     if (err) throw err;
-    res.json(rows?.[0].map((i) => ({ ...i, plates: rows?.[1]?.[0]?.plates })));
+    res.json(
+      rows?.[0].map((i) => ({
+        ...i,
+        plates: rows?.[1]?.[0]?.plates,
+        commonData: rows?.[2],
+      }))
+    );
   });
 });
 
