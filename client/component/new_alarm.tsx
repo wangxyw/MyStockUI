@@ -498,17 +498,15 @@ export const AlarmComponent = (props) => {
             }
           });
           const overRateArr = dateArr.map((i) => {
-            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
-              return data?.[0]?.commonData?.find((d) => d.datestr === i)
-                .turnoverrate;
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).turnoverrate;
             } else {
               return '-';
             }
           });
           const priceArr = dateArr.map((i) => {
-            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
-              return data?.[0]?.commonData?.find((d) => d.datestr === i)
-                .finalprice;
+            if (data.find((d) => d.datestr === i)) {
+              return data.find((d) => d.datestr === i).finalprice;
             } else {
               return '-';
             }
