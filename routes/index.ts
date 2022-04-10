@@ -1,5 +1,10 @@
 import request from 'axios';
-import { chooseResults, filterByCondition2, filterByCondition5 } from './biz';
+import {
+  chooseResults,
+  daCalculate,
+  filterByCondition2,
+  filterByCondition5,
+} from './biz';
 import { caculateDate } from './utils';
 var express = require('express');
 var router = express.Router();
@@ -200,6 +205,7 @@ router.get('/get_stock_plate', (req, res, next) => {
   const sql = `SELECT distinct(a.symbol), group_concat(a.code), group_concat(a.name) as platename FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.symbol;`;
   const sql2 = `SELECT count(*) as count, a.name, a.code, group_concat(a.symbol) FROM plate a join focus_plate b on a.code = b.code WHERE symbol in (${ids}) and b.focus = 1 group by a.name order by count DESC;`;
   const result: any = {};
+  console.log(sql, sql2);
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     result.symbols = rows;
@@ -262,11 +268,17 @@ router.get('/stock_alarm', function (req, res, next) {
   if (datestr) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
-
   const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
-  pool.query(`${sql}${plateSQL}`, function (err, rows, fields) {
+  const commonDataSQL = `SELECT finalprice, turnoverrate, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
+  pool.query(`${sql}${plateSQL}${commonDataSQL}`, function (err, rows, fields) {
     if (err) throw err;
-    res.json(rows?.[0].map((i) => ({ ...i, plates: rows?.[1]?.[0]?.plates })));
+    res.json(
+      rows?.[0].map((i) => ({
+        ...i,
+        plates: rows?.[1]?.[0]?.plates,
+        commonData: rows?.[2],
+      }))
+    );
   });
 });
 
@@ -280,6 +292,58 @@ router.get('/all_alarm_data', function (req, res, next) {
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
+  });
+});
+
+router.get('/da_data', function (req, res, next) {
+  const {
+    dateStr,
+    endDateStr,
+    selectDate,
+    selectDays,
+    selectConsTotal,
+    selectConsUpDown,
+    selectConsDays,
+    selectConsAllDays,
+    selectPriceMargin,
+    caculatePriceBy,
+    hasCondition2,
+    selectMinPriceMargin,
+    selectMinPriceDays,
+    from100,
+    hasCondition5,
+    selectHorPriceDays,
+    givenPrice,
+    givenMinPrice,
+    givenCirculation,
+    selectTimeWindow,
+  } = req.query;
+  let table = 'stock_big_data';
+  if (from100 === 'true') table = 'stock_big_data_100';
+  let sql = `select * from ${table} a where a.datestr > '${dateStr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(
+      daCalculate(rows, {
+        selectDays,
+        selectDate,
+        selectConsTotal,
+        selectConsUpDown,
+        selectConsDays,
+        selectConsAllDays,
+        selectPriceMargin,
+        caculatePriceBy,
+        hasCondition2,
+        selectMinPriceMargin,
+        selectMinPriceDays,
+        hasCondition5,
+        selectHorPriceDays,
+        givenPrice,
+        givenMinPrice,
+        givenCirculation,
+        selectTimeWindow,
+      })
+    );
   });
 });
 

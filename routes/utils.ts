@@ -166,20 +166,8 @@ export const isAverageDistribution = (item, selectPriceMargin) => {
   return isAverage;
 };
 
-export const caculateMinPrice = (priceByDayData) => {
-  let minPrice = priceByDayData[0].finalprice;
-  let minPriceDay = 0;
-  priceByDayData.forEach((i, k) => {
-    if (i.finalprice && i.finalprice < minPrice) {
-      minPrice = i.finalprice;
-      minPriceDay = k;
-    }
-  });
-  return { minPrice, minPriceDay };
-};
-
 export const caculateMaxPrice = (priceByDayData) => {
-  let maxPrice = priceByDayData[0].finalprice;
+  let maxPrice = priceByDayData[0]?.finalprice;
   let maxPriceDay = 0;
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice > maxPrice) {
@@ -188,4 +176,16 @@ export const caculateMaxPrice = (priceByDayData) => {
     }
   });
   return { maxPrice, maxPriceDay };
+};
+
+export const caculateMinPrice = (priceByDayData) => {
+  let minPrice = priceByDayData[0]?.finalprice;
+  let minPriceDay = 0;
+  priceByDayData.forEach((i, k) => {
+    if (i.finalprice && i.finalprice < minPrice) {
+      minPrice = i.finalprice;
+      minPriceDay = k;
+    }
+  });
+  return { minPrice, minPriceDay };
 };

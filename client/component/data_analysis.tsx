@@ -16,6 +16,8 @@ import {
   Switch,
   Checkbox,
   InputNumber,
+  Modal,
+  Typography,
 } from 'antd';
 import moment from 'moment';
 import { post, get } from '../lib/request';
@@ -27,14 +29,14 @@ import {
   validateTotal,
   workdays,
 } from './alarm';
-import { groupBy, uniq } from 'lodash';
+import { groupBy, uniq, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
   caculateMinPrice,
   caculatePriceData,
 } from './myFocus';
-import { getBeforeOneDate, SELECT_COLOR } from './new_alarm';
+import { composedQuery, getBeforeOneDate, SELECT_COLOR } from './new_alarm';
 
 export const filterByCondition25 = (
   priceData,
@@ -375,6 +377,9 @@ export const DataAnalysisCom = () => {
   const [from100, setFrom100] = useState<boolean>(false);
   const [selectTimeWindow, setSelectTimeWindow] = useState<any>(60);
   const [conditionData, setConditionData] = useState<any>();
+  const [allDayStocks, setAllDayStocks] = useState<any>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
   const isSetCondition = useMemo(() => {
     return (
       hasCondition1 ||
@@ -404,6 +409,11 @@ export const DataAnalysisCom = () => {
     }
     // +30 to remove duplicated
     days = days + 30;
+    const dateArr = pullWorkDaysArray(
+      selectDate,
+      parseInt(selectDays, 10) + 30
+    );
+    const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
       `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
@@ -411,17 +421,8 @@ export const DataAnalysisCom = () => {
       )}&end_date_str=${today}&from100=${from100}`,
       { method: 'GET' }
     ).then((res) => {
-      // +30 to remove duplicated
-      const dateArr = pullWorkDaysArray(
-        selectDate,
-        parseInt(selectDays, 10) + 30
-      );
-      const showDateArr = pullWorkDaysArray(
-        selectDate,
-        parseInt(selectDays, 10)
-      );
       const stockDataByDate = {};
-      const allSelectStocks: any = [];
+      //const allSelectStocks: any = [];
       dateArr?.forEach((date) => {
         const allStockDataByDate = res?.filter(
           (e) =>
@@ -534,7 +535,7 @@ export const DataAnalysisCom = () => {
           priceSymbolData,
           selectTimeWindow
         );
-        allSelectStocks.push(...selectedStocks);
+        //allSelectStocks.push(...selectedStocks);
       });
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
@@ -543,6 +544,46 @@ export const DataAnalysisCom = () => {
       setSelectDateTab(showDateArr[0]);
       setIsLoading(false);
     });
+
+    // ============= ************ use backend to calulate ********** =====================
+    // const advancedSearchParams = [
+    //   { key: 'dateStr', value: caculateDate(selectDate, days) },
+    //   { key: 'endDateStr', value: today },
+    //   { key: 'selectDate', value: selectDate },
+    //   { key: 'selectDays', value: selectDays },
+    //   { key: 'selectConsTotal', value: selectConsTotal },
+    //   { key: 'selectConsUpDown', value: selectConsUpDown },
+    //   { key: 'selectConsDays', value: selectConsDays },
+    //   { key: 'selectConsAllDays', value: selectConsAllDays },
+    //   { key: 'hasCondition1', value: hasCondition1 },
+    //   { key: 'selectPriceMargin', value: selectPriceMargin },
+    //   { key: 'caculatePriceBy', value: caculatePriceBy },
+    //   { key: 'hasCondition2', value: hasCondition2 },
+    //   { key: 'selectMinPriceMargin', value: selectMinPriceMargin },
+    //   { key: 'selectMinPriceDays', value: selectMinPriceDays },
+    //   { key: 'hasCondition3', value: hasCondition3 },
+    //   { key: 'hasCondition4', value: hasCondition4 },
+    //   { key: 'selectHorPriceMargin', value: selectHorPriceMargin },
+    //   { key: 'selectHorPriceDays', value: selectHorPriceDays },
+    //   { key: 'hasCondition5', value: hasCondition5 },
+    //   { key: 'hasCondition6', value: hasCondition6 },
+    //   { key: 'givenPrice', value: givenPrice },
+    //   { key: 'givenMinPrice', value: givenMinPrice },
+    //   { key: 'givenCirculation', value: givenCirculation },
+    //   { key: 'from100', value: from100 },
+    //   { key: 'selectTimeWindow', value: selectTimeWindow },
+    // ];
+    // get(composedQuery(`/api/da_data`, advancedSearchParams), {
+    //   method: 'GET',
+    // }).then((res) => {
+    //   setDateArray(dateArr);
+    //   setShowDateArray(showDateArr);
+    //   setStockData(res);
+    //   setOption(dapanOption(res));
+    //   setSelectDateTab(showDateArr[0]);
+    //   setIsLoading(false);
+    // });
+    // ============= ************ use backend to calulate ********** =====================
   };
 
   const dateArrWithRed = useMemo(() => {
@@ -690,12 +731,34 @@ export const DataAnalysisCom = () => {
       );
       const compareData = {};
       const conditionData = {};
+      const allDayStocks = {};
       showDateArray?.forEach((i) => {
-        compareData[i] = composeCompareData(
-          removeBeforeData(stockData, i, dateArray)
-        );
+        const removeBefore = removeBeforeData(stockData, i, dateArray);
+        compareData[i] = composeCompareData(removeBefore);
+        allDayStocks[i] = removeBefore?.filter((i) => {
+          let a = true;
+          if (hasCondition1) {
+            a = a && i.Condition1;
+          }
+          if (hasCondition2) {
+            a = a && i.Condition2;
+          }
+          if (hasCondition3) {
+            a = a && i.Condition3;
+          }
+          if (hasCondition4) {
+            a = a && i.Condition4;
+          }
+          if (hasCondition5) {
+            a = a && i.Condition5;
+          }
+          if (hasCondition6) {
+            a = a && i.Condition6;
+          }
+          return a;
+        });
         conditionData[i] = composeConditionData(
-          removeBeforeData(stockData, i, dateArray),
+          removeBefore,
           hasCondition1,
           hasCondition2,
           hasCondition3,
@@ -704,6 +767,11 @@ export const DataAnalysisCom = () => {
           hasCondition5
         );
       });
+      const allDaysStocksArray: any = [];
+      Object.keys(allDayStocks)?.forEach((a) => {
+        allDaysStocksArray.push(...allDayStocks[a]);
+      });
+      setAllDayStocks(uniqBy(allDaysStocksArray, 'symbol'));
       setCompareData([compareData, conditionData]);
     }
   }, [
@@ -1162,6 +1230,9 @@ export const DataAnalysisCom = () => {
                     </Tooltip>
                   ))}
               </div>
+              <Button type="primary" onClick={() => setIsModalVisible(true)}>
+                Export
+              </Button>
               <Table
                 pagination={{ defaultPageSize: 100 }}
                 columns={columns}
@@ -1204,6 +1275,33 @@ export const DataAnalysisCom = () => {
           )}
         </Spin>
       </div>
+      <Modal
+        title="Export Modal"
+        visible={isModalVisible}
+        onOk={() => setIsModalVisible(false)}
+        onCancel={() => setIsModalVisible(false)}
+        width={1200}
+      >
+        <Typography.Paragraph
+          copyable={{
+            text: `${allDayStocks?.map((i) =>
+              i?.beforeDays
+                ? `${i.symbol}_${i.beforeDays?.replaceAll(', ', '_')}`
+                : `${i.symbol}_${i.datestr}`
+            )}`,
+          }}
+          style={{ maxHeight: '500px', overflow: 'auto' }}
+        >
+          {allDayStocks?.length > 0 &&
+            allDayStocks?.map((i) => (
+              <p>
+                {i?.beforeDays
+                  ? `${i.symbol}_${i.beforeDays?.replaceAll(', ', '_')}`
+                  : `${i.symbol}_${i.datestr}`}
+              </p>
+            ))}
+        </Typography.Paragraph>
+      </Modal>
     </div>
   );
 };

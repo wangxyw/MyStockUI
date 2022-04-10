@@ -157,6 +157,18 @@ export const minOrAverageMap = [
   { key: 'average', value: '横盘' },
 ];
 
+export const composedQuery = (url, array) => {
+  let URI = url;
+  array.forEach((i, k) => {
+    if (k === 0) {
+      URI += `?${i.key}=${i.value}`;
+    } else {
+      URI += `&${i.key}=${i.value}`;
+    }
+  });
+  return URI;
+};
+
 export const AlarmComponent = (props) => {
   const { from100 } = props;
   const [selectStock, setSelectStock] = useState<any>('');
@@ -239,17 +251,6 @@ export const AlarmComponent = (props) => {
     },
     [advancedSearchR]
   );
-  const composedQuery = (url, array) => {
-    let URI = url;
-    array.forEach((i, k) => {
-      if (k === 0) {
-        URI += `?${i.key}=${i.value}`;
-      } else {
-        URI += `&${i.key}=${i.value}`;
-      }
-    });
-    return URI;
-  };
 
   const advancedSearchParams = (i) => [
     { key: 'datestr', value: caculateDate(selectDate, i) },
@@ -498,15 +499,17 @@ export const AlarmComponent = (props) => {
             }
           });
           const overRateArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).turnoverrate;
+            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
+              return data?.[0]?.commonData?.find((d) => d.datestr === i)
+                .turnoverrate;
             } else {
               return '-';
             }
           });
           const priceArr = dateArr.map((i) => {
-            if (data.find((d) => d.datestr === i)) {
-              return data.find((d) => d.datestr === i).finalprice;
+            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
+              return data?.[0]?.commonData?.find((d) => d.datestr === i)
+                .finalprice;
             } else {
               return '-';
             }
