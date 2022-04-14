@@ -19,23 +19,31 @@
 
 .red-row {
   pointer-events: none;
-  background-color: #06CDE3;
+  background-color: #06cde3;
 }
 
 .red-row a {
   pointer-events: auto;
 }
 
+.red-row .button {
+  pointer-events: auto;
+}
+
 .red-row-first {
   pointer-events: none;
-  background-color: #06CDE3;
-  color: #FF0000;
+  background-color: #06cde3;
+  color: #ff0000;
 }
 
 .red-row-first a {
   pointer-events: auto;
 }
 
+.red-row-first button {
+  pointer-events: auto;
+}
+
 .grey-row-first {
-  color: #FF0000;
+  color: #ff0000;
 }

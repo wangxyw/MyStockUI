@@ -87,10 +87,37 @@ router.get('/add_focus', function (req, res, next) {
   });
 });
 
+router.get('/add_da_focus', function (req, res, next) {
+  const symbol = req.query.stock_id;
+  const datestr = req.query.datestr;
+  const updated_at = req.query.updated_at;
+  const sql = `INSERT INTO focus_da (symbol, datestr, updated_at) VALUES ('${symbol}', '${datestr}', '${updated_at}');`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
 router.post('/delete_focus', function (req, res, next) {
   const symbol = req.body.symbol;
   const datestr = req.body.datestr;
   const sql = `DELETE from focus_stocks where symbol= '${symbol}' and datestr= '${datestr}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
+router.post('/delete_da_focus', function (req, res, next) {
+  const symbol = req.body.symbol;
+  const datestr = req.body.datestr;
+  const sql = `DELETE from focus_da where symbol= '${symbol}' and datestr= '${datestr}';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -237,6 +264,14 @@ router.get('/all_focus_stock', function (req, res, next) {
       }));
       res.json(newResult);
     });
+  });
+});
+
+router.get('/all_da_focus', function (req, res, next) {
+  const sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
   });
 });
 

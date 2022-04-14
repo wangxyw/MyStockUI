@@ -118,113 +118,6 @@ export const pullWorkDaysArray = (date, days) => {
   return workDaysArray;
 };
 
-const columns: any = [
-  {
-    title: 'Symbol',
-    dataIndex: 'symbol',
-    key: 'symbol',
-    render: (text, record) => {
-      return (
-        <>
-          <a
-            target="_blank"
-            href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
-          >
-            {text}
-          </a>
-          <Tag>
-            <a
-              target="_blank"
-              href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
-            >
-              {'Show alarm'}
-            </a>
-          </Tag>
-        </>
-      );
-    },
-  },
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text, record) => {
-      return <span>{text}</span>;
-    },
-  },
-  {
-    title: 'Add Price',
-    dataIndex: 'finalprice',
-    key: 'finalprice',
-  },
-  {
-    title: 'Date',
-    dataIndex: 'datestr',
-    key: 'datestr',
-    defaultSortOrder: 'descend',
-    sorter: (a: any, b: any): any => {
-      return (
-        Number(a.datestr.replaceAll('-', '')) -
-        Number(b.datestr.replaceAll('-', ''))
-      );
-    },
-  },
-  {
-    title: '流通股本',
-    dataIndex: 'circulation_stock',
-    key: 'circulation_stock',
-    render: (c, record) => {
-      const re = (record.marketvalue / record.finalprice).toFixed(3);
-      return <>{re}</>;
-    },
-  },
-  {
-    title: 'MaxPrice',
-    dataIndex: 'maxPrice',
-    key: 'maxPrice',
-    sorter: (a: any, b: any): any => {
-      return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
-    },
-    render: (c, record) => {
-      const diff = record.maxPriceDiff;
-      return (
-        <Tag color={diff > 0 ? 'red' : 'green'}>
-          {c}/ {diff + '%'}
-        </Tag>
-      );
-    },
-  },
-  {
-    title: 'MaxPriceDay',
-    dataIndex: 'maxPriceDay',
-    key: 'maxPriceDay',
-  },
-  {
-    title: 'MinPrice',
-    dataIndex: 'minPrice',
-    key: 'minPrice',
-    render: (c, record) => {
-      const diff = record.minPriceDiff;
-      return (
-        <Tag color={diff > 0 ? 'red' : 'green'}>
-          {c}/ {diff + '%'}
-        </Tag>
-      );
-    },
-  },
-  {
-    title: 'MinPriceDay',
-    dataIndex: 'minPriceDay',
-    key: 'minPriceDay',
-  },
-  {
-    title: 'BeforeDates',
-    width: '20%',
-    dataIndex: 'beforeDays',
-    key: 'beforeDays',
-  },
-];
-
 const composeCompareData = (stockData) => {
   const more100 = stockData?.filter((i) => i.maxPriceDiff > 100)?.length;
   const form20to100 = stockData?.filter(
@@ -784,6 +677,134 @@ export const DataAnalysisCom = () => {
     hasCondition6,
     hasCondition5,
   ]);
+
+  const addDAFocus = useCallback((record) => {
+    fetch(
+      `/api/add_da_focus?stock_id=${record.symbol}&updated_at=${caculateDate(
+        today,
+        0
+      )}&datestr=${record.datestr}`,
+      { method: 'GET' }
+    ).then((res) => res.json());
+  }, []);
+
+  const columns: any = [
+    {
+      title: 'Symbol',
+      dataIndex: 'symbol',
+      key: 'symbol',
+      render: (text, record) => {
+        return (
+          <>
+            <a
+              target="_blank"
+              href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+            >
+              {text}
+            </a>
+            <Tag>
+              <a
+                target="_blank"
+                href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+              >
+                {'Show alarm'}
+              </a>
+            </Tag>
+          </>
+        );
+      },
+    },
+    {
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text, record) => {
+        return <span>{text}</span>;
+      },
+    },
+    {
+      title: 'Add Price',
+      dataIndex: 'finalprice',
+      key: 'finalprice',
+    },
+    {
+      title: 'Date',
+      dataIndex: 'datestr',
+      key: 'datestr',
+      defaultSortOrder: 'descend',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.datestr.replaceAll('-', '')) -
+          Number(b.datestr.replaceAll('-', ''))
+        );
+      },
+    },
+    {
+      title: '流通股本',
+      dataIndex: 'circulation_stock',
+      key: 'circulation_stock',
+      render: (c, record) => {
+        const re = (record.marketvalue / record.finalprice).toFixed(3);
+        return <>{re}</>;
+      },
+    },
+    {
+      title: 'MaxPrice',
+      dataIndex: 'maxPrice',
+      key: 'maxPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.maxPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MaxPriceDay',
+      dataIndex: 'maxPriceDay',
+      key: 'maxPriceDay',
+    },
+    {
+      title: 'MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      render: (c, record) => {
+        const diff = record.minPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MinPriceDay',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
+    },
+    {
+      title: 'BeforeDates',
+      width: '20%',
+      dataIndex: 'beforeDays',
+      key: 'beforeDays',
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (text, record) => (
+        <Space size="middle">
+          <Button className="button" onClick={() => addDAFocus(record)}>
+            Add Focus
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div style={{ padding: '2px' }}>
