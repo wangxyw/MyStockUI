@@ -248,7 +248,7 @@ export const MyFocusListComponent = () => {
           <div>
             <a
               target="_blank"
-              href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+              href={`https://quote.eastmoney.com/${text}.html`}
             >
               {text}
               {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&

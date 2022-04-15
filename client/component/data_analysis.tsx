@@ -698,7 +698,7 @@ export const DataAnalysisCom = () => {
           <>
             <a
               target="_blank"
-              href={`https://finance.sina.com.cn/realstock/company/${text}/nc.shtml`}
+              href={`https://quote.eastmoney.com/${text}.html`}
             >
               {text}
             </a>

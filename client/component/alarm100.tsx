@@ -977,7 +977,7 @@ export const Alarm100Component = () => {
         <Button
           type="link"
           target="_blank"
-          href={`https://finance.sina.com.cn/realstock/company/${selectStock}/nc.shtml`}
+          href={`https://quote.eastmoney.com/${selectStock}.html`}
         >
           Go to Stock Page
         </Button>
