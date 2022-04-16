@@ -145,7 +145,6 @@ export const DAFocusListComponent = () => {
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
       const alarmType1: any = [];
       const alarmType2: any = [];
-      console.log(priceDataGroupByStock);
       Object.keys(priceDataGroupByStock)?.forEach((i) => {
         const recordData = data?.find((e) => e.symbol === i);
         const recordDate = recordData?.datestr;
@@ -156,11 +155,10 @@ export const DAFocusListComponent = () => {
         const { minPrice } = caculateMinPrice(stock);
         const { maxPrice } = caculateMaxPrice(stock);
         const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
-        console.log(recordDatePrice, minPrice, currentPrice);
-        if (currentPrice > minPrice) {
+        if (currentPrice > minPrice && currentPrice < recordDatePrice) {
           alarmType1.push(recordData);
         }
-        if ((maxPrice - recordDatePrice) / recordDatePrice > 0.01) {
+        if ((maxPrice - recordDatePrice) / recordDatePrice > 0.3) {
           alarmType2.push(recordData);
         }
       });
