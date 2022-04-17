@@ -1,4 +1,4 @@
-import { Button, Popconfirm, Table, Tag } from 'antd';
+import { Button, Popconfirm, Select, Table, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
@@ -31,6 +31,7 @@ export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
   const [alarmType1, setAlarmType1] = useState<any>([]);
   const [alarmType2, setAlarmType2] = useState<any>([]);
+  const [priceMargin, setPriceMargin] = useState<number>(10);
   const columns = [
     {
       title: 'Symbol',
@@ -158,7 +159,10 @@ export const DAFocusListComponent = () => {
         if (currentPrice > minPrice && currentPrice < recordDatePrice) {
           alarmType1.push(recordData);
         }
-        if ((maxPrice - recordDatePrice) / recordDatePrice > 0.3) {
+        if (
+          (maxPrice - recordDatePrice) / recordDatePrice >
+          priceMargin / 100
+        ) {
           alarmType2.push(recordData);
         }
       });
@@ -169,6 +173,21 @@ export const DAFocusListComponent = () => {
 
   return (
     <div style={{ padding: '20px' }}>
+      Max Price Percent
+      <Select
+        style={{ width: '80px' }}
+        value={priceMargin}
+        onChange={(v) => {
+          setPriceMargin(v);
+        }}
+        size="small"
+      >
+        {[5, 10, 20, 30, 40, 50].map((i) => (
+          <Select.Option key={i} value={i}>
+            {i}
+          </Select.Option>
+        ))}
+      </Select>
       <Button type="primary" onClick={() => alarm()}>
         Alarm
       </Button>
@@ -223,7 +242,6 @@ export const DAFocusListComponent = () => {
           </div>
         </div>
       )}
-
       <Table
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
