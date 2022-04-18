@@ -1,10 +1,29 @@
-import { Button, Popconfirm, Select, Table, Tag } from 'antd';
+import {
+  Button,
+  DatePicker,
+  Input,
+  message,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+} from 'antd';
 import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { caculateAfterDate, caculateDate, today } from './alarm';
+import { caculateAfterDate, caculateDate } from './alarm';
 import { groupBy } from 'lodash';
 import { caculateMaxPrice, caculateMinPrice } from './myFocus';
+import moment from 'moment';
+import { validateStock } from './new_alarm';
+
+const curDate = new Date();
+const year = curDate.getFullYear();
+const month = curDate.getMonth() + 1;
+const day = curDate.getDate();
+const dateFormat = 'YYYY-MM-DD';
+const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 
 async function getAllFocusedStocks() {
   const stockData = await get('/api/all_da_focus');
@@ -32,6 +51,8 @@ export const DAFocusListComponent = () => {
   const [alarmType1, setAlarmType1] = useState<any>([]);
   const [alarmType2, setAlarmType2] = useState<any>([]);
   const [priceMargin, setPriceMargin] = useState<number>(10);
+  const [inputStock, setInputStock] = useState<string>('');
+  const [selectDate, setSelectDate] = useState<string>(today);
   const columns = [
     {
       title: 'Symbol',
@@ -171,26 +192,69 @@ export const DAFocusListComponent = () => {
     }
   };
 
+  const addFocus = () => {
+    if (!validateStock(inputStock)) {
+      message.error('invalid stock');
+      return;
+    }
+    fetch(
+      `/api/add_da_focus?stock_id=${inputStock}&updated_at=${caculateDate(
+        today,
+        0
+      )}&datestr=${caculateDate(selectDate, 0)}`,
+      { method: 'GET' }
+    ).then(() => {
+      message.success('Add Successfully');
+      async function handleAllStockData() {
+        const data = await getAllFocusedStocks();
+        setData(data);
+      }
+      handleAllStockData();
+    });
+  };
+
   return (
     <div style={{ padding: '20px' }}>
-      Max Price Percent
-      <Select
-        style={{ width: '80px' }}
-        value={priceMargin}
-        onChange={(v) => {
-          setPriceMargin(v);
-        }}
-        size="small"
-      >
-        {[5, 10, 20, 30, 40, 50].map((i) => (
-          <Select.Option key={i} value={i}>
-            {i}
-          </Select.Option>
-        ))}
-      </Select>
-      <Button type="primary" onClick={() => alarm()}>
-        Alarm
-      </Button>
+      <Space>
+        Max Price Percent
+        <Select
+          style={{ width: '80px' }}
+          value={priceMargin}
+          onChange={(v) => {
+            setPriceMargin(v);
+          }}
+          size="small"
+        >
+          {[5, 10, 20, 30, 40, 50].map((i) => (
+            <Select.Option key={i} value={i}>
+              {i}
+            </Select.Option>
+          ))}
+        </Select>
+        <Button type="primary" onClick={() => alarm()}>
+          Alarm
+        </Button>
+      </Space>
+      <Space>
+        Stock:
+        <Input
+          style={{ width: '100px', height: '32px' }}
+          size="small"
+          value={inputStock}
+          onChange={(e) => setInputStock(e.target.value)}
+        />
+        Date:
+        <DatePicker
+          value={moment(selectDate, dateFormat)}
+          format={dateFormat}
+          onChange={(v: any) => {
+            setSelectDate(v.format(dateFormat));
+          }}
+        />
+        <Button type="primary" onClick={() => addFocus()}>
+          Add
+        </Button>
+      </Space>
       {(alarmType1?.length > 0 || alarmType2?.length > 0) && (
         <div
           style={{

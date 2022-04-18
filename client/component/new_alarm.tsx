@@ -89,7 +89,7 @@ export const caculateAfterDate = (startDatestr, days) => {
   }
 };
 
-const validateStock = (stock) => {
+export const validateStock = (stock) => {
   if (stock.length < 8) {
     return false;
   }
