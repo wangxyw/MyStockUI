@@ -50,6 +50,7 @@ export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
   const [alarmType1, setAlarmType1] = useState<any>([]);
   const [alarmType2, setAlarmType2] = useState<any>([]);
+  const [alarmType3, setAlarmType3] = useState<any>([]);
   const [priceMargin, setPriceMargin] = useState<number>(10);
   const [inputStock, setInputStock] = useState<string>('');
   const [selectDate, setSelectDate] = useState<string>(today);
@@ -166,6 +167,7 @@ export const DAFocusListComponent = () => {
       const priceData = await getAllStocksPrice(symbols);
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
       const alarmType1: any = [];
+      const alarmType3: any = [];
       const alarmType2: any = [];
       Object.keys(priceDataGroupByStock)?.forEach((i) => {
         const recordData = data?.find((e) => e.symbol === i);
@@ -180,6 +182,9 @@ export const DAFocusListComponent = () => {
         if (currentPrice > minPrice && currentPrice < recordDatePrice) {
           alarmType1.push(recordData);
         }
+        if (currentPrice == minPrice && currentPrice < recordDatePrice) {
+          alarmType3.push(recordData);
+        }
         if (
           (maxPrice - recordDatePrice) / recordDatePrice >
           priceMargin / 100
@@ -189,6 +194,7 @@ export const DAFocusListComponent = () => {
       });
       setAlarmType1(alarmType1);
       setAlarmType2(alarmType2);
+      setAlarmType3(alarmType3);
     }
   };
 
@@ -265,10 +271,29 @@ export const DAFocusListComponent = () => {
           }}
         >
           <div style={{ border: '2px solid #f33875', padding: '10px' }}>
-            推荐关注：
+            极力推荐关注：
             <br />
             {alarmType1?.map((i) => (
-              <Tag>{`${i.symbol}_${i.name}`}</Tag>
+              <Tag>
+                 <a
+                target="_blank"
+                href={`https://quote.eastmoney.com/${i.symbol}.html`}
+              >
+               {`${i.symbol}_${i.name}`}
+              </a></Tag>
+            ))}
+          </div>
+          <div style={{ border: '2px solid #f33875', padding: '10px' }}>
+            推荐关注：
+            <br />
+            {alarmType3?.map((i) => (
+              <Tag>
+              <a
+             target="_blank"
+             href={`https://quote.eastmoney.com/${i.symbol}.html`}
+           >
+            {`${i.symbol}_${i.name}`}
+           </a></Tag>
             ))}
           </div>
           <div style={{ border: '2px solid #46a865', padding: '10px' }}>
@@ -301,7 +326,8 @@ export const DAFocusListComponent = () => {
           <div>
             占比：
             <br />
-            推荐关注： {`${alarmType1?.length}/${data?.length}`}
+            极力推荐关注： {`${alarmType1?.length}/${data?.length}`}
+            推荐关注： {`${alarmType3?.length}/${data?.length}`}
             推荐删除： {`${alarmType2?.length}/${data?.length}`}
           </div>
         </div>
