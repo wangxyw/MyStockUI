@@ -47,3 +47,10 @@
 .grey-row-first {
   color: #ff0000;
 }
+
+.stock-tag {
+  font-size: 16px !important;
+  width: 160px;
+  height: 30px !important;
+  line-height: 30px !important;
+}

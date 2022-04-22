@@ -17,6 +17,7 @@ import { groupBy } from 'lodash';
 import { caculateMaxPrice, caculateMinPrice } from './myFocus';
 import moment from 'moment';
 import { validateStock } from './new_alarm';
+import './alarm.css';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -48,9 +49,15 @@ async function getAllStocksPrice(symbols) {
 
 export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
-  const [alarmType1, setAlarmType1] = useState<any>([]);
-  const [alarmType2, setAlarmType2] = useState<any>([]);
-  const [alarmType3, setAlarmType3] = useState<any>([]);
+  const [alarmType1, setAlarmType1] = useState<any>([
+    { symbol: 'sh110112', name: '忽闪忽闪' },
+  ]);
+  const [alarmType2, setAlarmType2] = useState<any>([
+    { symbol: 'sh110112', name: '忽闪忽闪' },
+  ]);
+  const [alarmType3, setAlarmType3] = useState<any>([
+    { symbol: 'sh110112', name: '忽闪忽闪' },
+  ]);
   const [priceMargin, setPriceMargin] = useState<number>(10);
   const [inputStock, setInputStock] = useState<string>('');
   const [selectDate, setSelectDate] = useState<string>(today);
@@ -268,35 +275,56 @@ export const DAFocusListComponent = () => {
             justifyContent: 'space-between',
             maxHeight: '200px',
             overflow: 'auto',
+            flexDirection: 'column',
           }}
         >
-          <div style={{ border: '2px solid #f33875', padding: '10px' }}>
+          <div
+            style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+            }}
+          >
             极力推荐关注：
             <br />
             {alarmType1?.map((i) => (
-              <Tag>
-                 <a
-                target="_blank"
-                href={`https://quote.eastmoney.com/${i.symbol}.html`}
-              >
-               {`${i.symbol}_${i.name}`}
-              </a></Tag>
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}`}
+                </a>
+              </Tag>
             ))}
           </div>
-          <div style={{ border: '2px solid #f33875', padding: '10px' }}>
+          <div
+            style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+            }}
+          >
             推荐关注：
             <br />
             {alarmType3?.map((i) => (
-              <Tag>
-              <a
-             target="_blank"
-             href={`https://quote.eastmoney.com/${i.symbol}.html`}
-           >
-            {`${i.symbol}_${i.name}`}
-           </a></Tag>
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}`}
+                </a>
+              </Tag>
             ))}
           </div>
-          <div style={{ border: '2px solid #46a865', padding: '10px' }}>
+          <div
+            style={{
+              border: '2px solid #46a865',
+              padding: '10px',
+              marginBottom: '10px',
+            }}
+          >
             推荐删除：
             <br />
             {alarmType2?.map((i) => (
@@ -318,12 +346,19 @@ export const DAFocusListComponent = () => {
                 }
               >
                 <Tag
+                  className="stock-tag"
                   style={{ cursor: 'pointer' }}
                 >{`${i.symbol}_${i.name}`}</Tag>
               </Popconfirm>
             ))}
           </div>
-          <div>
+          <div
+            style={{
+              border: '2px solid #46a865',
+              padding: '10px',
+              marginBottom: '10px',
+            }}
+          >
             占比：
             <br />
             极力推荐关注： {`${alarmType1?.length}/${data?.length}`}
