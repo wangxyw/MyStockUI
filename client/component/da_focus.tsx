@@ -49,15 +49,12 @@ async function getAllStocksPrice(symbols) {
 
 export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
-  const [alarmType1, setAlarmType1] = useState<any>([
-    { symbol: 'sh110112', name: '忽闪忽闪' },
-  ]);
-  const [alarmType2, setAlarmType2] = useState<any>([
-    { symbol: 'sh110112', name: '忽闪忽闪' },
-  ]);
-  const [alarmType3, setAlarmType3] = useState<any>([
-    { symbol: 'sh110112', name: '忽闪忽闪' },
-  ]);
+  const [alarmType1, setAlarmType1] = useState<any>([]);
+  const [alarmType2, setAlarmType2] = useState<any>([]);
+  const [alarmType3, setAlarmType3] = useState<any>([]);
+  const [alarmType4, setAlarmType4] = useState<any>([]);
+  const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
+  const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
   const [priceMargin, setPriceMargin] = useState<number>(10);
   const [inputStock, setInputStock] = useState<string>('');
   const [selectDate, setSelectDate] = useState<string>(today);
@@ -176,12 +173,16 @@ export const DAFocusListComponent = () => {
       const alarmType1: any = [];
       const alarmType3: any = [];
       const alarmType2: any = [];
+      const alarmType4: any = [];
       Object.keys(priceDataGroupByStock)?.forEach((i) => {
         const recordData = data?.find((e) => e.symbol === i);
         const recordDate = recordData?.datestr;
         const recordDatePrice = recordData?.finalprice;
         const stock = priceDataGroupByStock[i]?.filter(
           (e) => e.datestr >= recordDate
+        );
+        const daysStock = priceDataGroupByStock[i]?.filter(
+          (e) => e.datestr >= caculateDate(today, selectHorPriceDays)
         );
         const { minPrice } = caculateMinPrice(stock);
         const { maxPrice } = caculateMaxPrice(stock);
@@ -198,10 +199,20 @@ export const DAFocusListComponent = () => {
         ) {
           alarmType2.push(recordData);
         }
+        const daysMinPrice = caculateMinPrice(daysStock);
+        const daysMaxPrice = caculateMaxPrice(daysStock);
+        if (
+          (daysMaxPrice.maxPrice - daysMinPrice.minPrice) /
+            daysMinPrice.minPrice <
+          selectHorPriceMargin / 100
+        ) {
+          alarmType4.push(recordData);
+        }
       });
       setAlarmType1(alarmType1);
       setAlarmType2(alarmType2);
       setAlarmType3(alarmType3);
+      setAlarmType4(alarmType4);
     }
   };
 
@@ -228,52 +239,92 @@ export const DAFocusListComponent = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <Space>
-        Max Price Percent
-        <Select
-          style={{ width: '80px' }}
-          value={priceMargin}
-          onChange={(v) => {
-            setPriceMargin(v);
-          }}
-          size="small"
-        >
-          {[5, 10, 20, 30, 40, 50].map((i) => (
-            <Select.Option key={i} value={i}>
-              {i}
-            </Select.Option>
-          ))}
-        </Select>
-        <Button type="primary" onClick={() => alarm()}>
-          Alarm
-        </Button>
-      </Space>
-      <Space>
-        Stock:
-        <Input
-          style={{ width: '100px', height: '32px' }}
-          size="small"
-          value={inputStock}
-          onChange={(e) => setInputStock(e.target.value)}
-        />
-        Date:
-        <DatePicker
-          value={moment(selectDate, dateFormat)}
-          format={dateFormat}
-          onChange={(v: any) => {
-            setSelectDate(v.format(dateFormat));
-          }}
-        />
-        <Button type="primary" onClick={() => addFocus()}>
-          Add
-        </Button>
-      </Space>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <Space>
+            推荐删除用：已经涨超
+            <Select
+              style={{ width: '80px' }}
+              value={priceMargin}
+              onChange={(v) => {
+                setPriceMargin(v);
+              }}
+              size="small"
+            >
+              {[5, 10, 20, 30, 40, 50].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>
+            <Space>
+              {'推荐关注横盘用 涨幅小于'}
+              <Select
+                style={{ width: '80px' }}
+                value={selectHorPriceMargin}
+                onChange={(v) => {
+                  setSelectHorPriceMargin(v);
+                }}
+                size="small"
+              >
+                {[5, 10, 15, 20].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
+              % in
+              <Select
+                style={{ width: '80px' }}
+                value={selectHorPriceDays}
+                onChange={(v) => {
+                  setSelectHorPriceDays(v);
+                }}
+                size="small"
+              >
+                {[5, 10, 20, 30, 40, 50, 60, 90].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>{' '}
+              days
+            </Space>
+            <Button type="primary" onClick={() => alarm()}>
+              Alarm
+            </Button>
+          </Space>
+        </div>
+        <div>
+          <Space>
+            Stock:
+            <Input
+              style={{ width: '100px', height: '32px' }}
+              size="small"
+              value={inputStock}
+              onChange={(e) => setInputStock(e.target.value)}
+            />
+            Date:
+            <DatePicker
+              value={moment(selectDate, dateFormat)}
+              format={dateFormat}
+              onChange={(v: any) => {
+                setSelectDate(v.format(dateFormat));
+              }}
+            />
+            <Button type="primary" onClick={() => addFocus()}>
+              Add
+            </Button>
+          </Space>
+        </div>
+      </div>
+
       {(alarmType1?.length > 0 || alarmType2?.length > 0) && (
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            maxHeight: '200px',
+            maxHeight: '600px',
             overflow: 'auto',
             flexDirection: 'column',
           }}
@@ -308,6 +359,26 @@ export const DAFocusListComponent = () => {
             推荐关注：
             <br />
             {alarmType3?.map((i) => (
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}`}
+                </a>
+              </Tag>
+            ))}
+          </div>
+          <div
+            style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+            }}
+          >
+            推荐关注-横盘：
+            <br />
+            {alarmType4?.map((i) => (
               <Tag className="stock-tag">
                 <a
                   target="_blank"
