@@ -319,56 +319,17 @@ export const DAFocusListComponent = () => {
         </div>
       </div>
 
-      {(alarmType1?.length > 0 || alarmType2?.length > 0) && (
+      {(alarmType1?.length > 0 ||
+        alarmType2?.length > 0 ||
+        alarmType3?.length > 0 ||
+        alarmType4?.length > 0) && (
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            maxHeight: '600px',
-            overflow: 'auto',
             flexDirection: 'column',
           }}
         >
-          <div
-            style={{
-              border: '2px solid #f33875',
-              padding: '10px',
-              marginBottom: '10px',
-            }}
-          >
-            极力推荐关注：
-            <br />
-            {alarmType1?.map((i) => (
-              <Tag className="stock-tag">
-                <a
-                  target="_blank"
-                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
-                >
-                  {`${i.symbol}_${i.name}`}
-                </a>
-              </Tag>
-            ))}
-          </div>
-          <div
-            style={{
-              border: '2px solid #f33875',
-              padding: '10px',
-              marginBottom: '10px',
-            }}
-          >
-            推荐关注：
-            <br />
-            {alarmType3?.map((i) => (
-              <Tag className="stock-tag">
-                <a
-                  target="_blank"
-                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
-                >
-                  {`${i.symbol}_${i.name}`}
-                </a>
-              </Tag>
-            ))}
-          </div>
           <div
             style={{
               border: '2px solid #f33875',
@@ -425,6 +386,49 @@ export const DAFocusListComponent = () => {
           </div>
           <div
             style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+              backgroundColor: '#f4f469',
+            }}
+          >
+            极力推荐关注- 出现拐点（当前值大于最小值）：
+            <br />
+            {alarmType1?.map((i) => (
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}`}
+                </a>
+              </Tag>
+            ))}
+          </div>
+          <div
+            style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+              backgroundColor: '#f4f469',
+            }}
+          >
+            推荐关注 （当前值 = 最小值）：
+            <br />
+            {alarmType3?.map((i) => (
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}`}
+                </a>
+              </Tag>
+            ))}
+          </div>
+
+          <div
+            style={{
               border: '2px solid #46a865',
               padding: '10px',
               marginBottom: '10px',
@@ -434,6 +438,7 @@ export const DAFocusListComponent = () => {
             <br />
             极力推荐关注： {`${alarmType1?.length}/${data?.length}`}
             推荐关注： {`${alarmType3?.length}/${data?.length}`}
+            横盘： {`${alarmType4?.length}/${data?.length}`}
             推荐删除： {`${alarmType2?.length}/${data?.length}`}
           </div>
         </div>
