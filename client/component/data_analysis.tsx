@@ -678,12 +678,12 @@ export const DataAnalysisCom = () => {
     hasCondition5,
   ]);
 
-  const addDAFocus = useCallback((record) => {
+  const addDAFocus = useCallback((record, isAdded) => {
     fetch(
       `/api/add_da_focus?stock_id=${record.symbol}&updated_at=${caculateDate(
         today,
         0
-      )}&datestr=${record.datestr}`,
+      )}&datestr=${record.datestr}&added=${isAdded}`,
       { method: 'GET' }
     ).then((res) => res.json());
   }, []);
@@ -798,8 +798,11 @@ export const DataAnalysisCom = () => {
       key: 'action',
       render: (text, record) => (
         <Space size="middle">
-          <Button className="button" onClick={() => addDAFocus(record)}>
+          <Button className="button" onClick={() => addDAFocus(record, 0)}>
             Add Focus
+          </Button>
+          <Button className="button" onClick={() => addDAFocus(record, 1)}>
+            加到自选股
           </Button>
         </Space>
       ),
