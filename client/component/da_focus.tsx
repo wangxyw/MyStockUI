@@ -13,7 +13,7 @@ import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { caculateAfterDate, caculateDate } from './alarm';
-import { groupBy } from 'lodash';
+import { groupBy, orderBy } from 'lodash';
 import { caculateMaxPrice, caculateMinPrice } from './myFocus';
 import moment from 'moment';
 import { validateStock } from './new_alarm';
@@ -339,7 +339,7 @@ export const DAFocusListComponent = () => {
           >
             推荐关注-横盘：
             <br />
-            {alarmType4?.map((i) => (
+            {orderBy(alarmType4, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag">
                 <a
                   target="_blank"
@@ -394,13 +394,13 @@ export const DAFocusListComponent = () => {
           >
             极力推荐关注- 出现拐点（当前值大于最小值）：
             <br />
-            {alarmType1?.map((i) => (
-              <Tag className="stock-tag">
+            {orderBy(alarmType1, 'datestr', 'desc')?.map((i) => (
+              <Tag className="stock-tag" color={i.added && 'red'}>
                 <a
                   target="_blank"
                   href={`https://quote.eastmoney.com/${i.symbol}.html`}
                 >
-                  {`${i.symbol}_${i.name}`}
+                  {`${i.symbol}_${i.name}_${i.datestr}`}
                 </a>
               </Tag>
             ))}
@@ -415,13 +415,13 @@ export const DAFocusListComponent = () => {
           >
             推荐关注 （当前值 = 最小值）：
             <br />
-            {alarmType3?.map((i) => (
+            {orderBy(alarmType3, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag">
                 <a
                   target="_blank"
                   href={`https://quote.eastmoney.com/${i.symbol}.html`}
                 >
-                  {`${i.symbol}_${i.name}`}
+                  {`${i.symbol}_${i.name}_${i.datestr}`}
                 </a>
               </Tag>
             ))}
