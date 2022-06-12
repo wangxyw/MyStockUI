@@ -37,6 +37,7 @@ import {
   caculatePriceData,
 } from './myFocus';
 import { composedQuery, getBeforeOneDate, SELECT_COLOR } from './new_alarm';
+import FormItem from 'antd/lib/form/FormItem';
 
 export const filterByCondition25 = (
   priceData,
@@ -272,6 +273,7 @@ export const DataAnalysisCom = () => {
   const [conditionData, setConditionData] = useState<any>();
   const [allDayStocks, setAllDayStocks] = useState<any>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [inputStock, setInputStock] = useState('');
 
   const isSetCondition = useMemo(() => {
     return (
@@ -311,7 +313,7 @@ export const DataAnalysisCom = () => {
       `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${today}&from100=${from100}`,
+      )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
       { method: 'GET' }
     ).then((res) => {
       const stockDataByDate = {};
@@ -609,15 +611,16 @@ export const DataAnalysisCom = () => {
           e.chosen = false;
         }
       });
-      get(
-        `/api/get_stock_plate?ids=${stockData[selectDateTab]
-          ?.map((i) => `'${i.symbol}'`)
-          ?.join(',')}`
-      ).then((res) => {
-        const resbySymbols = res.symbols;
-        const resbyPlates = res.plates;
-        setPlates(resbyPlates);
-      });
+      stockData[selectDateTab]?.length > 0 &&
+        get(
+          `/api/get_stock_plate?ids=${stockData[selectDateTab]
+            ?.map((i) => `'${i.symbol}'`)
+            ?.join(',')}`
+        ).then((res) => {
+          const resbySymbols = res.symbols;
+          const resbyPlates = res.plates;
+          setPlates(resbyPlates);
+        });
       setData(stockData[selectDateTab]);
       setConditionData(
         stockData[selectDateTab]?.filter((i) => i.chosen === true)
@@ -1097,6 +1100,14 @@ export const DataAnalysisCom = () => {
                 ))}
               </Select>
             </Space>
+            <FormItem label="查看一只(leaving empty is search all)">
+              <Input
+                value={inputStock}
+                onChange={(e) => {
+                  setInputStock(e.target.value);
+                }}
+              />
+            </FormItem>
             <Space style={{ marginLeft: '10px' }}>
               <Button
                 type="primary"

@@ -322,9 +322,13 @@ router.get('/all_alarm_data', function (req, res, next) {
   const datestr = req.query.date_str;
   const endDateStr = req.query.end_date_str;
   const from100 = req.query.from100;
+  const stock = req.query.stock;
   let table = 'stock_big_data';
   if (from100 === 'true') table = 'stock_big_data_100';
   let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
+  if (stock) {
+    sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol='${stock}'`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
