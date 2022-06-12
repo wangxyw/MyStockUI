@@ -14,7 +14,11 @@ import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { caculateAfterDate, caculateDate } from './alarm';
 import { groupBy, orderBy } from 'lodash';
-import { caculateMaxPrice, caculateMinPrice } from './myFocus';
+import {
+  caculateMaxPrice,
+  caculateMinPrice,
+  caculatePriceData,
+} from './myFocus';
 import moment from 'moment';
 import { validateStock } from './new_alarm';
 import './alarm.css';
@@ -30,6 +34,13 @@ async function getAllFocusedStocks() {
   const stockData = await get('/api/all_da_focus');
   const symbols = stockData.map((d) => d.symbol);
   const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
+  const stockPriceByDay = await get(
+    `/api/get_focus_stock_price?stocks=${symbols
+      .map((i) => `'${i}'`)
+      .join(',')}`
+  );
+  //caculate stock price
+  const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
 
   return stockData.map((s) => {
     const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
@@ -128,6 +139,54 @@ export const DAFocusListComponent = () => {
       title: 'Add Date',
       dataIndex: 'datestr',
       key: 'datestr',
+    },
+    {
+      title: '流通股本',
+      dataIndex: 'circulation_stock',
+      key: 'circulation_stock',
+      render: (c, record) => {
+        const re = (record.marketvalue / record.finalprice).toFixed(3);
+        return <>{re}</>;
+      },
+    },
+    {
+      title: 'MaxPrice',
+      dataIndex: 'maxPrice',
+      key: 'maxPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.maxPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MaxPriceDay',
+      dataIndex: 'maxPriceDay',
+      key: 'maxPriceDay',
+    },
+    {
+      title: 'MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      render: (c, record) => {
+        const diff = record.minPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MinPriceDay',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
     },
     {
       title: 'Action',
@@ -237,6 +296,15 @@ export const DAFocusListComponent = () => {
     });
   };
 
+  const filterInAlarm = (ids) => {
+    async function handleAllStockData() {
+      const data = await getAllFocusedStocks();
+      setData(() => data?.filter((i) => ids?.includes(i?.symbol)));
+    }
+
+    handleAllStockData();
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -338,6 +406,13 @@ export const DAFocusListComponent = () => {
             }}
           >
             推荐关注-横盘：
+            <Button
+              onClick={() => {
+                filterInAlarm(alarmType4?.map((i) => i.symbol));
+              }}
+            >
+              Filter in List
+            </Button>
             <br />
             {orderBy(alarmType4, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag">
@@ -358,6 +433,13 @@ export const DAFocusListComponent = () => {
             }}
           >
             推荐删除：
+            <Button
+              onClick={() => {
+                filterInAlarm(alarmType2?.map((i) => i.symbol));
+              }}
+            >
+              Filter in List
+            </Button>
             <br />
             {alarmType2?.map((i) => (
               <Popconfirm
@@ -393,6 +475,13 @@ export const DAFocusListComponent = () => {
             }}
           >
             极力推荐关注- 出现拐点（当前值大于最小值）：
+            <Button
+              onClick={() => {
+                filterInAlarm(alarmType1?.map((i) => i.symbol));
+              }}
+            >
+              Filter in List
+            </Button>
             <br />
             {orderBy(alarmType1, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag" color={i.added && 'red'}>
@@ -414,6 +503,13 @@ export const DAFocusListComponent = () => {
             }}
           >
             推荐关注 （当前值 = 最小值）：
+            <Button
+              onClick={() => {
+                filterInAlarm(alarmType3?.map((i) => i.symbol));
+              }}
+            >
+              Filter in List
+            </Button>
             <br />
             {orderBy(alarmType3, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag">
