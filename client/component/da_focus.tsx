@@ -204,6 +204,54 @@ export const DAFocusListComponent = () => {
       },
     },
     {
+      title: '流通股本',
+      dataIndex: 'circulation_stock',
+      key: 'circulation_stock',
+      render: (c, record) => {
+        const re = (record.marketvalue / record.finalprice).toFixed(3);
+        return <>{re}</>;
+      },
+    },
+    {
+      title: 'MaxPrice',
+      dataIndex: 'maxPrice',
+      key: 'maxPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.maxPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MaxPriceDay',
+      dataIndex: 'maxPriceDay',
+      key: 'maxPriceDay',
+    },
+    {
+      title: 'MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      render: (c, record) => {
+        const diff = record.minPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MinPriceDay',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
+    },
+    {
       title: 'Action',
       key: 'action',
       render: (text, record) => (
