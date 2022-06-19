@@ -139,6 +139,69 @@ export const DAFocusListComponent = () => {
       title: 'Add Date',
       dataIndex: 'datestr',
       key: 'datestr',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.datestr.replaceAll('-', '')) -
+          Number(b.datestr.replaceAll('-', ''))
+        );
+      },
+    },
+    {
+      title: '流通股本',
+      dataIndex: 'circulation_stock',
+      key: 'circulation_stock',
+      render: (c, record) => {
+        const re = (record.marketvalue / record.finalprice).toFixed(3);
+        return <>{re}</>;
+      },
+    },
+    {
+      title: 'MaxPrice',
+      dataIndex: 'maxPrice',
+      key: 'maxPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.maxPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MaxPriceDay',
+      dataIndex: 'maxPriceDay',
+      key: 'maxPriceDay',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDay) - Number(b.maxPriceDay);
+      },
+    },
+    {
+      title: 'MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
+      },
+      render: (c, record) => {
+        const diff = record.minPriceDiff;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {c}/ {diff + '%'}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'MinPriceDay',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minPriceDay) - Number(b.minPriceDay);
+      },
     },
     {
       title: '流通股本',
