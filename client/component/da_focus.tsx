@@ -139,6 +139,12 @@ export const DAFocusListComponent = () => {
       title: 'Add Date',
       dataIndex: 'datestr',
       key: 'datestr',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.datestr.replaceAll('-', '')) -
+          Number(b.datestr.replaceAll('-', ''))
+        );
+      },
     },
     {
       title: '流通股本',
@@ -169,11 +175,17 @@ export const DAFocusListComponent = () => {
       title: 'MaxPriceDay',
       dataIndex: 'maxPriceDay',
       key: 'maxPriceDay',
+      sorter: (a: any, b: any): any => {
+        return Number(a.maxPriceDay) - Number(b.maxPriceDay);
+      },
     },
     {
       title: 'MinPrice',
       dataIndex: 'minPrice',
       key: 'minPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
+      },
       render: (c, record) => {
         const diff = record.minPriceDiff;
         return (
@@ -187,6 +199,9 @@ export const DAFocusListComponent = () => {
       title: 'MinPriceDay',
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minPriceDay) - Number(b.minPriceDay);
+      },
     },
     {
       title: 'Action',
