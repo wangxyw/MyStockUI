@@ -290,6 +290,15 @@ router.get('/get_focus_stock_price', function (req, res, next) {
   });
 });
 
+router.get('/get_price_from_common_data', function (req, res, next) {
+  const symbols = req.query.stocks;
+  let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/stock_alarm', function (req, res, next) {
   const symbol = req.query.stock_id;
   const afterDate = req.query.afterDate;

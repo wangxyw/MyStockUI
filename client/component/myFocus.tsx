@@ -43,6 +43,19 @@ export const caculateMaxPrice = (priceByDayData) => {
   });
   return { maxPrice, maxPriceDay };
 };
+export const caculateMinVol = (priceByDayData) => {
+  let minVol = priceByDayData[0]?.totaltradevol;
+  let minVolDate = priceByDayData[0]?.datestr;
+  let minVolDay = 0;
+  priceByDayData.forEach((i, k) => {
+    if (i.totaltradevol && i.totaltradevol < minVol) {
+      minVol = i.totaltradevol;
+      minVolDay = k;
+      minVolDate = i.datestr;
+    }
+  });
+  return { minVol, minVolDay, minVolDate };
+};
 
 export const caculateMinPrice = (priceByDayData) => {
   let minPrice = priceByDayData[0]?.finalprice;
@@ -71,6 +84,7 @@ export const caculatePriceData = (
     });
     const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);
     const { minPrice, minPriceDay } = caculateMinPrice(priceByDayData);
+    const { minVol, minVolDay, minVolDate } = caculateMinVol(priceByDayData);
     const oneStock = i;
     const maxPriceDiff = ((maxPrice - i.finalprice) / i.finalprice) * 100;
     const minPriceDiff = ((minPrice - i.finalprice) / i.finalprice) * 100;
@@ -82,6 +96,9 @@ export const caculatePriceData = (
     oneStock.maxPriceDiff = maxPriceDiff.toFixed(2);
     oneStock.minPriceDay = minPriceDay;
     oneStock.minPriceDiff = minPriceDiff.toFixed(2);
+    oneStock.minVolDay = minVolDay;
+    oneStock.minVol = minVol;
+    oneStock.minVolDate = minVolDate;
     return oneStock;
   });
   return priceData;
