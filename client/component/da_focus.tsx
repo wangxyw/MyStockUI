@@ -35,14 +35,14 @@ async function getAllFocusedStocks() {
   const symbols = stockData.map((d) => d.symbol);
   const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
   const stockPriceByDay = await get(
-    `/api/get_focus_stock_price?stocks=${symbols
+    `/api/get_price_from_common_data?stocks=${symbols
       .map((i) => `'${i}'`)
       .join(',')}`
   );
   //caculate stock price
   const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
 
-  return stockData.map((s) => {
+  return stockPriceData.map((s) => {
     const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
 
     return {
@@ -153,6 +153,22 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         const re = (record.marketvalue / record.finalprice).toFixed(3);
         return <>{re}</>;
+      },
+    },
+    {
+      title: '量最小',
+      dataIndex: 'minVol',
+      key: 'minVol',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minVolDay) - Number(b.minVolDay);
+      },
+      render: (c, record) => {
+        const diff = record.minVol;
+        return (
+          <Tag color={diff > 0 ? 'red' : 'green'}>
+            {record.minVolDate}/ {record.minVolDay}
+          </Tag>
+        );
       },
     },
     {
