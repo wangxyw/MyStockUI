@@ -22,6 +22,7 @@ import {
 import moment from 'moment';
 import { validateStock } from './new_alarm';
 import './alarm.css';
+import DATA from './date.json';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -29,7 +30,7 @@ const month = curDate.getMonth() + 1;
 const day = curDate.getDate();
 const dateFormat = 'YYYY-MM-DD';
 const today = moment(`${year}-${month}-${day}`).format(dateFormat);
-
+const workDays = DATA.workday;
 async function getAllFocusedStocks() {
   const stockData = await get('/api/all_da_focus');
   const symbols = stockData.map((d) => d.symbol);
@@ -160,13 +161,17 @@ export const DAFocusListComponent = () => {
       dataIndex: 'minVol',
       key: 'minVol',
       sorter: (a: any, b: any): any => {
-        return Number(a.minVolDay) - Number(b.minVolDay);
+        return (
+          Number(a.minVolDate.replaceAll('-', '')) -
+          Number(b.minVolDate.replaceAll('-', ''))
+        );
       },
       render: (c, record) => {
-        const diff = record.minVol;
+        const index1 = workDays.indexOf(today);
+        const index2 = workDays.indexOf(record.minVolDate);
         return (
-          <Tag color={diff > 0 ? 'red' : 'green'}>
-            {record.minVolDate}/ {record.minVolDay}
+          <Tag color={'purple'}>
+            {record.minVolDate}/ {index1 - index2}
           </Tag>
         );
       },
