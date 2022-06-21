@@ -146,6 +146,15 @@ export const DAFocusListComponent = () => {
           Number(b.datestr.replaceAll('-', ''))
         );
       },
+      render: (c, record) => {
+        const index1 = workDays.indexOf(today);
+        const index2 = workDays.indexOf(record.datestr);
+        return (
+          <Tag color={'blue'}>
+            {c}/ {index1 - index2}
+          </Tag>
+        );
+      },
     },
     {
       title: '流通股本',
