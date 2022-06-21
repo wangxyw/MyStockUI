@@ -41,7 +41,7 @@ async function getAllFocusedStocks() {
       .join(',')}`
   );
   //caculate stock price
-  const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
+  const stockPriceData = caculatePriceData(stockData, stockPriceByDay, '不限');
 
   return stockPriceData.map((s) => {
     const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
@@ -83,9 +83,8 @@ export const DAFocusListComponent = () => {
               href={`https://quote.eastmoney.com/${text}.html`}
             >
               {text}
-              {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
-                '*'}
             </a>
+            {record.name}
             <Tag>
               <a
                 target="_blank"
@@ -95,20 +94,6 @@ export const DAFocusListComponent = () => {
               </a>
             </Tag>
           </div>
-        );
-      },
-    },
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => {
-        return (
-          <span>
-            {text}
-            {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
-              '*'}
-          </span>
         );
       },
     },
@@ -233,6 +218,46 @@ export const DAFocusListComponent = () => {
         return Number(a.minPriceDay) - Number(b.minPriceDay);
       },
     },
+    {
+      title: 'CurPrice - MinPrice',
+      dataIndex: 'minPrice',
+      key: 'minPrice',
+      sorter: (a: any, b: any): any => {
+        const aPrice = ((a.currentPrice - a.minPrice) / a.minPrice).toFixed(2);
+        const bPrice = ((b.currentPrice - b.minPrice) / b.minPrice).toFixed(2);
+        return Number(aPrice) - Number(bPrice);
+      },
+      render: (c, record) => {
+        const diff = (
+          ((record.currentPrice - record.minPrice) / record.minPrice) *
+          100
+        ).toFixed(2);
+        return (
+          <Tag>
+            {(record.currentPrice - record.minPrice).toFixed(2)}/{diff}%
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Min-Today Day',
+      dataIndex: 'minPriceDay',
+      key: 'minPriceDay',
+      sorter: (a: any, b: any): any => {
+        const indexToday = workDays.indexOf(today);
+        const indexa = workDays.indexOf(a.datestr);
+        const indexb = workDays.indexOf(b.datestr);
+        const aN = indexToday - indexa - a.minPriceDay;
+        const bN = indexToday - indexb - b.minPriceDay;
+        return Number(aN) - Number(bN);
+      },
+      render: (c, record) => {
+        const index1 = workDays.indexOf(today);
+        const index2 = workDays.indexOf(record.datestr);
+        return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
+      },
+    },
+
     {
       title: 'Action',
       key: 'action',
