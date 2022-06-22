@@ -88,7 +88,9 @@ export const DAFocusListComponent = () => {
             <Tag>
               <a
                 target="_blank"
-                href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+                href={`http://${
+                  location.host
+                }/alarm?symbol=${text}&datestr=${caculateDate(today, 0)}`}
               >
                 {'Show alarm'}
               </a>

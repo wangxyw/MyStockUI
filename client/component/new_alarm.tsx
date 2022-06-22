@@ -1254,7 +1254,7 @@ export const AlarmComponent = (props) => {
       )}&comments=${comments}&predict=${predict}&focus_status=${selectFocusStatus}`,
       { method: 'GET' }
     ).then((res) => res.json());
-  }, [comments, selectStock, predict, selectFocusStatus]);
+  }, [comments, selectStock, predict, selectFocusStatus, selectDate]);
 
   const priceChartRef = useRef<any>();
   const mainChartRef = useRef<any>();
