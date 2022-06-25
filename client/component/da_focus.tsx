@@ -134,7 +134,7 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(today);
+        const index1 = workDays.indexOf(caculateDate(today, 0));
         const index2 = workDays.indexOf(record.datestr);
         return (
           <Tag color={'blue'}>
@@ -163,7 +163,7 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(today);
+        const index1 = workDays.indexOf(caculateDate(today, 0));
         const index2 = workDays.indexOf(record.minVolDate);
         return (
           <Tag color={'purple'}>
