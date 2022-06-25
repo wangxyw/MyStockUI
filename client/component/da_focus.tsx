@@ -69,7 +69,8 @@ export const DAFocusListComponent = () => {
   const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
   const [priceMargin, setPriceMargin] = useState<number>(10);
   const [inputStock, setInputStock] = useState<string>('');
-  const [selectDate, setSelectDate] = useState<string>(today);
+  const [selectDate, setSelectDate] = useState<string>(caculateDate(today, 0));
+  const [selectOverDay, setSelectOverDay] = useState(60);
   const columns = [
     {
       title: 'Symbol',
@@ -246,7 +247,7 @@ export const DAFocusListComponent = () => {
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
       sorter: (a: any, b: any): any => {
-        const indexToday = workDays.indexOf(today);
+        const indexToday = workDays.indexOf(caculateDate(today, 0));
         const indexa = workDays.indexOf(a.datestr);
         const indexb = workDays.indexOf(b.datestr);
         const aN = indexToday - indexa - a.minPriceDay;
@@ -254,7 +255,7 @@ export const DAFocusListComponent = () => {
         return Number(aN) - Number(bN);
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(today);
+        const index1 = workDays.indexOf(caculateDate(today, 0));
         const index2 = workDays.indexOf(record.datestr);
         return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
       },
@@ -454,6 +455,40 @@ export const DAFocusListComponent = () => {
             />
             <Button type="primary" onClick={() => addFocus()}>
               Add
+            </Button>
+          </Space>
+        </div>
+        <div>
+          <Space>
+            关注超过
+            <Select
+              style={{ width: '80px' }}
+              value={selectOverDay}
+              onChange={(v) => {
+                setSelectOverDay(v);
+              }}
+              size="small"
+            >
+              {[0, 60, 70, 80, 90, 100, 120, 150, 180].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>
+            <Button
+              onClick={() => {
+                async function handleAllStockData() {
+                  const data = await getAllFocusedStocks();
+                  setData(
+                    data?.filter(
+                      (i) => i.datestr < caculateDate(today, selectOverDay)
+                    )
+                  );
+                }
+                handleAllStockData();
+              }}
+            >
+              Filter
             </Button>
           </Space>
         </div>
