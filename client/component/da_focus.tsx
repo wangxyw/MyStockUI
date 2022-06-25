@@ -31,12 +31,12 @@ const day = curDate.getDate();
 const dateFormat = 'YYYY-MM-DD';
 const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 const workDays = DATA.workday;
-async function getAllFocusedStocks() {
-  const stockData = await get('/api/all_da_focus');
+async function getAllFocusedStocks(simulateDate: any = null) {
+  const stockData = await get(`/api/all_da_focus?simulateDate=${simulateDate}`);
   const symbols = stockData.map((d) => d.symbol);
   const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
   const stockPriceByDay = await get(
-    `/api/get_price_from_common_data?stocks=${symbols
+    `/api/get_price_from_common_data?simulateDate=${simulateDate}&stocks=${symbols
       .map((i) => `'${i}'`)
       .join(',')}`
   );
@@ -53,8 +53,10 @@ async function getAllFocusedStocks() {
   });
 }
 
-async function getAllStocksPrice(symbols) {
-  const stockData = await get(`/api/get_focus_stock_price?stocks=${symbols}`);
+async function getAllStocksPrice(symbols, simulateDate: any = null) {
+  const stockData = await get(
+    `/api/get_price_from_common_data?simulateDate=${simulateDate}&stocks=${symbols}`
+  );
 
   return stockData;
 }
@@ -71,6 +73,7 @@ export const DAFocusListComponent = () => {
   const [inputStock, setInputStock] = useState<string>('');
   const [selectDate, setSelectDate] = useState<string>(caculateDate(today, 0));
   const [selectOverDay, setSelectOverDay] = useState(60);
+  const [simulateDate, setSimulateDate] = useState(caculateDate(today, 0));
   const columns = [
     {
       title: 'Symbol',
@@ -300,7 +303,7 @@ export const DAFocusListComponent = () => {
   const alarm = async () => {
     if (data?.length > 0) {
       const symbols = data?.map((i) => `'${i.symbol}'`).join(',');
-      const priceData = await getAllStocksPrice(symbols);
+      const priceData = await getAllStocksPrice(symbols, simulateDate);
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
       const alarmType1: any = [];
       const alarmType3: any = [];
@@ -371,7 +374,7 @@ export const DAFocusListComponent = () => {
 
   const filterInAlarm = (ids) => {
     async function handleAllStockData() {
-      const data = await getAllFocusedStocks();
+      const data = await getAllFocusedStocks(simulateDate);
       setData(() => data?.filter((i) => ids?.includes(i?.symbol)));
     }
 
@@ -492,6 +495,21 @@ export const DAFocusListComponent = () => {
             </Button>
           </Space>
         </div>
+      </div>
+      <div>
+        模拟今天是:
+        <DatePicker
+          value={moment(simulateDate, dateFormat)}
+          format={dateFormat}
+          onChange={(v: any) => {
+            setSimulateDate(v.format(dateFormat));
+            async function handleAllStockData() {
+              const data = await getAllFocusedStocks(v.format(dateFormat));
+              setData(data);
+            }
+            handleAllStockData();
+          }}
+        />
       </div>
 
       {(alarmType1?.length > 0 ||

@@ -269,7 +269,11 @@ router.get('/all_focus_stock', function (req, res, next) {
 });
 
 router.get('/all_da_focus', function (req, res, next) {
-  const sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  let sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  const simulateDate = req.query.simulateDate;
+  if (simulateDate) {
+    sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -293,6 +297,10 @@ router.get('/get_focus_stock_price', function (req, res, next) {
 router.get('/get_price_from_common_data', function (req, res, next) {
   const symbols = req.query.stocks;
   let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
+  const simulateDate = req.query.simulateDate;
+  if (simulateDate) {
+    sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr <= '${simulateDate}';`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
