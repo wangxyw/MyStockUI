@@ -75,6 +75,7 @@ export const DAFocusListComponent = () => {
   const [selectDate, setSelectDate] = useState<string>(caculateDate(today, 0));
   const [selectOverDay, setSelectOverDay] = useState(60);
   const [simulateDate, setSimulateDate] = useState(caculateDate(today, 0));
+  const [isLoading, setIsLoading] = useState(false);
   const columns = [
     {
       title: 'Symbol',
@@ -278,6 +279,7 @@ export const DAFocusListComponent = () => {
             // defaultChecked
             checked={record.added}
             onChange={() => {
+              setIsLoading(true);
               fetch(
                 `/api/edit_da_focus?symbol=${record.symbol}&datestr=${
                   record.datestr
@@ -286,6 +288,7 @@ export const DAFocusListComponent = () => {
                 async function handleAllStockData() {
                   const data = await getAllFocusedStocks();
                   setData(data);
+                  setIsLoading(false);
                 }
                 handleAllStockData();
               });
@@ -692,6 +695,7 @@ export const DAFocusListComponent = () => {
         </div>
       )}
       <Table
+        loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
         dataSource={data}
