@@ -6,6 +6,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
 } from 'antd';
@@ -138,7 +139,7 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(caculateDate(today, 0));
+        const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.datestr);
         return (
           <Tag color={'blue'}>
@@ -167,7 +168,7 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(caculateDate(today, 0));
+        const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.minVolDate);
         return (
           <Tag color={'purple'}>
@@ -250,7 +251,7 @@ export const DAFocusListComponent = () => {
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
       sorter: (a: any, b: any): any => {
-        const indexToday = workDays.indexOf(caculateDate(today, 0));
+        const indexToday = workDays.indexOf(caculateDate(simulateDate, 0));
         const indexa = workDays.indexOf(a.datestr);
         const indexb = workDays.indexOf(b.datestr);
         const aN = indexToday - indexa - a.minPriceDay;
@@ -258,8 +259,9 @@ export const DAFocusListComponent = () => {
         return Number(aN) - Number(bN);
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(caculateDate(today, 0));
+        const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.datestr);
+        console.log('====', index1, index2);
         return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
       },
     },
@@ -268,25 +270,47 @@ export const DAFocusListComponent = () => {
       title: 'Action',
       key: 'action',
       render: (text, record) => (
-        <Popconfirm
-          title="Sure to delete?"
-          onConfirm={() =>
-            post('/api/delete_da_focus', {
-              body: JSON.stringify({
-                symbol: record?.symbol,
-                datestr: record?.datestr,
-              }),
-            }).then(() => {
-              async function handleAllStockData() {
-                const data = await getAllFocusedStocks();
-                setData(data);
-              }
-              handleAllStockData();
-            })
-          }
-        >
-          <a>Delete</a>
-        </Popconfirm>
+        <>
+          <Switch
+            unCheckedChildren="NA"
+            checkedChildren="Added"
+            style={{ margin: '0 10px' }}
+            // defaultChecked
+            checked={record.added}
+            onChange={() => {
+              fetch(
+                `/api/edit_da_focus?symbol=${record.symbol}&datestr=${
+                  record.datestr
+                }&added=${record.added ? '0' : '1'}`
+              ).then(() => {
+                async function handleAllStockData() {
+                  const data = await getAllFocusedStocks();
+                  setData(data);
+                }
+                handleAllStockData();
+              });
+            }}
+          />
+          <Popconfirm
+            title="Sure to delete?"
+            onConfirm={() =>
+              post('/api/delete_da_focus', {
+                body: JSON.stringify({
+                  symbol: record?.symbol,
+                  datestr: record?.datestr,
+                }),
+              }).then(() => {
+                async function handleAllStockData() {
+                  const data = await getAllFocusedStocks();
+                  setData(data);
+                }
+                handleAllStockData();
+              })
+            }
+          >
+            <a>Delete</a>
+          </Popconfirm>
+        </>
       ),
     },
   ];
@@ -302,7 +326,10 @@ export const DAFocusListComponent = () => {
 
   const alarm = async () => {
     if (data?.length > 0) {
-      const symbols = data?.map((i) => `'${i.symbol}'`).join(',');
+      const symbols = data
+        ?.filter((i) => !i.added)
+        ?.map((i) => `'${i.symbol}'`)
+        .join(',');
       const priceData = await getAllStocksPrice(symbols, simulateDate);
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
       const alarmType1: any = [];

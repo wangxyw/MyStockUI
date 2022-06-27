@@ -128,6 +128,20 @@ router.post('/delete_da_focus', function (req, res, next) {
   });
 });
 
+router.get('/edit_da_focus', function (req, res, next) {
+  const symbol = req.query.symbol;
+  const datestr = req.query.datestr;
+  const added = req.query.added;
+  const sql = `UPDATE focus_da SET added='${added}' where symbol='${symbol}' and datestr='${datestr}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
 router.post('/edit_focus', function (req, res, next) {
   const symbol = req.body.symbol;
   const comments = req.body.comments;
