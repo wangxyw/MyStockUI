@@ -201,6 +201,13 @@ export const DAFocusListComponent = () => {
       sorter: (a: any, b: any): any => {
         return Number(a.maxPriceDay) - Number(b.maxPriceDay);
       },
+      render: (c, record) => {
+        return (
+          <>
+            {record.maxPriceDate} / {c}
+          </>
+        );
+      },
     },
     {
       title: 'MinPrice',
@@ -224,6 +231,13 @@ export const DAFocusListComponent = () => {
       key: 'minPriceDay',
       sorter: (a: any, b: any): any => {
         return Number(a.minPriceDay) - Number(b.minPriceDay);
+      },
+      render: (c, record) => {
+        return (
+          <>
+            {record.minPriceDate}/ {c}
+          </>
+        );
       },
     },
     {
