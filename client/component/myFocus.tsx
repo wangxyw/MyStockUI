@@ -35,13 +35,15 @@ interface EditableRowProps {
 export const caculateMaxPrice = (priceByDayData) => {
   let maxPrice = priceByDayData[0]?.finalprice;
   let maxPriceDay = 0;
+  let maxPriceDate = '';
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice > maxPrice) {
       maxPrice = i.finalprice;
       maxPriceDay = k;
+      maxPriceDate = i.datestr;
     }
   });
-  return { maxPrice, maxPriceDay };
+  return { maxPrice, maxPriceDay, maxPriceDate };
 };
 export const caculateMinVol = (priceByDayData) => {
   let minVol = priceByDayData[0]?.totaltradevol;
@@ -60,13 +62,15 @@ export const caculateMinVol = (priceByDayData) => {
 export const caculateMinPrice = (priceByDayData) => {
   let minPrice = priceByDayData[0]?.finalprice;
   let minPriceDay = 0;
+  let minPriceDate = '';
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice < minPrice) {
       minPrice = i.finalprice;
       minPriceDay = k;
+      minPriceDate = i.datestr;
     }
   });
-  return { minPrice, minPriceDay };
+  return { minPrice, minPriceDay, minPriceDate };
 };
 
 export const caculatePriceData = (
@@ -82,8 +86,10 @@ export const caculatePriceData = (
       }
       return a;
     });
-    const { maxPrice, maxPriceDay } = caculateMaxPrice(priceByDayData);
-    const { minPrice, minPriceDay } = caculateMinPrice(priceByDayData);
+    const { maxPrice, maxPriceDay, maxPriceDate } =
+      caculateMaxPrice(priceByDayData);
+    const { minPrice, minPriceDay, minPriceDate } =
+      caculateMinPrice(priceByDayData);
     const { minVol, minVolDay, minVolDate } = caculateMinVol(priceByDayData);
     const oneStock = i;
     const maxPriceDiff = ((maxPrice - i.finalprice) / i.finalprice) * 100;
@@ -94,8 +100,10 @@ export const caculatePriceData = (
     oneStock.firstMaxPriceDay = 1;
     oneStock.maxPriceDay = maxPriceDay;
     oneStock.maxPriceDiff = maxPriceDiff.toFixed(2);
+    oneStock.maxPriceDate = maxPriceDate;
     oneStock.minPriceDay = minPriceDay;
     oneStock.minPriceDiff = minPriceDiff.toFixed(2);
+    oneStock.minPriceDate = minPriceDate;
     oneStock.minVolDay = minVolDay;
     oneStock.minVol = minVol;
     oneStock.minVolDate = minVolDate;
