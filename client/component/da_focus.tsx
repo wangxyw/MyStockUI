@@ -144,7 +144,7 @@ export const DAFocusListComponent = () => {
         const index2 = workDays.indexOf(record.datestr);
         return (
           <Tag color={'blue'}>
-            {c}/ {index1 - index2}
+            {c} <br />{index1 - index2}
           </Tag>
         );
       },
@@ -173,7 +173,7 @@ export const DAFocusListComponent = () => {
         const index2 = workDays.indexOf(record.minVolDate);
         return (
           <Tag color={'purple'}>
-            {record.minVolDate}/ {index1 - index2}
+            {record.minVolDate}<br /> {index1 - index2}
           </Tag>
         );
       },
@@ -189,7 +189,7 @@ export const DAFocusListComponent = () => {
         const diff = record.maxPriceDiff;
         return (
           <Tag color={diff > 0 ? 'red' : 'green'}>
-            {c}/ {diff + '%'}
+            {c}/{diff + '%'}
           </Tag>
         );
       },
@@ -204,7 +204,7 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         return (
           <>
-            {record.maxPriceDate} / {c}
+            {record.maxPriceDate} <br /> {c}
           </>
         );
       },
@@ -235,7 +235,7 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         return (
           <>
-            {record.minPriceDate}/ {c}
+            {record.minPriceDate}<br /> {c}
           </>
         );
       },
@@ -276,7 +276,6 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.datestr);
-        console.log('====', index1, index2);
         return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
       },
     },
