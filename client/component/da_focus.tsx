@@ -371,10 +371,14 @@ export const DAFocusListComponent = () => {
         const minDaysStock = priceDataGroupByStock[i]?.filter(
           (e) => e.datestr >= caculateDate(today, selectMinPriceDays)
         );
+        const currentPrice =
+          stock?.find((i) => i.datestr === caculateDate(today, 0))
+            ?.finalprice ??
+          stock?.find((i) => i.datestr === caculateDate(today, 1))?.finalprice;
         const { minPrice } = caculateMinPrice(stock);
         const { maxPrice } = caculateMaxPrice(stock);
         const minDaysPrice = caculateMinPrice(minDaysStock);
-        const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
+        //const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
         if (currentPrice > minPrice && currentPrice < recordDatePrice) {
           alarmType1.push(recordData);
         }
