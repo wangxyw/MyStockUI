@@ -21,7 +21,7 @@ import {
   caculatePriceData,
 } from './myFocus';
 import moment from 'moment';
-import { validateStock } from './new_alarm';
+import { getBeforeOneDate, validateStock } from './new_alarm';
 import './alarm.css';
 import DATA from './date.json';
 
@@ -32,8 +32,26 @@ const day = curDate.getDate();
 const dateFormat = 'YYYY-MM-DD';
 const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 const workDays = DATA.workday;
-async function getAllFocusedStocks(simulateDate: any = null) {
-  const stockData = await get(`/api/all_da_focus?simulateDate=${simulateDate}`);
+async function getAllFocusedStocks(
+  simulateDate: any = null,
+  toToday: any = 0,
+  isFilter: any = false
+) {
+  const stockData1 = await get(
+    `/api/all_da_focus?simulateDate=${simulateDate}`
+  );
+  const beforeOneDate = getBeforeOneDate(today, toToday ?? 0);
+  const stockData = isFilter
+    ? stockData1?.filter((i) => {
+        if (i.symbol === 'sz300611') {
+          console.log(i, i?.viewedDate >= beforeOneDate, today, beforeOneDate);
+        }
+        return !(
+          i.viewed === 1 &&
+          i?.viewedDate >= getBeforeOneDate(today, toToday ?? 0)
+        );
+      })
+    : stockData1;
   const symbols = stockData.map((d) => d.symbol);
   const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
   const stockPriceByDay = await get(
@@ -78,6 +96,9 @@ export const DAFocusListComponent = () => {
   const [selectOverDay, setSelectOverDay] = useState(60);
   const [simulateDate, setSimulateDate] = useState(caculateDate(today, 0));
   const [isLoading, setIsLoading] = useState(false);
+  const [viewedToToday, setViewedToToday] = useState<number>(0);
+  const [isFilterd, setIsFilterd] = useState(false);
+  const [currentAlarmList, setCurrentAlarmList] = useState<any>(null);
   const columns = [
     {
       title: 'Symbol',
@@ -284,6 +305,44 @@ export const DAFocusListComponent = () => {
         return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
       },
     },
+    {
+      title: 'Viewed',
+      key: 'viewed',
+      render: (text, record) => (
+        <>
+          <Switch
+            unCheckedChildren="Not Viewed"
+            checkedChildren="Viewed"
+            checked={
+              record.viewedDate >= getBeforeOneDate(today, viewedToToday) &&
+              record.viewed == 1
+            }
+            onChange={(value) => {
+              setIsLoading(true);
+              fetch(
+                `/api/update_stock_status?stock_id=${
+                  record.symbol
+                }&datestr=${today}&viewed=${value ? '1' : '0'}`
+              ).then(() => {
+                setData((data) =>
+                  data?.map((i) => {
+                    if (i.symbol === record.symbol) {
+                      return {
+                        ...i,
+                        viewedDate: today,
+                        viewed: value ? '1' : '0',
+                      };
+                    }
+                    return i;
+                  })
+                );
+                setIsLoading(false);
+              });
+            }}
+          />
+        </>
+      ),
+    },
 
     {
       title: 'Action',
@@ -296,7 +355,7 @@ export const DAFocusListComponent = () => {
             style={{ margin: '0 10px' }}
             // defaultChecked
             checked={record.added}
-            onChange={() => {
+            onChange={(value) => {
               setIsLoading(true);
               fetch(
                 `/api/edit_da_focus?symbol=${record.symbol}&datestr=${
@@ -304,8 +363,15 @@ export const DAFocusListComponent = () => {
                 }&added=${record.added ? '0' : '1'}`
               ).then(() => {
                 async function handleAllStockData() {
-                  const data = await getAllFocusedStocks();
-                  setData(data);
+                  // const data = await getAllFocusedStocks();
+                  setData((data) =>
+                    data?.map((i) => {
+                      if (i.symbol === record.symbol) {
+                        return { ...i, added: value ? '1' : '0' };
+                      }
+                      return i;
+                    })
+                  );
                   setIsLoading(false);
                 }
                 handleAllStockData();
@@ -321,11 +387,14 @@ export const DAFocusListComponent = () => {
                   datestr: record?.datestr,
                 }),
               }).then(() => {
-                async function handleAllStockData() {
-                  const data = await getAllFocusedStocks();
-                  setData(data);
-                }
-                handleAllStockData();
+                // async function handleAllStockData() {
+                //   const data = await getAllFocusedStocks();
+
+                // }
+                // handleAllStockData();
+                setData((data) =>
+                  data?.filter((i) => i.symbol !== record.symbol)
+                );
               })
             }
           >
@@ -434,6 +503,14 @@ export const DAFocusListComponent = () => {
       }
       handleAllStockData();
     });
+  };
+
+  const listMap: Record<any, any> = {
+    a: '极力推荐关注- 出现拐点（当前值大于最小值）',
+    b: ' 推荐关注-横盘',
+    c: '推荐删除',
+    d: ' 推荐关注 （当前值 = 最小值）从加入那天起',
+    e: '推荐关注 （当前值 = 最小值）从多少天以前起：',
   };
 
   const filterInAlarm = (ids) => {
@@ -576,22 +653,50 @@ export const DAFocusListComponent = () => {
               Filter
             </Button>
           </Space>
+        </div>{' '}
+        <div>
+          模拟今天是:
+          <DatePicker
+            value={moment(simulateDate, dateFormat)}
+            format={dateFormat}
+            onChange={(v: any) => {
+              setSimulateDate(v.format(dateFormat));
+              async function handleAllStockData() {
+                const data = await getAllFocusedStocks(v.format(dateFormat));
+                setData(data);
+              }
+              handleAllStockData();
+            }}
+          />
         </div>
-      </div>
-      <div>
-        模拟今天是:
-        <DatePicker
-          value={moment(simulateDate, dateFormat)}
-          format={dateFormat}
-          onChange={(v: any) => {
-            setSimulateDate(v.format(dateFormat));
-            async function handleAllStockData() {
-              const data = await getAllFocusedStocks(v.format(dateFormat));
-              setData(data);
-            }
-            handleAllStockData();
-          }}
-        />
+        <div>
+          <Space>
+            筛选没看过的，view_date距离今天有
+            <Input
+              type="number"
+              value={viewedToToday}
+              onChange={(e) => setViewedToToday(e?.target?.value as any)}
+            />
+            个自然日
+          </Space>
+          <Button
+            type={isFilterd ? 'primary' : 'default'}
+            onClick={() => {
+              async function handleAllStockData() {
+                const data = await getAllFocusedStocks(
+                  simulateDate,
+                  viewedToToday,
+                  !isFilterd
+                );
+                setIsFilterd(!isFilterd);
+                setData(data);
+              }
+              handleAllStockData();
+            }}
+          >
+            筛选
+          </Button>
+        </div>
       </div>
 
       {(alarmType1?.length > 0 ||
@@ -616,6 +721,7 @@ export const DAFocusListComponent = () => {
             <Button
               onClick={() => {
                 filterInAlarm(alarmType4?.map((i) => i.symbol));
+                setCurrentAlarmList('d');
               }}
             >
               Filter in List
@@ -643,6 +749,7 @@ export const DAFocusListComponent = () => {
             <Button
               onClick={() => {
                 filterInAlarm(alarmType2?.map((i) => i.symbol));
+                setCurrentAlarmList('b');
               }}
             >
               Filter in List
@@ -658,11 +765,9 @@ export const DAFocusListComponent = () => {
                       datestr: i?.datestr,
                     }),
                   }).then(() => {
-                    async function handleAllStockData() {
-                      const data = await getAllFocusedStocks();
-                      setData(data);
-                    }
-                    handleAllStockData();
+                    setData((data) =>
+                      data?.filter((e) => e?.symbol !== i?.symbol)
+                    );
                   })
                 }
               >
@@ -685,6 +790,7 @@ export const DAFocusListComponent = () => {
             <Button
               onClick={() => {
                 filterInAlarm(alarmType1?.map((i) => i.symbol));
+                setCurrentAlarmList('a');
               }}
             >
               Filter in List
@@ -713,6 +819,7 @@ export const DAFocusListComponent = () => {
             <Button
               onClick={() => {
                 filterInAlarm(alarmType3?.map((i) => i.symbol));
+                setCurrentAlarmList('c');
               }}
             >
               Filter in List
@@ -741,6 +848,7 @@ export const DAFocusListComponent = () => {
             <Button
               onClick={() => {
                 filterInAlarm(alarmType5?.map((i) => i.symbol));
+                setCurrentAlarmList('e');
               }}
             >
               Filter in List
@@ -773,6 +881,7 @@ export const DAFocusListComponent = () => {
           </div>
         </div>
       )}
+      <div>当前列表是: {listMap?.[currentAlarmList]}</div>
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}

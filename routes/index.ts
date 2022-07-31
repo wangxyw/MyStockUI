@@ -61,14 +61,39 @@ router.get('/stock_list', function (req, res, next) {
 router.get('/update_stock_status', function (req, res, next) {
   const symbol = req.query.stock_id;
   const datestr = req.query.datestr;
-  const sql = `INSERT INTO viewd_stocks (symbol, datestr) VALUES ('${symbol}', '${datestr}');`;
-  pool.query(sql, function (err, rows, fields) {
-    if (err) {
-      res.json(err);
-    } else {
-      res.json(rows);
-    }
-  });
+  const viewed = req.query.viewed;
+  if (viewed) {
+    const getSql = `SELECT * from viewd_stocks where symbol = '${symbol}'`;
+    pool.query(getSql, function (err, rows, fields) {
+      let sql = '';
+      if (err) {
+        res.json(err);
+      } else {
+        if (rows?.length > 0) {
+          sql = `UPDATE viewd_stocks SET datestr='${datestr}', viewed='${viewed}' where symbol='${symbol}'`;
+        } else {
+          sql = `INSERT INTO viewd_stocks (symbol, datestr, viewed) VALUES ('${symbol}', '${datestr}', '${viewed}') ON DUPLICATE KEY UPDATE viewed = '${viewed}';`;
+        }
+      }
+      console.log('===s', sql);
+      pool.query(sql, (error, ros) => {
+        if (err) {
+          res.json(err);
+        } else {
+          res.json(ros);
+        }
+      });
+    });
+  } else {
+    let sql = `INSERT INTO viewd_stocks (symbol, datestr) VALUES ('${symbol}', '${datestr}');`;
+    pool.query(sql, function (err, rows, fields) {
+      if (err) {
+        res.json(err);
+      } else {
+        res.json(rows);
+      }
+    });
+  }
 });
 
 router.get('/add_focus', function (req, res, next) {
@@ -283,10 +308,11 @@ router.get('/all_focus_stock', function (req, res, next) {
 });
 
 router.get('/all_da_focus', function (req, res, next) {
-  let sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  let sql =
+    'SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr';
   const simulateDate = req.query.simulateDate;
   if (simulateDate) {
-    sql = `SELECT * FROM focus_da a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
+    sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
