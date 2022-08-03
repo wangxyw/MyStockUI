@@ -40,12 +40,8 @@ async function getAllFocusedStocks(
   const stockData1 = await get(
     `/api/all_da_focus?simulateDate=${simulateDate}`
   );
-  const beforeOneDate = getBeforeOneDate(today, toToday ?? 0);
   const stockData = isFilter
     ? stockData1?.filter((i) => {
-        if (i.symbol === 'sz300611') {
-          console.log(i, i?.viewedDate >= beforeOneDate, today, beforeOneDate);
-        }
         return !(
           i.viewed === 1 &&
           i?.viewedDate >= getBeforeOneDate(today, toToday ?? 0)
@@ -99,6 +95,8 @@ export const DAFocusListComponent = () => {
   const [viewedToToday, setViewedToToday] = useState<number>(0);
   const [isFilterd, setIsFilterd] = useState(false);
   const [currentAlarmList, setCurrentAlarmList] = useState<any>(null);
+  const [startDate, setStartDate] = useState<any>('');
+  const [endDate, setEndDate] = useState<any>('');
   const columns = [
     {
       title: 'Symbol',
@@ -422,11 +420,11 @@ export const DAFocusListComponent = () => {
         .join(',');
       const priceData = await getAllStocksPrice(symbols, simulateDate);
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
-      const alarmType1: any = [];
-      const alarmType3: any = [];
-      const alarmType2: any = [];
-      const alarmType4: any = [];
-      const alarmType5: any = [];
+      let alarmType1: any = [];
+      let alarmType3: any = [];
+      let alarmType2: any = [];
+      let alarmType4: any = [];
+      let alarmType5: any = [];
       Object.keys(priceDataGroupByStock)?.forEach((i) => {
         const recordData = data?.find((e) => e.symbol === i);
         const recordDate = recordData?.datestr;
@@ -476,6 +474,18 @@ export const DAFocusListComponent = () => {
           alarmType5.push(recordData);
         }
       });
+
+      if (startDate || endDate) {
+        const condition = (item) =>
+          (startDate ? item?.datestr > startDate : true) &&
+          (endDate ? item?.datestr < endDate : true);
+        alarmType1 = alarmType1?.filter((i) => condition(i));
+        alarmType2 = alarmType2?.filter((i) => condition(i));
+        alarmType3 = alarmType3?.filter((i) => condition(i));
+        alarmType4 = alarmType4?.filter((i) => condition(i));
+        alarmType5 = alarmType5?.filter((i) => condition(i));
+      }
+
       setAlarmType1(alarmType1);
       setAlarmType2(alarmType2);
       setAlarmType3(alarmType3);
@@ -612,7 +622,7 @@ export const DAFocusListComponent = () => {
               value={moment(selectDate, dateFormat)}
               format={dateFormat}
               onChange={(v: any) => {
-                setSelectDate(v.format(dateFormat));
+                setSelectDate(v.format(dateFormat) ?? null);
               }}
             />
             <Button type="primary" onClick={() => addFocus()}>
@@ -693,9 +703,23 @@ export const DAFocusListComponent = () => {
               }
               handleAllStockData();
             }}
-          >
-            筛选
-          </Button>
+          ></Button>
+        </div>
+        <div>
+          StartDate:
+          <DatePicker
+            format={dateFormat}
+            onChange={(v: any) => {
+              setStartDate(v?.format(dateFormat) ?? null);
+            }}
+          />
+          {' < AddDate < EndDate:'}
+          <DatePicker
+            format={dateFormat}
+            onChange={(v: any) => {
+              setEndDate(v?.format(dateFormat) ?? null);
+            }}
+          />
         </div>
       </div>
 
