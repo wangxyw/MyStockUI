@@ -532,6 +532,20 @@ export const DAFocusListComponent = () => {
     handleAllStockData();
   };
 
+  const filterListByAddDate = () => {
+    async function handleAllStockData() {
+      const data = await getAllFocusedStocks(simulateDate);
+      setData(() =>
+        data?.filter(
+          (i) =>
+            (startDate ? i?.datestr > startDate : true) &&
+            (endDate ? i?.datestr < endDate : true)
+        )
+      );
+    }
+    handleAllStockData();
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <div>
@@ -720,6 +734,7 @@ export const DAFocusListComponent = () => {
               setEndDate(v?.format(dateFormat) ?? null);
             }}
           />
+          <Button onClick={filterListByAddDate}>Filter in list</Button>
         </div>
       </div>
 
