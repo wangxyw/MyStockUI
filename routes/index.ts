@@ -392,6 +392,19 @@ router.get('/all_alarm_data', function (req, res, next) {
   });
 });
 
+router.get('/all_alarm_data_with_plates', function (req, res, next) {
+  const datestr = req.query.date_str;
+  const endDateStr = req.query.end_date_str;
+  const from100 = req.query.from100;
+  let table = 'stock_big_data';
+  if (from100 === 'true') table = 'stock_big_data_100';
+  let sql = `select * from ${table} a left join (SELECT distinct(a.symbol), group_concat(a.code), group_concat(a.name) as platename FROM plate a join focus_plate b on a.code = b.code where b.focus = 1 group by a.symbol) joinT on a.symbol=joinT.symbol where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%";`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/da_data', function (req, res, next) {
   const {
     dateStr,
