@@ -6,6 +6,7 @@ import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 import { PlateComponent } from './component/focus_plate';
 import { DataAnalysisCom } from './component/data_analysis';
 import { DAFocusListComponent } from './component/da_focus';
+import { DAPlatesCom } from './component/da_plate';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_ALARM_100 = 'alarm100';
@@ -13,6 +14,7 @@ const MENU_PLATE = 'plate';
 const MENU_DATA_ANA = 'data_analysis';
 const MENU_OLD_ALARM = 'old_alarm';
 const MENU_DA_FOCUS = 'da_focus';
+const MENU_DA_PLATE = 'da_plate';
 
 function getInitPath() {
   if (window) {
@@ -27,6 +29,7 @@ function getInitPath() {
         MENU_PLATE,
         MENU_OLD_ALARM,
         MENU_DA_FOCUS,
+        MENU_DA_PLATE,
       ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
@@ -70,6 +73,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_PLATE}>
           <Link to="/plate">Plate List</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_DA_PLATE}>
+          <Link to="/da_plate">DA Plate</Link>
+        </Menu.Item>
       </Menu>
       <Switch>
         <Route path="/my_focus" component={MyFocusListComponent}>
@@ -86,6 +92,9 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/da_focus" component={DAFocusListComponent}>
           <DAFocusListComponent />
+        </Route>
+        <Route path="/da_plate" component={DAPlatesCom}>
+          <DAPlatesCom />
         </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />
