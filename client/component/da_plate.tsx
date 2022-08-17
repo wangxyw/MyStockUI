@@ -11,6 +11,8 @@ import {
   Switch,
   Button,
   Table,
+  Checkbox,
+  Tag,
 } from 'antd';
 import moment from 'moment';
 import { get } from '../lib/request';
@@ -31,11 +33,37 @@ export const pullWorkDaysArray = (date, days) => {
   const workDaysArray = workdays.slice(endIndex - days + 1, endIndex + 1);
   return workDaysArray;
 };
-
+const pName = (p, seriesIndex) => {
+  if (seriesIndex === 0) {
+    return p.firstLabel;
+  }
+  if (seriesIndex === 1) {
+    return p.secondLabel;
+  }
+  if (seriesIndex === 2) {
+    return p.thirdLabel;
+  }
+};
+const pStocks = (p, seriesIndex) => {
+  if (seriesIndex === 0) {
+    return p.firstStocks;
+  }
+  if (seriesIndex === 1) {
+    return p.secondStocks;
+  }
+  if (seriesIndex === 2) {
+    return p.thirdStocks;
+  }
+};
 const dapanOption = (data) => {
   const xData = data?.map((i) => i?.datestr);
   const labelOption = {
     show: true,
+    position: 'insideBottom',
+    distance: 15,
+    align: 'left',
+    verticalAlign: 'middle',
+    rotate: 90,
     formatter: (params) => {
       // console.log(params);
       const p = data?.find((i) => i.datestr === params.name);
@@ -52,7 +80,7 @@ const dapanOption = (data) => {
       };
       return pName();
     },
-    fontSize: 16,
+    fontSize: 12,
     rich: {
       name: {},
     },
@@ -124,6 +152,86 @@ const dapanOption = (data) => {
     ],
   };
 };
+const dateOptions = (data) => {
+  console.log('ssss', data);
+  const xData = data?.map((i) => i?.datestr);
+  const labelOption = {
+    show: true,
+    position: 'insideBottom',
+    distance: 15,
+    align: 'left',
+    verticalAlign: 'middle',
+    rotate: 90,
+    formatter: (params) => {
+      // console.log(params);
+      const p = data?.find((i) => i.datestr === params.name);
+      const pName = () => {
+        if (params.seriesIndex === 0) {
+          return p.firstLabel;
+        }
+        if (params.seriesIndex === 1) {
+          return p.secondLabel;
+        }
+        if (params.seriesIndex === 2) {
+          return p.thirdLabel;
+        }
+      };
+      return pName();
+    },
+    fontSize: 12,
+    rich: {
+      name: {},
+    },
+  };
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    // legend: {
+    //   data: ['First', 'Second', 'Third'],
+    // },
+    // toolbox: {
+    //   show: true,
+    //   orient: 'vertical',
+    //   left: 'right',
+    //   top: 'center',
+    //   feature: {
+    //     mark: { show: true },
+    //     dataView: { show: true, readOnly: false },
+    //     magicType: { show: true, type: ['line', 'bar', 'stack'] },
+    //     restore: { show: true },
+    //     saveAsImage: { show: true },
+    //   },
+    // },
+    xAxis: [
+      {
+        type: 'category',
+        axisTick: { show: false },
+        data: xData,
+      },
+    ],
+    yAxis: [
+      {
+        type: 'value',
+      },
+    ],
+    series: [
+      {
+        name: 'First',
+        type: 'bar',
+        barGap: 0,
+        label: labelOption,
+        emphasis: {
+          focus: 'series',
+        },
+        data: data?.map((i) => i.count),
+      },
+    ],
+  };
+};
 
 export const DAPlatesCom = () => {
   const [selectDays, setSelectDays] = useState('20');
@@ -132,12 +240,8 @@ export const DAPlatesCom = () => {
   const [data, setData] = useState([]);
   const [dateArray, setDateArray] = useState<any>([]);
   const [showDateArray, setShowDateArray] = useState<any>([]);
-  const [selectDateTab, setSelectDateTab] = useState<any>();
   const [stockData, setStockData] = useState<any>();
-  const [dataTotal, setDataTotal] = useState<any>();
-  const [dataUp, setDataUp] = useState<any>();
-  const [dataDown, setDataDown] = useState<any>();
-  const [plates, setPlates] = useState<any>([]);
+  const [tableData, setTableData] = useState<any>([]);
 
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
@@ -150,48 +254,62 @@ export const DAPlatesCom = () => {
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
-  const [hasCondition1, setHasCondition1] = useState(false);
-
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [caculatePriceBy, setCaculatePriceBy] = useState(false);
   const [option, setOption] = useState<any>({});
-  const [baseResult, setBaseResult] = useState<any>({});
-  const [conditionResult, setConditionResult] = useState<any>({});
-  const [compareData, setCompareData] = useState<any>([]);
   const [from100, setFrom100] = useState<boolean>(false);
-  const [conditionData, setConditionData] = useState<any>();
-  const [allDayStocks, setAllDayStocks] = useState<any>([]);
-
-  const tableData = useMemo(() => {
-    if (stockData) {
-      return Object.keys(stockData).map((date) => {
-        const stocks = stockData[date];
-        let allPlates: any = [];
-        stocks?.forEach((stock) => {
-          const plates = stock.platename?.split(',');
-          allPlates.push(...plates);
-        });
-        //caculate duplicate in one array//
-        const count = allPlates?.reduce((prev, next) => {
-          prev[next] = prev[next] + 1 || 1;
-          return prev;
-        }, {});
-        const result = Object.entries(count).sort(
-          (x: any, y: any) => y[1] - x[1]
-        );
-        return {
-          datestr: date,
-          firstCount: result[0]?.[1],
-          secondCount: result[1]?.[1],
-          thirdCount: result[2]?.[1],
-          firstLabel: result[0]?.[0],
-          secondLabel: result[1]?.[0],
-          thirdLabel: result[2]?.[0],
-        };
+  const [curPlate, setCurPlate] = useState<any>('');
+  const [curStocks, setCurStocks] = useState<any>([]);
+  const [curStockDate, setCurStockDate] = useState<any>('');
+  const [curPlateByDate, setCurPlateByDate] = useState<any>('');
+  const composeData = (data) => {
+    return Object.keys(data).map((date) => {
+      const stocks = data[date];
+      let allPlates: any = [];
+      stocks?.forEach((stock) => {
+        const plates = stock.platename?.split(',');
+        allPlates.push(...(plates ?? []));
       });
-    }
-    return [];
-  }, [stockData]);
+      //caculate duplicate in one array//
+      const count = allPlates?.reduce((prev, next) => {
+        prev[next] = prev[next] + 1 || 1;
+        return prev;
+      }, {});
+      const result = Object.entries(count).sort(
+        (x: any, y: any) => y[1] - x[1]
+      );
+      console.log(result);
+      const resultWithStocks = result?.map((i) => {
+        return [
+          i[0],
+          i[1],
+          stocks?.filter((s) => s?.platename?.split(',')?.includes(i[0])),
+        ];
+      });
+
+      return {
+        datestr: date,
+        firstCount: resultWithStocks[0]?.[1],
+        secondCount: resultWithStocks[1]?.[1],
+        thirdCount: resultWithStocks[2]?.[1],
+        forthCount: resultWithStocks[3]?.[1],
+        fifthCount: resultWithStocks[4]?.[1],
+        sixthCount: resultWithStocks[5]?.[1],
+        firstLabel: resultWithStocks[0]?.[0],
+        secondLabel: resultWithStocks[1]?.[0],
+        thirdLabel: resultWithStocks[2]?.[0],
+        forthLabel: resultWithStocks[3]?.[0],
+        fifthLabel: resultWithStocks[4]?.[0],
+        sixthLabel: resultWithStocks[5]?.[0],
+        firstStocks: resultWithStocks[0]?.[2],
+        secondStocks: resultWithStocks[1]?.[2],
+        thirdStocks: resultWithStocks[2]?.[2],
+        forthStocks: resultWithStocks[3]?.[2],
+        fifthStocks: resultWithStocks[4]?.[2],
+        sixthStocks: resultWithStocks[5]?.[2],
+      };
+    });
+  };
 
   const runAnalysis = () => {
     setIsLoading(true);
@@ -256,44 +374,38 @@ export const DAPlatesCom = () => {
           }
         });
         stockDataByDate[date] = selectedStocks;
-        //allSelectStocks.push(...selectedStocks);
       });
       let tableD: any = [];
       if (stockDataByDate) {
-        tableD = Object.keys(stockDataByDate).map((date) => {
-          const stocks = stockDataByDate[date];
-          let allPlates: any = [];
-          stocks?.forEach((stock) => {
-            const plates = stock.platename?.split(',');
-            allPlates.push(...plates);
-          });
-          //caculate duplicate in one array//
-          const count = allPlates?.reduce((prev, next) => {
-            prev[next] = prev[next] + 1 || 1;
-            return prev;
-          }, {});
-          const result = Object.entries(count).sort(
-            (x: any, y: any) => y[1] - x[1]
-          );
-
-          return {
-            datestr: date,
-            firstCount: result[0]?.[1],
-            secondCount: result[1]?.[1],
-            thirdCount: result[2]?.[1],
-            firstLabel: result[0]?.[0],
-            secondLabel: result[1]?.[0],
-            thirdLabel: result[2]?.[0],
-          };
-        });
+        tableD = composeData(stockDataByDate);
       }
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
       setStockData(stockDataByDate);
       setOption(dapanOption(tableD));
-      // setSelectDateTab(showDateArr[0]);
+      setTableData(tableD);
       setIsLoading(false);
     });
+  };
+
+  const onClickCharts = {
+    click: (e) => {
+      const plate = tableData?.find((i) => i.datestr === e.name);
+      const stocks = pStocks(plate, e?.seriesIndex);
+      const name = pName(plate, e?.seriesIndex);
+      const plateByDate = tableData?.map((i) => {
+        return {
+          datestr: i.datestr,
+          count: stockData?.[i?.datestr].filter((s) =>
+            s.platename?.split(',')?.includes(name)
+          )?.length,
+        };
+      });
+      setCurPlate(name);
+      setCurStocks(stocks);
+      setCurStockDate(plate?.datestr);
+      setCurPlateByDate(dateOptions(plateByDate));
+    },
   };
   const dateArrWithRed = useMemo(() => {
     if (showDateArray?.length > 0) {
@@ -316,6 +428,14 @@ export const DAPlatesCom = () => {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.datestr.replaceAll('-', '')) -
+          Number(b.datestr.replaceAll('-', ''))
+        );
+      },
+      //@ts-ignore
+      defaultSortOrder: 'descend',
     },
     {
       title: 'First',
@@ -347,34 +467,37 @@ export const DAPlatesCom = () => {
         </>
       ),
     },
+    {
+      title: 'Forth',
+      dataIndex: 'forth',
+      key: 'forth',
+      render: (v, i) => (
+        <>
+          {i.forthLabel}:{i.forthCount}
+        </>
+      ),
+    },
+    {
+      title: 'Fifth',
+      dataIndex: 'fifth',
+      key: 'fifth',
+      render: (v, i) => (
+        <>
+          {i.fifthLabel}:{i.fifthCount}
+        </>
+      ),
+    },
+    {
+      title: 'Sixth',
+      dataIndex: 'sixth',
+      key: 'sixth',
+      render: (v, i) => (
+        <>
+          {i.sixthLabel}:{i.sixthCount}
+        </>
+      ),
+    },
   ];
-
-  // useEffect(() => {
-  //   if (stockData && selectDateTab) {
-  //     stockData[selectDateTab]?.length > 0 &&
-  //       get(
-  //         `/api/get_stock_plate?ids=${stockData[selectDateTab]
-  //           ?.map((i) => `'${i.symbol}'`)
-  //           ?.join(',')}`
-  //       ).then((res) => {
-  //         const resbySymbols = res.symbols;
-  //         const resbyPlates = res.plates;
-  //         setPlates(resbyPlates);
-  //       });
-  //     setData(stockData[selectDateTab]);
-  //     setConditionData(
-  //       stockData[selectDateTab]?.filter((i) => i.chosen === true)
-  //     );
-
-  //     const allDaysStocksArray: any = [];
-  //     Object.keys(allDayStocks)?.forEach((a) => {
-  //       allDaysStocksArray.push(...allDayStocks[a]);
-  //     });
-  //     setAllDayStocks(uniqBy(allDaysStocksArray, 'symbol'));
-  //     setCompareData([compareData, conditionData]);
-  //   }
-  // }, [stockData, hasCondition1]);
-
   return (
     <div style={{ padding: '2px' }}>
       <div style={{ marginTop: '20px' }}>
@@ -456,6 +579,43 @@ export const DAPlatesCom = () => {
             </Space>
           </div>
         </div>
+        <div>
+          {' '}
+          <Space
+            style={{
+              padding: '10px',
+              boxShadow: '1px 1px 3px #ccc',
+            }}
+          >
+            Condition 1
+            <Select
+              style={{ width: '80px' }}
+              value={selectPriceMargin}
+              onChange={(v) => {
+                setSelectPriceMargin(v);
+              }}
+              size="small"
+            >
+              {[
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+                19, 20,
+              ].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>
+            % price margin
+            <Switch
+              unCheckedChildren="Former"
+              checkedChildren="Latter"
+              style={{ margin: '0 10px' }}
+              // defaultChecked
+              checked={caculatePriceBy}
+              onChange={setCaculatePriceBy}
+            />
+          </Space>
+        </div>
         <Button type="primary" onClick={() => runAnalysis()}>
           Run
         </Button>
@@ -465,8 +625,35 @@ export const DAPlatesCom = () => {
             notMerge={true}
             lazyUpdate={true}
             option={option}
+            onEvents={onClickCharts}
           />
-          <Table columns={columns} dataSource={tableData} />
+          {curPlate && (
+            <>
+              所选板块： <Tag color="red">{curPlate}</Tag>, 所选日期：
+              {curStockDate} 所有股票： {curStocks?.length}
+              {curStocks &&
+                curStocks?.map((i) => (
+                  <Tag color="blue">
+                    {i?.symbol}
+                    {i?.name}
+                  </Tag>
+                ))}
+            </>
+          )}
+          {curPlateByDate && (
+            <ReactEcharts
+              style={{ height: 350, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={curPlateByDate}
+            />
+          )}
+          <Table
+            //@ts-ignore
+            columns={columns}
+            dataSource={tableData}
+            pagination={{ defaultPageSize: 100 }}
+          />
         </Spin>
       </div>
     </div>
