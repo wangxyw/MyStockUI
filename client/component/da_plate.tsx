@@ -28,6 +28,17 @@ import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
 
+const hangyeMap = [
+  { value: 'sinahy', name: '新浪行业' },
+  { value: 'swhy', name: '申万行业' },
+  { value: 'sw1_hy', name: '申万一级' },
+  { value: 'sw2_hy', name: '申万二级' },
+  { value: 'sw3_hy', name: '申万三级' },
+  { value: 'ch_gn', name: '热门概念' },
+  { value: 'gainianbankuai', name: '概念板块' },
+  { value: 'diyu', name: '地域板块' },
+];
+
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
   const workDaysArray = workdays.slice(endIndex - days + 1, endIndex + 1);
@@ -242,7 +253,7 @@ export const DAPlatesCom = () => {
   const [showDateArray, setShowDateArray] = useState<any>([]);
   const [stockData, setStockData] = useState<any>();
   const [tableData, setTableData] = useState<any>([]);
-
+  const [isPercent, setIsPercent] = useState<any>(false);
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
@@ -262,12 +273,14 @@ export const DAPlatesCom = () => {
   const [curStocks, setCurStocks] = useState<any>([]);
   const [curStockDate, setCurStockDate] = useState<any>('');
   const [curPlateByDate, setCurPlateByDate] = useState<any>('');
+  const [selectHangye, setSelectHangye] = useState<any>('sw1_hy');
+  const [plateCount, setPlateCount] = useState<any>([]);
   const composeData = (data) => {
     return Object.keys(data).map((date) => {
       const stocks = data[date];
       let allPlates: any = [];
       stocks?.forEach((stock) => {
-        const plates = stock.platename?.split(',');
+        const plates = stock.platecode?.split(',');
         allPlates.push(...(plates ?? []));
       });
       //caculate duplicate in one array//
@@ -275,15 +288,25 @@ export const DAPlatesCom = () => {
         prev[next] = prev[next] + 1 || 1;
         return prev;
       }, {});
-      const result = Object.entries(count).sort(
-        (x: any, y: any) => y[1] - x[1]
-      );
-      console.log(result);
+      let result: any[] = [];
+      if (isPercent) {
+        const percentMap = {};
+        Object.keys(count).forEach((c) => {
+          percentMap[c] = (
+            count[c] / plateCount?.find((p) => c === p.business_code)?.count
+          )?.toFixed(2);
+        });
+        result = Object.entries(percentMap).sort(
+          (x: any, y: any) => y[1] - x[1]
+        );
+      } else {
+        result = Object.entries(count).sort((x: any, y: any) => y[1] - x[1]);
+      }
       const resultWithStocks = result?.map((i) => {
         return [
-          i[0],
+          plateCount?.find((p) => i[0] === p.business_code)?.name,
           i[1],
-          stocks?.filter((s) => s?.platename?.split(',')?.includes(i[0])),
+          stocks?.filter((s) => s?.platecode?.split(',')?.includes(i[0])),
         ];
       });
 
@@ -311,6 +334,12 @@ export const DAPlatesCom = () => {
     });
   };
 
+  useEffect(() => {
+    get(`/api/all_plates_count`, { method: 'GET' }).then((res) => {
+      setPlateCount(res);
+    });
+  }, []);
+
   const runAnalysis = () => {
     setIsLoading(true);
     let days = parseInt(selectDays, 10) + parseInt(selectConsAllDays, 10);
@@ -320,7 +349,7 @@ export const DAPlatesCom = () => {
       `/api/all_alarm_data_with_plates?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${today}&from100=${from100}`,
+      )}&end_date_str=${today}&from100=${from100}&bz_type=${selectHangye}`,
       { method: 'GET' }
     ).then((res) => {
       const stockDataByDate = {};
@@ -616,6 +645,32 @@ export const DAPlatesCom = () => {
             />
           </Space>
         </div>
+        <Space>
+          选择行业:
+          <Select
+            style={{ width: '180px' }}
+            value={selectHangye}
+            onChange={(v) => {
+              setSelectHangye(v);
+            }}
+            size="small"
+          >
+            {hangyeMap.map((i) => (
+              <Select.Option key={i.value} value={i.value}>
+                {i.name}
+              </Select.Option>
+            ))}
+          </Select>
+          <Switch
+            unCheckedChildren="绝对值"
+            checkedChildren="百分比"
+            style={{ margin: '0 10px' }}
+            // defaultChecked
+            checked={isPercent}
+            onChange={setIsPercent}
+          />
+        </Space>
+
         <Button type="primary" onClick={() => runAnalysis()}>
           Run
         </Button>
