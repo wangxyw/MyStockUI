@@ -40,6 +40,7 @@ const hangyeMap = [
   { value: 'diyu', name: '地域板块' },
 ];
 
+
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
   const workDaysArray = workdays.slice(endIndex - days + 1, endIndex + 1);
