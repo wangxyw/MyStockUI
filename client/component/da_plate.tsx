@@ -27,6 +27,7 @@ import {
 import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
+import { basename } from 'path';
 
 const hangyeMap = [
   { value: 'sinahy', name: '新浪行业' },
@@ -38,6 +39,7 @@ const hangyeMap = [
   { value: 'gainianbankuai', name: '概念板块' },
   { value: 'diyu', name: '地域板块' },
 ];
+
 
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
@@ -164,7 +166,6 @@ const dapanOption = (data) => {
   };
 };
 const dateOptions = (data) => {
-  console.log('ssss', data);
   const xData = data?.map((i) => i?.datestr);
   const labelOption = {
     show: true,
@@ -174,7 +175,6 @@ const dateOptions = (data) => {
     verticalAlign: 'middle',
     rotate: 90,
     formatter: (params) => {
-      // console.log(params);
       const p = data?.find((i) => i.datestr === params.name);
       const pName = () => {
         if (params.seriesIndex === 0) {
@@ -244,6 +244,31 @@ const dateOptions = (data) => {
   };
 };
 
+const weighingOptions = (data) => {
+  const sortData = Object.entries(data).sort((x: any, y: any) => y[1] - x[1]);
+  return {
+    title: { text: '加权图' },
+    xAxis: {
+      type: 'category',
+      data: sortData.map((i) => i[0]),
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        data: sortData.map((i) => i[1]),
+        type: 'bar',
+        showBackground: true,
+        backgroundStyle: {
+          color: 'rgba(180, 180, 180, 0.2)',
+        },
+      },
+    ],
+  };
+};
+
 export const DAPlatesCom = () => {
   const [selectDays, setSelectDays] = useState('20');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
@@ -272,7 +297,8 @@ export const DAPlatesCom = () => {
   const [curPlate, setCurPlate] = useState<any>('');
   const [curStocks, setCurStocks] = useState<any>([]);
   const [curStockDate, setCurStockDate] = useState<any>('');
-  const [curPlateByDate, setCurPlateByDate] = useState<any>('');
+  const [curPlateByDate, setCurPlateByDate] = useState<any>({});
+  const [weighingOption, setWeighingOption] = useState<any>({});
   const [selectHangye, setSelectHangye] = useState<any>('sw1_hy');
   const [plateCount, setPlateCount] = useState<any>([]);
   const composeData = (data) => {
@@ -408,6 +434,27 @@ export const DAPlatesCom = () => {
       if (stockDataByDate) {
         tableD = composeData(stockDataByDate);
       }
+      console.log('====', tableD);
+      const weighing = tableD.map((t, k) => ({
+        [t.firstLabel]: 6,
+        [t.secondLabel]: 5,
+        [t.thirdLabel]: 4,
+        [t.forthLabel]: 3,
+        [t.fifthLabel]: 2,
+        [t.sixthLabel]: 1,
+      }));
+      console.log(weighing);
+
+      const weighingMap: any = {};
+      weighing.forEach((i) => {
+        for (var key in i) {
+          var value = i[key];
+          key in weighingMap
+            ? (weighingMap[key] += value)
+            : (weighingMap[key] = value);
+        }
+      });
+      setWeighingOption(weighingOptions(weighingMap));
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
       setStockData(stockDataByDate);
@@ -703,6 +750,12 @@ export const DAPlatesCom = () => {
               option={curPlateByDate}
             />
           )}
+          <ReactEcharts
+            style={{ height: 350, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={weighingOption}
+          />
           <Table
             //@ts-ignore
             columns={columns}
