@@ -27,6 +27,7 @@ import {
 import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
+import { basename } from 'path';
 
 const hangyeMap = [
   { value: 'sinahy', name: '新浪行业' },
@@ -38,6 +39,7 @@ const hangyeMap = [
   { value: 'gainianbankuai', name: '概念板块' },
   { value: 'diyu', name: '地域板块' },
 ];
+
 
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
