@@ -27,7 +27,6 @@ import {
 import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
-import { basename } from 'path';
 
 const hangyeMap = [
   { value: 'sinahy', name: '新浪行业' },
@@ -39,7 +38,6 @@ const hangyeMap = [
   { value: 'gainianbankuai', name: '概念板块' },
   { value: 'diyu', name: '地域板块' },
 ];
-
 
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
@@ -466,21 +464,30 @@ export const DAPlatesCom = () => {
 
   const onClickCharts = {
     click: (e) => {
-      const plate = tableData?.find((i) => i.datestr === e.name);
-      const stocks = pStocks(plate, e?.seriesIndex);
-      const name = pName(plate, e?.seriesIndex);
-      const plateByDate = tableData?.map((i) => {
-        return {
-          datestr: i.datestr,
-          count: stockData?.[i?.datestr].filter((s) =>
-            s.platename?.split(',')?.includes(name)
-          )?.length,
-        };
+      const sts: any = [];
+      tableData?.forEach((d) => {
+        console.log('=====', d);
+        ['first', 'second', 'third', 'forth', 'fifth', 'sixth'].forEach((l) => {
+          if (d?.[`${l}Label`] === e.name) {
+            sts.push(...(d?.[`${l}Stocks`] ?? []));
+          }
+        });
       });
-      setCurPlate(name);
-      setCurStocks(stocks);
-      setCurStockDate(plate?.datestr);
-      setCurPlateByDate(dateOptions(plateByDate));
+      //const plate = tableData?.find((i) => i.datestr === e.name);
+      //const stocks = pStocks(plate, e?.seriesIndex);
+      //const name = pName(plate, e?.seriesIndex);
+      // const plateByDate = tableData?.map((i) => {
+      //   return {
+      //     datestr: i.datestr,
+      //     count: stockData?.[i?.datestr].filter((s) =>
+      //       s.platename?.split(',')?.includes(name)
+      //     )?.length,
+      //   };
+      // });
+      setCurPlate(e?.name);
+      setCurStocks(uniqBy(sts, 'symbol'));
+      //setCurStockDate(plate?.datestr);
+      //setCurPlateByDate(dateOptions(plateByDate));
     },
   };
   const dateArrWithRed = useMemo(() => {
@@ -722,11 +729,18 @@ export const DAPlatesCom = () => {
           Run
         </Button>
         <Spin spinning={isLoading} tip="Loading and caculating...">
-          <ReactEcharts
+          {/* <ReactEcharts
             style={{ height: 350, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
             option={option}
+            onEvents={onClickCharts}
+          /> */}
+          <ReactEcharts
+            style={{ height: 350, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={weighingOption}
             onEvents={onClickCharts}
           />
           {curPlate && (
@@ -736,26 +750,27 @@ export const DAPlatesCom = () => {
               {curStocks &&
                 curStocks?.map((i) => (
                   <Tag color="blue">
-                    {i?.symbol}
-                    {i?.name}
+                    <a
+                      target="_blank"
+                      href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                    >
+                      {' '}
+                      {i?.symbol}
+                      {i?.name}
+                    </a>
                   </Tag>
                 ))}
             </>
           )}
-          {curPlateByDate && (
+          {/* {curPlateByDate && (
             <ReactEcharts
               style={{ height: 350, width: 1450 }}
               notMerge={true}
               lazyUpdate={true}
               option={curPlateByDate}
             />
-          )}
-          <ReactEcharts
-            style={{ height: 350, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={weighingOption}
-          />
+          )} */}
+
           <Table
             //@ts-ignore
             columns={columns}

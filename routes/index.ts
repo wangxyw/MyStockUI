@@ -415,6 +415,32 @@ router.get('/all_plates_count', function (req, res, next) {
   });
 });
 
+router.get('/all_industry', function (req, res, next) {
+  const sql = `select * from business group by business_name;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/all_industry_by_type', function (req, res, next) {
+  const bz_code = req.query.type;
+  const sql = `select * from business where business_type = '${bz_code}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/all_stocks_by_industry', function (req, res, next) {
+  const bz_code = req.query.code;
+  const sql = `select * from sw_stock_business a join stocks b on a.symbol = b.symbol where business_code = '${bz_code}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/da_data', function (req, res, next) {
   const {
     dateStr,
