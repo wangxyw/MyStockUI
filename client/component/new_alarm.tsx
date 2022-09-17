@@ -178,6 +178,8 @@ export const AlarmComponent = (props) => {
   const [volOption, setVolOption] = useState({});
   const [averageOption, setAverageOption] = useState({});
   const [turnOverRateOption, setTurnOverRateOption] = useState({});
+  const [staticOption, setStaticOption] = useState({});
+  const [dynamicOption, setDynamicOption] = useState({});
   const [selectDays, setSelectDays] = useState('30');
   const [selectConsAllDays, setSelectConsAllDays] = useState(5);
   const [stockOptions, setStockOptions] = useState<any[]>([]);
@@ -502,6 +504,22 @@ export const AlarmComponent = (props) => {
             if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
               return data?.[0]?.commonData?.find((d) => d.datestr === i)
                 .turnoverrate;
+            } else {
+              return '-';
+            }
+          });
+          const staticArr = dateArr.map((i) => {
+            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
+              return data?.[0]?.commonData?.find((d) => d.datestr === i)
+                .per_static;
+            } else {
+              return '-';
+            }
+          });
+          const daynamicArr = dateArr.map((i) => {
+            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
+              return data?.[0]?.commonData?.find((d) => d.datestr === i)
+                .per_dynamic;
             } else {
               return '-';
             }
@@ -1063,6 +1081,106 @@ export const AlarmComponent = (props) => {
               },
             ],
           });
+          setStaticOption({
+            title: {
+              text: 'Static',
+              left: 0,
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'cross',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+              min: function (value) {
+                return value.min;
+              },
+            },
+            series: [
+              {
+                name: 'Final Price',
+                type: 'line',
+                data: staticArr,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+            ],
+          });
+          setDynamicOption({
+            title: {
+              text: 'Dynamic',
+              left: 0,
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'cross',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+              min: function (value) {
+                return value.min;
+              },
+            },
+            series: [
+              {
+                name: 'Dynamic',
+                type: 'line',
+                data: daynamicArr,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+            ],
+          });
 
           setEachVolOption({
             title: {
@@ -1307,23 +1425,6 @@ export const AlarmComponent = (props) => {
         ))}
       </Select>
       <span>Total: {totalNum}</span>
-      {/* <Select
-        style={{ width: '100px' }}
-        value={selectAlarmType}
-        onChange={(v) => {
-          setSelectAlarmType(v);
-        }}
-        size="middle"
-      >
-        <Select.Option value="All" style={{ color: 'red' }}>
-          All
-        </Select.Option>
-        <Select.Option value="A1A2">A1A2</Select.Option>
-        <Select.Option value="A1Today">A1 Today UP</Select.Option>
-        <Select.Option value="A1">A1</Select.Option>
-        <Select.Option value="A2">A2</Select.Option>
-        <Select.Option value="A3">A3</Select.Option>
-      </Select> */}
       <Button
         style={{ marginLeft: '10px' }}
         type="primary"
@@ -1764,6 +1865,18 @@ export const AlarmComponent = (props) => {
           notMerge={true}
           lazyUpdate={true}
           option={turnOverRateOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={staticOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={dynamicOption}
         />
         <ReactEcharts
           style={{ height: 350, width: 1450 }}

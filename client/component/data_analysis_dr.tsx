@@ -224,7 +224,7 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
   return curDay;
 };
 
-export const DataAnalysisCom = () => {
+export const DataAnalysisDRCom = () => {
   const [selectDays, setSelectDays] = useState('40');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
@@ -269,7 +269,7 @@ export const DataAnalysisCom = () => {
   const [baseResult, setBaseResult] = useState<any>({});
   const [conditionResult, setConditionResult] = useState<any>({});
   const [compareData, setCompareData] = useState<any>([]);
-  const [from100, setFrom100] = useState<boolean>(false);
+  const [from100, setFrom100] = useState<string>('100s');
   const [selectTimeWindow, setSelectTimeWindow] = useState<any>(60);
   const [conditionData, setConditionData] = useState<any>();
   const [allDayStocks, setAllDayStocks] = useState<any>([]);
@@ -311,7 +311,7 @@ export const DataAnalysisCom = () => {
     );
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
-      `/api/all_alarm_data?date_str=${caculateDate(
+      `/api/all_alarm_data_dr?date_str=${caculateDate(
         selectDate,
         days
       )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
@@ -327,6 +327,7 @@ export const DataAnalysisCom = () => {
         );
         const data = groupBy(allStockDataByDate, 'symbol');
         let selectedStocks: any = [];
+        console.log(data);
         Object.keys(data).forEach((k) => {
           const item = data[k];
           const lastStock = item?.[item?.length - 1];
@@ -895,14 +896,21 @@ export const DataAnalysisCom = () => {
                 format={dateFormat}
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
-              <Switch
-                unCheckedChildren="Not100"
-                checkedChildren="From100"
-                style={{ margin: '0 10px' }}
-                // defaultChecked
-                checked={from100}
-                onChange={setFrom100}
-              ></Switch>
+              DR:
+              <Select
+                style={{ width: '80px' }}
+                value={from100}
+                onChange={(v) => {
+                  setFrom100(v);
+                }}
+                size="small"
+              >
+                {['100s', '400s', '100w'].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
             </Space>
           </div>
           <div style={{ marginTop: '10px' }}>

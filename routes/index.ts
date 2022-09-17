@@ -362,7 +362,7 @@ router.get('/stock_alarm', function (req, res, next) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
   const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
-  const commonDataSQL = `SELECT finalprice, turnoverrate, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
+  const commonDataSQL = `SELECT finalprice, turnoverrate, per_dynamic, per_static, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
   pool.query(`${sql}${plateSQL}${commonDataSQL}`, function (err, rows, fields) {
     if (err) throw err;
     res.json(
@@ -385,6 +385,22 @@ router.get('/all_alarm_data', function (req, res, next) {
   let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
   if (stock) {
     sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol='${stock}'`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/all_alarm_data_dr', function (req, res, next) {
+  const datestr = req.query.date_str;
+  const endDateStr = req.query.end_date_str;
+  const from100 = req.query.from100;
+  const stock = req.query.stock;
+
+  let sql = `select b.name, a.symbol, a.kuvolume_${from100} as kuvolume, a.kdvolume_${from100} as kdvolume, a.kevolume_${from100} as kevolume, a.status_${from100} as status, b.finalprice, b.marketvalue, b.datestr from stock_big_data_dr a join stock_day_common_data b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and b.name not like "%ST%";`;
+  if (stock) {
+    sql = `select b.name, a.symbol, a.kuvolume_${from100} as kuvolume, a.kdvolume_${from100} as kdvolume, a.kevolume_${from100} as kevolume, a.status_${from100} as status, b.finalprice, b.marketvalue, b.datestr from stock_big_data_dr a join stock_day_common_data b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and b.name not like "%ST%" and a.symbol='${stock}'`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
