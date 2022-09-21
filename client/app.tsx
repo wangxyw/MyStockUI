@@ -7,6 +7,7 @@ import { PlateComponent } from './component/focus_plate';
 import { DataAnalysisCom } from './component/data_analysis';
 import { DAFocusListComponent } from './component/da_focus';
 import { DAPlatesCom } from './component/da_plate';
+import { DataAnalysisDRCom } from './component/data_analysis_dr';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_ALARM_100 = 'alarm100';
