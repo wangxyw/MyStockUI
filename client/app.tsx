@@ -16,7 +16,7 @@ const MENU_DATA_ANA = 'data_analysis';
 const MENU_OLD_ALARM = 'old_alarm';
 const MENU_DA_FOCUS = 'da_focus';
 const MENU_DA_PLATE = 'da_plate';
-const MENU_DA_DR = 'da_dr';
+export const MENU_DA_DR = 'da_dr';
 
 function getInitPath() {
   if (window) {
@@ -102,8 +102,8 @@ const App = (): JSX.Element => {
         <Route path="/da_plate" component={DAPlatesCom}>
           <DAPlatesCom />
         </Route>
-        <Route path="/da_dr" component={DataAnalysisDRCom}>
-          <DataAnalysisDRCom />
+        <Route path="/da_dr">
+          <DataAnalysisCom isDR={true} />
         </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />

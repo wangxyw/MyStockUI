@@ -224,7 +224,8 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
   return curDay;
 };
 
-export const DataAnalysisCom = () => {
+export const DataAnalysisCom = (props) => {
+  const { isDR } = props;
   const [selectDays, setSelectDays] = useState('40');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
@@ -258,7 +259,7 @@ export const DataAnalysisCom = () => {
   const [givenPrice, setGivenPrice] = useState(10);
   const [givenMinPrice, setGivenMinPrice] = useState(10);
   const [givenCirculation, setGivenCirculation] = useState(10);
-  const [selectLess, setSelectLess] = useState('less');
+  const [givenMinCirculation, setGivenMinCirculation] = useState(0);
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
   const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);
@@ -269,13 +270,13 @@ export const DataAnalysisCom = () => {
   const [baseResult, setBaseResult] = useState<any>({});
   const [conditionResult, setConditionResult] = useState<any>({});
   const [compareData, setCompareData] = useState<any>([]);
-  const [from100, setFrom100] = useState<boolean>(false);
+  const [from100, setFrom100] = useState<any>(isDR ? '100s' : false);
   const [selectTimeWindow, setSelectTimeWindow] = useState<any>(60);
   const [conditionData, setConditionData] = useState<any>();
   const [allDayStocks, setAllDayStocks] = useState<any>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputStock, setInputStock] = useState('');
-
+  console.log('===', isDR, from100);
   const isSetCondition = useMemo(() => {
     return (
       hasCondition1 ||
@@ -311,7 +312,7 @@ export const DataAnalysisCom = () => {
     );
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
-      `/api/all_alarm_data?date_str=${caculateDate(
+      `/api/all_alarm_data${isDR && '_dr'}?date_str=${caculateDate(
         selectDate,
         days
       )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
@@ -357,14 +358,13 @@ export const DataAnalysisCom = () => {
                 lastStock.Condition6 = true;
               }
               if (
-                selectLess === 'less' &&
-                lastStock.marketvalue / lastStock.finalprice < givenCirculation
-              ) {
-                lastStock.Condition4 = true;
-              }
-              if (
-                selectLess === 'more' &&
-                lastStock.marketvalue / lastStock.finalprice >= givenCirculation
+                givenMinCirculation
+                  ? lastStock.marketvalue / lastStock.finalprice <
+                      givenCirculation &&
+                    lastStock.marketvalue / lastStock.finalprice <
+                      givenMinCirculation
+                  : lastStock.marketvalue / lastStock.finalprice <
+                    givenCirculation
               ) {
                 lastStock.Condition4 = true;
               }
@@ -389,14 +389,13 @@ export const DataAnalysisCom = () => {
                 lastStock.Condition6 = true;
               }
               if (
-                selectLess === 'less' &&
-                lastStock.marketvalue / lastStock.finalprice < givenCirculation
-              ) {
-                lastStock.Condition4 = true;
-              }
-              if (
-                selectLess === 'more' &&
-                lastStock.marketvalue / lastStock.finalprice >= givenCirculation
+                givenMinCirculation
+                  ? lastStock.marketvalue / lastStock.finalprice <
+                      givenCirculation &&
+                    lastStock.marketvalue / lastStock.finalprice <
+                      givenMinCirculation
+                  : lastStock.marketvalue / lastStock.finalprice <
+                    givenCirculation
               ) {
                 lastStock.Condition4 = true;
               }
@@ -509,6 +508,11 @@ export const DataAnalysisCom = () => {
     }
     return [];
   }, [showDateArray]);
+
+  useEffect(() => {
+    const isDRPath = location.pathname === '/da_dr';
+    setFrom100(isDRPath ? '100s' : false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (stockData && selectDateTab) {
@@ -895,14 +899,31 @@ export const DataAnalysisCom = () => {
                 format={dateFormat}
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
-              <Switch
-                unCheckedChildren="Not100"
-                checkedChildren="From100"
-                style={{ margin: '0 10px' }}
-                // defaultChecked
-                checked={from100}
-                onChange={setFrom100}
-              ></Switch>
+              {isDR ? (
+                <Select
+                  style={{ width: '80px' }}
+                  value={from100}
+                  onChange={(v) => {
+                    setFrom100(v);
+                  }}
+                  size="small"
+                >
+                  {['100s', '400s', '100w'].map((i) => (
+                    <Select.Option key={i} value={i}>
+                      {i}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                <Switch
+                  unCheckedChildren="Not100"
+                  checkedChildren="From100"
+                  style={{ margin: '0 10px' }}
+                  // defaultChecked
+                  checked={from100}
+                  onChange={setFrom100}
+                ></Switch>
+              )}
             </Space>
           </div>
           <div style={{ marginTop: '10px' }}>
@@ -1087,21 +1108,14 @@ export const DataAnalysisCom = () => {
                 checked={hasCondition4}
                 onChange={() => setHasCondition4(!hasCondition4)}
               />
-              Condition 4<span>{'流通股本'}</span>
-              <Select
-                style={{ width: '100px' }}
-                value={selectLess}
-                onChange={(v) => {
-                  setSelectLess(v);
-                }}
-                size="small"
-              >
-                {['less', 'greater'].map((i) => (
-                  <Select.Option key={i} value={i}>
-                    {i}
-                  </Select.Option>
-                ))}
-              </Select>
+              Condition 4
+              <InputNumber
+                min={0}
+                max={500}
+                value={givenMinCirculation}
+                onChange={setGivenMinCirculation}
+              />
+              亿<span>{'<流通股本<'}</span>
               <InputNumber
                 min={1}
                 max={500}
