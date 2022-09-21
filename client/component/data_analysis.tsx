@@ -276,7 +276,6 @@ export const DataAnalysisCom = (props) => {
   const [allDayStocks, setAllDayStocks] = useState<any>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputStock, setInputStock] = useState('');
-  console.log('===', isDR, from100);
   const isSetCondition = useMemo(() => {
     return (
       hasCondition1 ||
@@ -312,7 +311,7 @@ export const DataAnalysisCom = (props) => {
     );
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
-      `/api/all_alarm_data${isDR && '_dr'}?date_str=${caculateDate(
+      `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
         selectDate,
         days
       )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
