@@ -201,12 +201,12 @@ const composeConditionData = (
     less0,
   };
 };
-const removeBeforeData = (stockData, selectDateTab, dateArray) => {
+const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
   const beforeDaySymbols: any = [];
   const curDaySymbols = stockData[selectDateTab];
   const symbolDayMap = {};
   dateArray?.forEach((i) => {
-    if (i < selectDateTab && i > caculateDate(selectDateTab, 30)) {
+    if (i < selectDateTab && i > caculateDate(selectDateTab, beforeDays)) {
       beforeDaySymbols.push(...stockData[i]);
     }
   });
@@ -214,8 +214,13 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
   const beforeSymbols = uniq(beforeDaySymbols?.map((i) => i.symbol));
   const curDay = curDaySymbols?.map((i) => {
     if (beforeSymbols?.includes(i.symbol)) {
-      i.isNotFirst = true;
       i.beforeDays = bMap[i.symbol]?.map((i) => i.datestr).join(', ');
+      //如果之前只出现过一次 也认为是第一次出现。
+      if (beforeSymbols?.length === 1) {
+        i.isNotFirst = false;
+      } else {
+        i.isNotFirst = true;
+      }
     } else {
       i.isNotFirst = false;
     }
@@ -226,7 +231,7 @@ const removeBeforeData = (stockData, selectDateTab, dateArray) => {
 
 export const DataAnalysisCom = (props) => {
   const { isDR } = props;
-  const [selectDays, setSelectDays] = useState('40');
+  const [selectDays, setSelectDays] = useState('20');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -276,6 +281,8 @@ export const DataAnalysisCom = (props) => {
   const [allDayStocks, setAllDayStocks] = useState<any>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputStock, setInputStock] = useState('');
+  const [beforeDays, setBeforeDays] = useState('30');
+
   const isSetCondition = useMemo(() => {
     return (
       hasCondition1 ||
@@ -304,10 +311,10 @@ export const DataAnalysisCom = (props) => {
       days = selectHorPriceDays + selectConsDays;
     }
     // +30 to remove duplicated
-    days = days + 30;
+    days = days + +beforeDays;
     const dateArr = pullWorkDaysArray(
       selectDate,
-      parseInt(selectDays, 10) + 30
+      parseInt(selectDays, 10) + +beforeDays
     );
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
@@ -518,7 +525,8 @@ export const DataAnalysisCom = (props) => {
       stockData[selectDateTab] = removeBeforeData(
         stockData,
         selectDateTab,
-        dateArray
+        dateArray,
+        beforeDays
       );
     }
     if (stockData && selectDateTab) {
@@ -557,9 +565,11 @@ export const DataAnalysisCom = (props) => {
       const totalData = {};
       showDateArray?.forEach((i) => {
         compareData[i] = composeCompareData(
-          removeBeforeData(stockData, i, dateArray)
+          removeBeforeData(stockData, i, dateArray, beforeDays)
         );
-        totalData[i] = composeData(removeBeforeData(stockData, i, dateArray));
+        totalData[i] = composeData(
+          removeBeforeData(stockData, i, dateArray, beforeDays)
+        );
       });
       setCompareData([compareData]);
     }
@@ -645,7 +655,12 @@ export const DataAnalysisCom = (props) => {
       const conditionData = {};
       const allDayStocks = {};
       showDateArray?.forEach((i) => {
-        const removeBefore = removeBeforeData(stockData, i, dateArray);
+        const removeBefore = removeBeforeData(
+          stockData,
+          i,
+          dateArray,
+          beforeDays
+        );
         compareData[i] = composeCompareData(removeBefore);
         allDayStocks[i] = removeBefore?.filter((i) => {
           let a = true;
@@ -695,6 +710,7 @@ export const DataAnalysisCom = (props) => {
     hasCondition3,
     hasCondition6,
     hasCondition5,
+    beforeDays,
   ]);
 
   const addDAFocus = useCallback((record, isAdded) => {
@@ -1134,6 +1150,21 @@ export const DataAnalysisCom = (props) => {
                 size="small"
               >
                 {[30, 40, 50, 60, '不限'].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
+              {'之前多少天出现过'}
+              <Select
+                style={{ width: '80px' }}
+                value={beforeDays}
+                onChange={(v) => {
+                  setBeforeDays(v);
+                }}
+                size="small"
+              >
+                {[20, 30, 40, 50, 60, 80].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>
