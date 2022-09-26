@@ -304,6 +304,44 @@ export const DAFocusListComponent = () => {
       },
     },
     {
+      title: '左斜率',
+      dataIndex: 'kBefore40',
+      key: 'kBefore40',
+      sorter: (a: any, b: any): any => {
+        return Number(a.kBefore40) - Number(b.kBefore40);
+      },
+      render: (c, record) => {
+        return (
+          <>
+            <Tag>{c}</Tag>
+            <br />
+            <Tag>minDate:{record.kBeforeMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+          </>
+        );
+      },
+    },
+    {
+      title: '右斜率',
+      dataIndex: 'kAfter40',
+      key: 'kAfter40',
+      sorter: (a: any, b: any): any => {
+        return Number(a.kAfter40) - Number(b.kAfter40);
+      },
+      render: (c, record) => {
+        return (
+          <>
+            <Tag>{c}</Tag>
+            <br />
+            <Tag>minDate:{record.kAfterMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.kAfterMaxDate}</Tag>
+          </>
+        );
+      },
+    },
+    {
       title: 'Viewed',
       key: 'viewed',
       render: (text, record) => (

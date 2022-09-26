@@ -35,7 +35,7 @@ interface EditableRowProps {
 export const caculateMaxPrice = (priceByDayData) => {
   let maxPrice = priceByDayData[0]?.finalprice;
   let maxPriceDay = 0;
-  let maxPriceDate = '';
+  let maxPriceDate = priceByDayData[0]?.datestr;
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice > maxPrice) {
       maxPrice = i.finalprice;
@@ -62,7 +62,7 @@ export const caculateMinVol = (priceByDayData) => {
 export const caculateMinPrice = (priceByDayData) => {
   let minPrice = priceByDayData[0]?.finalprice;
   let minPriceDay = 0;
-  let minPriceDate = '';
+  let minPriceDate = priceByDayData[0]?.datestr;
   priceByDayData.forEach((i, k) => {
     if (i.finalprice && i.finalprice < minPrice) {
       minPrice = i.finalprice;
@@ -79,6 +79,7 @@ export const caculatePriceData = (
   timeWindow: any = 60
 ) => {
   const priceData = stockData.map((i) => {
+    //i.datestr is addDate
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
@@ -86,6 +87,54 @@ export const caculatePriceData = (
       }
       return a;
     });
+    const before40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= i.datestr &&
+        e.datestr > caculateDate(i.datestr, 40);
+      return a;
+    });
+    const { minPrice: minPrice40, minPriceDate: minPriceDate40 } =
+      caculateMinPrice(before40);
+    const before10inBefore40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= minPriceDate40 &&
+        e.datestr > caculateDate(minPriceDate40, 10);
+      return a;
+    });
+    if (i.symbol === 'sz002118') {
+      console.log(before40, before10inBefore40);
+    }
+    const { maxPrice: maxPrice40, maxPriceDate: maxPriceDate40 } =
+      caculateMaxPrice(before10inBefore40);
+
+    const kBefore40 = ((maxPrice40 - minPrice40) / maxPrice40).toFixed(2);
+
+    const After40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr >= i.datestr &&
+        e.datestr < caculateAfterDate(i.datestr, 40);
+      return a;
+    });
+    const { minPrice: minPriceAfter40, minPriceDate: minPriceDateAfter40 } =
+      caculateMinPrice(After40);
+    const before10inAfter40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= minPriceDateAfter40 &&
+        e.datestr > caculateDate(minPriceDateAfter40, 10);
+      return a;
+    });
+    const { maxPrice: maxPriceAfter40, maxPriceDate: maxPriceDateAfter40 } =
+      caculateMaxPrice(before10inAfter40);
+
+    const kAfter40 = (
+      (maxPriceAfter40 - minPriceAfter40) /
+      minPriceAfter40
+    ).toFixed(2);
+
     const { maxPrice, maxPriceDay, maxPriceDate } =
       caculateMaxPrice(priceByDayData);
     const { minPrice, minPriceDay, minPriceDate } =
@@ -107,6 +156,14 @@ export const caculatePriceData = (
     oneStock.minVolDay = minVolDay;
     oneStock.minVol = minVol;
     oneStock.minVolDate = minVolDate;
+
+    oneStock.kBefore40 = kBefore40;
+    oneStock.kBeforeMinDate = minPriceDate40;
+    oneStock.kBeforeMaxDate = maxPriceDate40;
+    oneStock.kAfter40 = kAfter40;
+    oneStock.kAfterMinDate = minPriceDateAfter40;
+    oneStock.kAfterMaxDate = maxPriceDateAfter40;
+
     return oneStock;
   });
   return priceData;
