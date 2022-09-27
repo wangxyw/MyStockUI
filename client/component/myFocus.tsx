@@ -80,7 +80,7 @@ export const caculatePriceData = (
 ) => {
   const priceData = stockData.map((i) => {
     //i.datestr is addDate
-  
+
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
@@ -117,22 +117,43 @@ export const caculatePriceData = (
         e.datestr < caculateAfterDate(i.datestr, 40);
       return a;
     });
-    const { minPrice: minPriceAfter40, minPriceDate: minPriceDateAfter40 } =
-      caculateMinPrice(After40);
+    const { maxPrice: maxPriceAfter40, maxPriceDate: maxPriceDateK1After40 } =
+      caculateMaxPrice(After40);
     const before10inAfter40 = stockPriceByDay?.filter((e) => {
       let a =
         e.symbol === i.symbol &&
-        e.datestr <= minPriceDateAfter40 &&
-        e.datestr > i.datestr;
+        e.datestr >= maxPriceDateK1After40 &&
+        e.datestr < caculateAfterDate(maxPriceDateK1After40, 10);
       return a;
     });
-    const { maxPrice: maxPriceAfter40, maxPriceDate: maxPriceDateAfter40 } =
-      caculateMaxPrice(before10inAfter40);
-
-    const kAfter40 = (
+    const { minPrice: minPriceAfter40, minPriceDate: minPriceDateK1After40 } =
+      caculateMinPrice(before10inAfter40);
+    const k1After40 = (
       (maxPriceAfter40 - minPriceAfter40) /
-      minPriceAfter40
+      maxPriceAfter40
     ).toFixed(2);
+
+    const { minPrice: minPriceK2After40, minPriceDate: minPriceDateK2After40 } =
+      caculateMinPrice(After40);
+    const before10inK2After40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= minPriceDateK2After40 &&
+        e.datestr > caculateDate(minPriceDateK2After40, 10);
+      return a;
+    });
+    const { maxPrice: maxPriceK2After40, maxPriceDate: maxPriceDateK2After40 } =
+      caculateMaxPrice(before10inK2After40);
+    const k2After40 = (
+      (maxPriceK2After40 - minPriceK2After40) /
+      maxPriceK2After40
+    ).toFixed(2);
+
+    const kAfter40 = k1After40 > k2After40 ? k1After40 : k2After40;
+    const maxPriceDateAfter40 =
+      k1After40 > k2After40 ? maxPriceDateK1After40 : maxPriceDateK2After40;
+    const minPriceDateAfter40 =
+      k1After40 > k2After40 ? minPriceDateK1After40 : minPriceDateK2After40;
 
     const { maxPrice, maxPriceDay, maxPriceDate } =
       caculateMaxPrice(priceByDayData);

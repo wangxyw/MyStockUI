@@ -75,7 +75,6 @@ router.get('/update_stock_status', function (req, res, next) {
           sql = `INSERT INTO viewd_stocks (symbol, datestr, viewed) VALUES ('${symbol}', '${datestr}', '${viewed}') ON DUPLICATE KEY UPDATE viewed = '${viewed}';`;
         }
       }
-      console.log('===s', sql);
       pool.query(sql, (error, ros) => {
         if (err) {
           res.json(err);
