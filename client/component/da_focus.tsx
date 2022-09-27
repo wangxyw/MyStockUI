@@ -341,44 +341,44 @@ export const DAFocusListComponent = () => {
         );
       },
     },
-    {
-      title: 'Viewed',
-      key: 'viewed',
-      render: (text, record) => (
-        <>
-          <Switch
-            unCheckedChildren="Not Viewed"
-            checkedChildren="Viewed"
-            checked={
-              record.viewedDate >= getBeforeOneDate(today, viewedToToday) &&
-              record.viewed == 1
-            }
-            onChange={(value) => {
-              setIsLoading(true);
-              fetch(
-                `/api/update_stock_status?stock_id=${
-                  record.symbol
-                }&datestr=${today}&viewed=${value ? '1' : '0'}`
-              ).then(() => {
-                setData((data) =>
-                  data?.map((i) => {
-                    if (i.symbol === record.symbol) {
-                      return {
-                        ...i,
-                        viewedDate: today,
-                        viewed: value ? '1' : '0',
-                      };
-                    }
-                    return i;
-                  })
-                );
-                setIsLoading(false);
-              });
-            }}
-          />
-        </>
-      ),
-    },
+    // {
+    //   title: 'Viewed',
+    //   key: 'viewed',
+    //   render: (text, record) => (
+    //     <>
+    //       <Switch
+    //         unCheckedChildren="Not Viewed"
+    //         checkedChildren="Viewed"
+    //         checked={
+    //           record.viewedDate >= getBeforeOneDate(today, viewedToToday) &&
+    //           record.viewed == 1
+    //         }
+    //         onChange={(value) => {
+    //           setIsLoading(true);
+    //           fetch(
+    //             `/api/update_stock_status?stock_id=${
+    //               record.symbol
+    //             }&datestr=${today}&viewed=${value ? '1' : '0'}`
+    //           ).then(() => {
+    //             setData((data) =>
+    //               data?.map((i) => {
+    //                 if (i.symbol === record.symbol) {
+    //                   return {
+    //                     ...i,
+    //                     viewedDate: today,
+    //                     viewed: value ? '1' : '0',
+    //                   };
+    //                 }
+    //                 return i;
+    //               })
+    //             );
+    //             setIsLoading(false);
+    //           });
+    //         }}
+    //       />
+    //     </>
+    //   ),
+    // },
 
     {
       title: 'Action',

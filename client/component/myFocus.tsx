@@ -91,7 +91,7 @@ export const caculatePriceData = (
       let a =
         e.symbol === i.symbol &&
         e.datestr <= i.datestr &&
-        e.datestr > caculateDate(i.datestr, 40);
+        e.datestr > caculateDate(i.datestr, 60);
       return a;
     });
     const { minPrice: minPrice40, minPriceDate: minPriceDate40 } =
@@ -103,9 +103,7 @@ export const caculatePriceData = (
         e.datestr > caculateDate(minPriceDate40, 10);
       return a;
     });
-    if (i.symbol === 'sz002118') {
-      console.log(before40, before10inBefore40);
-    }
+
     const { maxPrice: maxPrice40, maxPriceDate: maxPriceDate40 } =
       caculateMaxPrice(before10inBefore40);
 
@@ -124,7 +122,7 @@ export const caculatePriceData = (
       let a =
         e.symbol === i.symbol &&
         e.datestr <= minPriceDateAfter40 &&
-        e.datestr > caculateDate(minPriceDateAfter40, 10);
+        e.datestr > i.datestr;
       return a;
     });
     const { maxPrice: maxPriceAfter40, maxPriceDate: maxPriceDateAfter40 } =
