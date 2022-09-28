@@ -215,13 +215,12 @@ const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
   const curDay = curDaySymbols?.map((i) => {
     if (beforeSymbols?.includes(i.symbol)) {
       i.beforeDays = bMap[i.symbol]?.map((i) => i.datestr).join(', ');
-      //如果之前只出现过一次 也认为是第一次出现。
-      if (beforeSymbols?.length === 1) {
-        i.isNotFirst = false;
-      } else {
-        i.isNotFirst = true;
-      }
+      i.isNotFirst = true;
     } else {
+      i.isNotFirst = false;
+    }
+    //如果之前只出现过一次 也认为是第一次出现。
+    if (bMap[i.symbol]?.map((i) => i.datestr)?.length === 1) {
       i.isNotFirst = false;
     }
     return i;
