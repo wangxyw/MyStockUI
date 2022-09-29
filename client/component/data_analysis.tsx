@@ -281,6 +281,8 @@ export const DataAnalysisCom = (props) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [inputStock, setInputStock] = useState('');
   const [beforeDays, setBeforeDays] = useState('30');
+  const [isBeforeDatesModalVisible, setIsBeforeDatesModalVisible] =
+    useState(false);
 
   const isSetCondition = useMemo(() => {
     return (
@@ -498,6 +500,142 @@ export const DataAnalysisCom = (props) => {
     // ============= ************ use backend to calulate ********** =====================
   };
 
+  const [oneStockConsAllDays, setOneStockConsAllDays] = useState('5');
+  const [oneStockSelectConsDays, setOneStockSelectConsDays] = useState('5');
+  const [oneStockSelectDays, setOneStockSelectDays] = useState('30');
+  const [oneStockData, setOneStockData] = useState({});
+  const runOneAnalysis = () => {
+    let days =
+      parseInt(oneStockSelectDays, 10) + parseInt(oneStockConsAllDays, 10);
+    const dateArr = pullWorkDaysArray(today, parseInt(oneStockSelectDays, 10));
+    get(
+      `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
+        today,
+        days
+      )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
+      { method: 'GET' }
+    ).then((res) => {
+      const stockDataByDate = {};
+      dateArr?.forEach((date) => {
+        const allStockDataByDate = res?.filter(
+          (e) =>
+            e?.datestr <= caculateDate(date, 0) &&
+            e?.datestr > caculateDate(date, parseInt(oneStockConsAllDays, 10))
+        );
+        const data = groupBy(allStockDataByDate, 'symbol');
+        let selectedStocks: any = [];
+        Object.keys(data).forEach((k) => {
+          const item = data[k];
+          const lastStock = item?.[item?.length - 1];
+          if (selectConsTotal === 'CONS') {
+            const { isTrue, start, end } = validateCons(
+              item,
+              'up',
+              oneStockSelectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+          if (selectConsTotal === 'TOTAL') {
+            const { isTrue } = validateTotal(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+        });
+        stockDataByDate[date] = selectedStocks;
+      });
+      setOneStockData(stockDataByDate);
+    });
+
+    // ============= ************ use backend to calulate ********** =====================
+    // const advancedSearchParams = [
+    //   { key: 'dateStr', value: caculateDate(selectDate, days) },
+    //   { key: 'endDateStr', value: today },
+    //   { key: 'selectDate', value: selectDate },
+    //   { key: 'selectDays', value: selectDays },
+    //   { key: 'selectConsTotal', value: selectConsTotal },
+    //   { key: 'selectConsUpDown', value: selectConsUpDown },
+    //   { key: 'selectConsDays', value: selectConsDays },
+    //   { key: 'selectConsAllDays', value: selectConsAllDays },
+    //   { key: 'hasCondition1', value: hasCondition1 },
+    //   { key: 'selectPriceMargin', value: selectPriceMargin },
+    //   { key: 'caculatePriceBy', value: caculatePriceBy },
+    //   { key: 'hasCondition2', value: hasCondition2 },
+    //   { key: 'selectMinPriceMargin', value: selectMinPriceMargin },
+    //   { key: 'selectMinPriceDays', value: selectMinPriceDays },
+    //   { key: 'hasCondition3', value: hasCondition3 },
+    //   { key: 'hasCondition4', value: hasCondition4 },
+    //   { key: 'selectHorPriceMargin', value: selectHorPriceMargin },
+    //   { key: 'selectHorPriceDays', value: selectHorPriceDays },
+    //   { key: 'hasCondition5', value: hasCondition5 },
+    //   { key: 'hasCondition6', value: hasCondition6 },
+    //   { key: 'givenPrice', value: givenPrice },
+    //   { key: 'givenMinPrice', value: givenMinPrice },
+    //   { key: 'givenCirculation', value: givenCirculation },
+    //   { key: 'from100', value: from100 },
+    //   { key: 'selectTimeWindow', value: selectTimeWindow },
+    // ];
+    // get(composedQuery(`/api/da_data`, advancedSearchParams), {
+    //   method: 'GET',
+    // }).then((res) => {
+    //   setDateArray(dateArr);
+    //   setShowDateArray(showDateArr);
+    //   setStockData(res);
+    //   setOption(dapanOption(res));
+    //   setSelectDateTab(showDateArr[0]);
+    //   setIsLoading(false);
+    // });
+    // ============= ************ use backend to calulate ********** =====================
+  };
+  const oneStockChartOption = useMemo(() => {
+    const yData = Object.keys(oneStockData)?.map(
+      (i) => oneStockData[i]?.length
+    );
+    return {
+      title: {
+        text: '',
+        left: 0,
+      },
+      legend: {
+        data: ['Count'],
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: Object.keys(oneStockData),
+        axisLabel: { show: true, interval: 0, rotate: 45 },
+      },
+      yAxis: {
+        type: 'value',
+      },
+      series: [
+        {
+          name: 'TotalPct',
+          type: 'line',
+          data: yData,
+          itemStyle: {
+            normal: {
+              color: '#444',
+            },
+          },
+          label: {
+            position: 'top',
+          },
+        },
+      ],
+    };
+  }, [oneStockData]);
   const dateArrWithRed = useMemo(() => {
     if (showDateArray?.length > 0) {
       const newDates = showDateArray;
@@ -826,6 +964,19 @@ export const DataAnalysisCom = (props) => {
       width: '20%',
       dataIndex: 'beforeDays',
       key: 'beforeDays',
+      render: (text, record) => (
+        <Space size="middle">
+          <Button
+            className="button"
+            onClick={() => {
+              setIsBeforeDatesModalVisible(true);
+              setInputStock(record?.symbol);
+            }}
+          >
+            Check Before Dates
+          </Button>
+        </Space>
+      ),
     },
     {
       title: 'Action',
@@ -1406,6 +1557,66 @@ export const DataAnalysisCom = (props) => {
               </p>
             ))}
         </Typography.Paragraph>
+      </Modal>
+
+      <Modal
+        title="Check Before Dates Modal"
+        visible={isBeforeDatesModalVisible}
+        onOk={() => setIsBeforeDatesModalVisible(false)}
+        onCancel={() => setIsBeforeDatesModalVisible(false)}
+        width={1500}
+      >
+        <>
+          <Input
+            style={{ width: '50px', height: '32px' }}
+            size="small"
+            placeholder="Input Days"
+            value={oneStockSelectConsDays}
+            onChange={(e) => {
+              setOneStockSelectConsDays(e.target.value);
+            }}
+          />
+          days in
+          <Input
+            style={{ width: '50px', height: '32px' }}
+            size="small"
+            placeholder="Input Days"
+            value={oneStockConsAllDays}
+            onChange={(e) => {
+              setOneStockConsAllDays(e.target.value);
+            }}
+          />
+          days
+          <Select
+            style={{ width: '80px' }}
+            value={oneStockSelectDays}
+            onChange={(v) => {
+              setOneStockSelectDays(v);
+            }}
+            size="small"
+          >
+            {[5, 10, 20, 30, 40, 50, 60].map((i) => (
+              <Select.Option key={i} value={i}>
+                {i}
+              </Select.Option>
+            ))}
+          </Select>
+          Days Till Today
+        </>
+        <Button
+          type="primary"
+          onClick={() => {
+            runOneAnalysis();
+          }}
+        >
+          RUN
+        </Button>
+        <ReactEcharts
+          style={{ height: 350, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={oneStockChartOption}
+        />
       </Modal>
     </div>
   );
