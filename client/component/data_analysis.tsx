@@ -508,7 +508,10 @@ export const DataAnalysisCom = (props) => {
   const runOneAnalysis = () => {
     let days =
       parseInt(oneStockSelectDays, 10) + parseInt(oneStockConsAllDays, 10);
-    const dateArr = pullWorkDaysArray(today, parseInt(oneStockSelectDays, 10));
+    const dateArr = pullWorkDaysArray(
+      oneStockDate,
+      parseInt(oneStockSelectDays, 10)
+    );
     get(
       `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
         oneStockDate,
@@ -1564,7 +1567,15 @@ export const DataAnalysisCom = (props) => {
       <Modal
         title="Check Before Dates Modal"
         visible={isBeforeDatesModalVisible}
-        onOk={() => setIsBeforeDatesModalVisible(false)}
+        // onCancel={() => setIsBeforeDatesModalVisible(false)}
+        footer={[
+          <Button
+            onClick={() => setIsBeforeDatesModalVisible(false)}
+            type="primary"
+          >
+            OK
+          </Button>,
+        ]}
         width={1500}
       >
         <>
