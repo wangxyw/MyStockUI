@@ -972,6 +972,7 @@ export const DataAnalysisCom = (props) => {
             onClick={() => {
               setIsBeforeDatesModalVisible(true);
               setOneStockData({});
+              setOneStockDate(record.datestr);
               setInputStock(record?.symbol);
             }}
           >
