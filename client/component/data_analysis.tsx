@@ -504,13 +504,14 @@ export const DataAnalysisCom = (props) => {
   const [oneStockSelectConsDays, setOneStockSelectConsDays] = useState('5');
   const [oneStockSelectDays, setOneStockSelectDays] = useState('30');
   const [oneStockData, setOneStockData] = useState({});
+  const [oneStockDate, setOneStockDate] = useState(today);
   const runOneAnalysis = () => {
     let days =
       parseInt(oneStockSelectDays, 10) + parseInt(oneStockConsAllDays, 10);
     const dateArr = pullWorkDaysArray(today, parseInt(oneStockSelectDays, 10));
     get(
       `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
-        today,
+        oneStockDate,
         days
       )}&end_date_str=${today}&from100=${from100}&stock=${inputStock}`,
       { method: 'GET' }
@@ -970,6 +971,7 @@ export const DataAnalysisCom = (props) => {
             className="button"
             onClick={() => {
               setIsBeforeDatesModalVisible(true);
+              setOneStockData({});
               setInputStock(record?.symbol);
             }}
           >
@@ -1535,7 +1537,6 @@ export const DataAnalysisCom = (props) => {
         title="Export Modal"
         visible={isModalVisible}
         onOk={() => setIsModalVisible(false)}
-        onCancel={() => setIsModalVisible(false)}
         width={1200}
       >
         <Typography.Paragraph
@@ -1563,7 +1564,6 @@ export const DataAnalysisCom = (props) => {
         title="Check Before Dates Modal"
         visible={isBeforeDatesModalVisible}
         onOk={() => setIsBeforeDatesModalVisible(false)}
-        onCancel={() => setIsBeforeDatesModalVisible(false)}
         width={1500}
       >
         <>
@@ -1601,7 +1601,12 @@ export const DataAnalysisCom = (props) => {
               </Select.Option>
             ))}
           </Select>
-          Days Till Today
+          Days Till{' '}
+          <DatePicker
+            defaultValue={moment(oneStockDate, dateFormat)}
+            format={dateFormat}
+            onChange={(v: any) => setOneStockDate(v.format(dateFormat))}
+          />
         </>
         <Button
           type="primary"
