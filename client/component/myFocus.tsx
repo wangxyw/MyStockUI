@@ -149,12 +149,16 @@ export const caculatePriceData = (
       maxPriceK2After40
     ).toFixed(2);
 
-    const kAfter40 = k1After40 > k2After40 ? k1After40 : k2After40;
-    const maxPriceDateAfter40 =
+    let kAfter40: any = k1After40 > k2After40 ? k1After40 : k2After40;
+    let maxPriceDateAfter40 =
       k1After40 > k2After40 ? maxPriceDateK1After40 : maxPriceDateK2After40;
     const minPriceDateAfter40 =
       k1After40 > k2After40 ? minPriceDateK1After40 : minPriceDateK2After40;
 
+    if (maxPriceDateAfter40 <= i.datestr) {
+      kAfter40 = null;
+      maxPriceDateAfter40 = null;
+    }
     const { maxPrice, maxPriceDay, maxPriceDate } =
       caculateMaxPrice(priceByDayData);
     const { minPrice, minPriceDay, minPriceDate } =
