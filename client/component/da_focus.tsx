@@ -1175,6 +1175,7 @@ export const DAFocusListComponent = () => {
           <DatePicker
             defaultValue={moment(oneStockDate, dateFormat)}
             format={dateFormat}
+            value={moment(oneStockDate, dateFormat)}
             onChange={(v: any) => setOneStockDate(v.format(dateFormat))}
           />
         </>
