@@ -108,6 +108,7 @@ export const DAFocusListComponent = () => {
   const [oneStockSelectDays, setOneStockSelectDays] = useState('30');
   const [oneStockData, setOneStockData] = useState({});
   const [oneStockDate, setOneStockDate] = useState(today);
+  const [from100, setFrom100] = useState('400s');
 
   const runOneAnalysis = () => {
     let days =
@@ -116,11 +117,15 @@ export const DAFocusListComponent = () => {
       oneStockDate,
       parseInt(oneStockSelectDays, 10)
     );
+    const fromOld100 = from100 === '400s' ? false : true;
+    const isDR = !!from100.match('DR');
     get(
-      `/api/all_alarm_data?date_str=${caculateDate(
+      `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
         oneStockDate,
         days
-      )}&end_date_str=${today}&from100=${false}&stock=${inputStock}`,
+      )}&end_date_str=${today}&from100=${
+        isDR ? from100.slice(3) : fromOld100
+      }&stock=${inputStock}`,
       { method: 'GET' }
     ).then((res) => {
       const stockDataByDate = {};
@@ -281,13 +286,13 @@ export const DAFocusListComponent = () => {
         );
       },
     },
+    // {
+    //   title: 'Add Price',
+    //   dataIndex: 'finalprice',
+    //   key: 'finalprice',
+    // },
     {
-      title: 'Add Price',
-      dataIndex: 'finalprice',
-      key: 'finalprice',
-    },
-    {
-      title: 'Add Date',
+      title: 'Add Price/Add Date',
       dataIndex: 'datestr',
       key: 'datestr',
       sorter: (a: any, b: any): any => {
@@ -300,10 +305,13 @@ export const DAFocusListComponent = () => {
         const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.datestr);
         return (
-          <Tag color={'blue'}>
-            {c} <br />
-            {index1 - index2}
-          </Tag>
+          <>
+            <Tag>{record.finalprice}</Tag>
+            <Tag color={'blue'}>
+              {c} <br />
+              {index1 - index2}
+            </Tag>
+          </>
         );
       },
     },
@@ -337,65 +345,77 @@ export const DAFocusListComponent = () => {
         );
       },
     },
+    // {
+    //   title: 'MaxPrice',
+    //   dataIndex: 'maxPrice',
+    //   key: 'maxPrice',
+    //   sorter: (a: any, b: any): any => {
+    //     return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
+    //   },
+    //   render: (c, record) => {
+    //     const diff = record.maxPriceDiff;
+    //     return (
+    //       <Tag color={diff > 0 ? 'red' : 'green'}>
+    //         {c}/{diff + '%'}
+    //       </Tag>
+    //     );
+    //   },
+    // },
     {
-      title: 'MaxPrice',
-      dataIndex: 'maxPrice',
-      key: 'maxPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
-      },
-      render: (c, record) => {
-        const diff = record.maxPriceDiff;
-        return (
-          <Tag color={diff > 0 ? 'red' : 'green'}>
-            {c}/{diff + '%'}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'MaxPriceDay',
+      title: 'MaxPrice/MaxPriceDay',
       dataIndex: 'maxPriceDay',
       key: 'maxPriceDay',
       sorter: (a: any, b: any): any => {
         return Number(a.maxPriceDay) - Number(b.maxPriceDay);
       },
       render: (c, record) => {
+        const diff = record.maxPriceDiff;
         return (
           <>
-            {record.maxPriceDate} <br /> {c}
+            <Tag color={diff > 0 ? 'red' : 'green'}>
+              {record.maxPrice}/{diff + '%'}
+            </Tag>
+            <Tag>
+              {record.maxPriceDate} <br /> {c}
+            </Tag>
           </>
         );
       },
     },
+    // {
+    //   title: 'MinPrice',
+    //   dataIndex: 'minPrice',
+    //   key: 'minPrice',
+    //   sorter: (a: any, b: any): any => {
+    //     return Number(a.minPriceDiff) - Number(b.minPriceDiff);
+    //   },
+    //   render: (c, record) => {
+    //     const diff = record.minPriceDiff;
+    //     return (
+    //       <Tag color={diff > 0 ? 'red' : 'green'}>
+    //         {c}/ {diff + '%'}
+    //       </Tag>
+    //     );
+    //   },
+    // },
     {
-      title: 'MinPrice',
-      dataIndex: 'minPrice',
-      key: 'minPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
-      },
-      render: (c, record) => {
-        const diff = record.minPriceDiff;
-        return (
-          <Tag color={diff > 0 ? 'red' : 'green'}>
-            {c}/ {diff + '%'}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'MinPriceDay',
+      title: 'MinPrice/MinPriceDay',
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
       sorter: (a: any, b: any): any => {
         return Number(a.minPriceDay) - Number(b.minPriceDay);
       },
       render: (c, record) => {
+        const diff = record.minPriceDiff;
         return (
           <>
-            {record.minPriceDate}
-            <br /> {c}
+            <Tag color={diff > 0 ? 'red' : 'green'}>
+              {record.minPrice}/ {diff + '%'}
+            </Tag>
+            <Tag>
+              {record.minPriceDate}
+              <br /> {c}
+            </Tag>
           </>
         );
       },
@@ -493,7 +513,7 @@ export const DAFocusListComponent = () => {
               setInputStock(record?.symbol);
             }}
           >
-            Check Before Dates
+            Before Dates
           </Button>
         </Space>
       ),
@@ -1178,7 +1198,22 @@ export const DAFocusListComponent = () => {
             value={moment(oneStockDate, dateFormat)}
             onChange={(v: any) => setOneStockDate(v.format(dateFormat))}
           />
+          <Select
+            style={{ width: '180px' }}
+            value={from100}
+            onChange={(v) => {
+              setFrom100(v);
+            }}
+            size="small"
+          >
+            {['400s', '100w', 'DR_100s', 'DR_400s', 'DR_100w'].map((i) => (
+              <Select.Option key={i} value={i}>
+                {i}
+              </Select.Option>
+            ))}
+          </Select>
         </>
+
         <Button
           type="primary"
           onClick={() => {
