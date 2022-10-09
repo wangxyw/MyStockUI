@@ -365,8 +365,11 @@ export const DAFocusListComponent = () => {
       title: 'MaxPrice/MaxPriceDay',
       dataIndex: 'maxPriceDay',
       key: 'maxPriceDay',
+      // sorter: (a: any, b: any): any => {
+      //   return Number(a.maxPriceDay) - Number(b.maxPriceDay);
+      // },
       sorter: (a: any, b: any): any => {
-        return Number(a.maxPriceDay) - Number(b.maxPriceDay);
+        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
       },
       render: (c, record) => {
         const diff = record.maxPriceDiff;
@@ -402,8 +405,11 @@ export const DAFocusListComponent = () => {
       title: 'MinPrice/MinPriceDay',
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
+      // sorter: (a: any, b: any): any => {
+      //   return Number(a.minPriceDay) - Number(b.minPriceDay);
+      // },
       sorter: (a: any, b: any): any => {
-        return Number(a.minPriceDay) - Number(b.minPriceDay);
+        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
       },
       render: (c, record) => {
         const diff = record.minPriceDiff;
