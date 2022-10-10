@@ -985,6 +985,25 @@ export const DataAnalysisCom = (props) => {
       ),
     },
     {
+      title: '左斜率',
+      dataIndex: 'kBefore40',
+      key: 'kBefore40',
+      sorter: (a: any, b: any): any => {
+        return Number(a.kBefore40) - Number(b.kBefore40);
+      },
+      render: (c, record) => {
+        return (
+          <>
+            <Tag>{c}</Tag>
+            <br />
+            <Tag>minDate:{record.kBeforeMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+          </>
+        );
+      },
+    },
+    {
       title: 'Action',
       key: 'action',
       render: (text, record) => (
@@ -992,9 +1011,9 @@ export const DataAnalysisCom = (props) => {
           <Button className="button" onClick={() => addDAFocus(record, 0)}>
             Add Focus
           </Button>
-          <Button className="button" onClick={() => addDAFocus(record, 1)}>
+          {/* <Button className="button" onClick={() => addDAFocus(record, 1)}>
             加到自选股
-          </Button>
+          </Button> */}
         </Space>
       ),
     },
