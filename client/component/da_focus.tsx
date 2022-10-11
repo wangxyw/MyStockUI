@@ -105,7 +105,7 @@ export const DAFocusListComponent = () => {
     useState(false);
   const [oneStockConsAllDays, setOneStockConsAllDays] = useState('5');
   const [oneStockSelectConsDays, setOneStockSelectConsDays] = useState('5');
-  const [oneStockSelectDays, setOneStockSelectDays] = useState('30');
+  const [oneStockSelectDays, setOneStockSelectDays] = useState('60');
   const [oneStockData, setOneStockData] = useState({});
   const [oneStockDate, setOneStockDate] = useState(today);
   const [from100, setFrom100] = useState('400s');
