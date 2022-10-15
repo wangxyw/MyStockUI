@@ -221,7 +221,10 @@ const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
     }
     //如果之前只出现过一次 也认为是第一次出现。
     if (bMap[i.symbol]?.map((i) => i.datestr)?.length === 1) {
+      i.isJustFirst = true;
       i.isNotFirst = false;
+    } else {
+      i.isJustFirst = false;
     }
     return i;
   });
@@ -1514,6 +1517,13 @@ export const DataAnalysisCom = (props) => {
               <Button type="primary" onClick={() => setIsModalVisible(true)}>
                 Export
               </Button>
+              <p>
+                第一次出现 黑色，
+                <span style={{ color: 'red' }}>非第一次出现红色,</span>
+                <span style={{ color: '#1126be' }}>
+                  之前只出现过一次 深蓝色
+                </span>
+              </p>
               <Table
                 pagination={{ defaultPageSize: 100 }}
                 columns={columns}
@@ -1523,10 +1533,16 @@ export const DataAnalysisCom = (props) => {
                     if (record?.isNotFirst) {
                       return 'da-row red-row-first';
                     }
+                    if (record?.isJustFirst) {
+                      return 'da-row just-row-first';
+                    }
                     return 'da-row red-row';
                   } else {
                     if (record?.isNotFirst) {
                       return 'da-row grey-row-first';
+                    }
+                    if (record?.isJustFirst) {
+                      return 'da-row grey-row-just-first';
                     }
                     return 'da-row grey-row';
                   }
@@ -1544,10 +1560,16 @@ export const DataAnalysisCom = (props) => {
                   if (record?.isNotFirst) {
                     return 'da-row red-row-first';
                   }
+                  if (record?.isJustFirst) {
+                    return 'da-row just-row-first';
+                  }
                   return 'da-row red-row';
                 } else {
                   if (record?.isNotFirst) {
                     return 'da-row grey-row-first';
+                  }
+                  if (record?.isJustFirst) {
+                    return 'da-row grey-row-just-first';
                   }
                   return 'da-row grey-row';
                 }
