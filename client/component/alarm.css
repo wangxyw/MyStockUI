@@ -36,6 +36,16 @@
   color: #ff0000;
 }
 
+.just-row-first {
+  pointer-events: none;
+  background-color: #06cde3;
+  color: #1126be;
+}
+
+.just-row-first 　a {
+  pointer-events: auto;
+}
+
 .red-row-first a {
   pointer-events: auto;
 }
@@ -44,8 +54,16 @@
   pointer-events: auto;
 }
 
+.just-row-first 　button {
+  pointer-events: auto;
+}
+
 .grey-row-first {
   color: #ff0000;
+}
+
+.grey-row-just-first {
+  color: #1126be;
 }
 
 .stock-tag {
