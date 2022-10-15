@@ -116,35 +116,14 @@ router.get('/add_da_focus', function (req, res, next) {
   const datestr = req.query.datestr;
   const updated_at = req.query.updated_at;
   const added = req.query.added;
-
-  const getSql = `SELECT * from focus_da where symbol = '${symbol}'`;
-  pool.query(getSql, function (err, rows, fields) {
-    let sql = '';
+  let sql = `INSERT INTO focus_da (symbol, datestr, updated_at, added) VALUES ('${symbol}', '${datestr}', '${updated_at}', '${added}');`;
+  pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
     } else {
-      if (rows?.length > 0) {
-        sql = `UPDATE focus_da SET datestr='${datestr}' where symbol='${symbol}'`;
-      } else {
-        sql = `INSERT INTO focus_da (symbol, datestr, updated_at, added) VALUES ('${symbol}', '${datestr}', '${updated_at}', '${added}');`;
-      }
+      res.json(rows);
     }
-    pool.query(sql, (error, ros) => {
-      if (err) {
-        res.json(err);
-      } else {
-        res.json(ros);
-      }
-    });
   });
-  // const sql = `INSERT INTO focus_da (symbol, datestr, updated_at, added) VALUES ('${symbol}', '${datestr}', '${updated_at}', '${added}');`;
-  // pool.query(sql, function (err, rows, fields) {
-  //   if (err) {
-  //     res.json(err);
-  //   } else {
-  //     res.json(rows);
-  //   }
-  // });
 });
 
 router.post('/delete_focus', function (req, res, next) {
