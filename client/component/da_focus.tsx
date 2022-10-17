@@ -488,15 +488,15 @@ export const DAFocusListComponent = () => {
           <>
             <Tag>10日: {c}</Tag>
             <br />
-            <Tag>minDate:{record.kBeforeMinDate}</Tag>
+            <Tag>10-minDate:{record.kBeforeMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+            <Tag>10-maxDate:{record.kBeforeMaxDate}</Tag>
             <br />
             <Tag>20日: {record.k20Before40}</Tag>
             <br />
-            <Tag>minDate:{record.k20BeforeMinDate}</Tag>
+            <Tag>20-minDate:{record.k20BeforeMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.k20BeforeMaxDate}</Tag>
+            <Tag>20-maxDate:{record.k20BeforeMaxDate}</Tag>
           </>
         );
       },
@@ -513,15 +513,15 @@ export const DAFocusListComponent = () => {
           <>
             <Tag>10日: {c}</Tag>
             <br />
-            <Tag>minDate:{record.kAfterMinDate}</Tag>
+            <Tag>10-minDate:{record.kAfterMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.kAfterMaxDate}</Tag>
+            <Tag>10-maxDate:{record.kAfterMaxDate}</Tag>
             <br />
             <Tag>20日: {record.k20After40}</Tag>
             <br />
-            <Tag>minDate:{record.k20AfterMinDate}</Tag>
+            <Tag>20-minDate:{record.k20AfterMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.k20AfterMaxDate}</Tag>
+            <Tag>20-maxDate:{record.k20AfterMaxDate}</Tag>
           </>
         );
       },

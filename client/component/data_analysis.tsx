@@ -1010,14 +1010,15 @@ export const DataAnalysisCom = (props) => {
           <>
             <Tag>10日{c}</Tag>
             <br />
-            <Tag>minDate:{record.kBeforeMinDate}</Tag>
+            <Tag>10-minDate:{record.kBeforeMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+            <Tag>10-maxDate:{record.kBeforeMaxDate}</Tag>
+            <br />
             <Tag>20日{record.k20Before40}</Tag>
             <br />
-            <Tag>minDate:{record.k20BeforeMinDate}</Tag>
+            <Tag>20-minDate:{record.k20BeforeMinDate}</Tag>
             <br />
-            <Tag>maxDate:{record.k20BeforeMaxDate}</Tag>
+            <Tag>20-maxDate:{record.k20BeforeMaxDate}</Tag>
           </>
         );
       },
@@ -1462,7 +1463,7 @@ export const DataAnalysisCom = (props) => {
                   },
                 }))}
                 style={{ width: '100%' }}
-                scroll={{ x: true }}
+                scroll={{ x: '3000px' }}
                 dataSource={compareData}
                 pagination={false}
               />
@@ -1566,7 +1567,7 @@ export const DataAnalysisCom = (props) => {
               />
             </div>
           )}
-          {data && (
+          {/* {data && (
             <Table
               pagination={{ defaultPageSize: 100 }}
               columns={columns}
@@ -1591,7 +1592,7 @@ export const DataAnalysisCom = (props) => {
                 }
               }}
             />
-          )}
+          )} */}
         </Spin>
       </div>
       <Modal
