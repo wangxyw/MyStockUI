@@ -214,7 +214,18 @@ export const DAFocusListComponent = () => {
       },
       xAxis: {
         type: 'category',
-        data: Object.keys(oneStockData),
+        data: Object.keys(oneStockData)?.map((i, k) => {
+          if (k === Object.keys(oneStockData)?.length / 2) {
+            return {
+              value: i,
+              textStyle: {
+                color: 'red',
+              },
+            };
+          } else {
+            return i;
+          }
+        }),
         axisLabel: { show: true, interval: 0, rotate: 45 },
       },
       yAxis: {
@@ -475,11 +486,17 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         return (
           <>
-            <Tag>{c}</Tag>
+            <Tag>10日: {c}</Tag>
             <br />
             <Tag>minDate:{record.kBeforeMinDate}</Tag>
             <br />
             <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+            <br />
+            <Tag>20日: {record.k20Before40}</Tag>
+            <br />
+            <Tag>minDate:{record.k20BeforeMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.k20BeforeMaxDate}</Tag>
           </>
         );
       },
@@ -494,11 +511,17 @@ export const DAFocusListComponent = () => {
       render: (c, record) => {
         return (
           <>
-            <Tag>{c}</Tag>
+            <Tag>10日: {c}</Tag>
             <br />
             <Tag>minDate:{record.kAfterMinDate}</Tag>
             <br />
             <Tag>maxDate:{record.kAfterMaxDate}</Tag>
+            <br />
+            <Tag>20日: {record.k20After40}</Tag>
+            <br />
+            <Tag>minDate:{record.k20AfterMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.k20AfterMaxDate}</Tag>
           </>
         );
       },

@@ -104,11 +104,22 @@ export const caculatePriceData = (
         e.datestr > caculateDate(minPriceDate40, 10);
       return a;
     });
+    const before20inBefore40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= minPriceDate40 &&
+        e.datestr > caculateDate(minPriceDate40, 20);
+      return a;
+    });
 
     const { maxPrice: maxPrice40, maxPriceDate: maxPriceDate40 } =
       caculateMaxPrice(before10inBefore40);
 
+    const { maxPrice: max20Price40, maxPriceDate: max20PriceDate40 } =
+      caculateMaxPrice(before20inBefore40);
+
     const kBefore40 = ((maxPrice40 - minPrice40) / maxPrice40).toFixed(2);
+    const k20Before40 = ((max20Price40 - minPrice40) / max20Price40).toFixed(2);
 
     const After40 = stockPriceByDay?.filter((e) => {
       let a =
@@ -126,11 +137,26 @@ export const caculatePriceData = (
         e.datestr < caculateAfterDate(maxPriceDateK1After40, 10);
       return a;
     });
+    const before20inAfter40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr >= maxPriceDateK1After40 &&
+        e.datestr < caculateAfterDate(maxPriceDateK1After40, 20);
+      return a;
+    });
     const { minPrice: minPriceAfter40, minPriceDate: minPriceDateK1After40 } =
       caculateMinPrice(before10inAfter40);
+    const {
+      minPrice: minPrice20After40,
+      minPriceDate: minPrice20DateK1After40,
+    } = caculateMinPrice(before20inAfter40);
     const k1After40 = (
       (maxPriceAfter40 - minPriceAfter40) /
       maxPriceAfter40
+    ).toFixed(2);
+    const k120After40 = (
+      (minPrice20After40 - minPriceAfter40) /
+      minPrice20After40
     ).toFixed(2);
 
     const { minPrice: minPriceK2After40, minPriceDate: minPriceDateK2After40 } =
@@ -142,18 +168,43 @@ export const caculatePriceData = (
         e.datestr > caculateDate(minPriceDateK2After40, 10);
       return a;
     });
+    const before20inK2After40 = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= minPriceDateK2After40 &&
+        e.datestr > caculateDate(minPriceDateK2After40, 20);
+      return a;
+    });
     const { maxPrice: maxPriceK2After40, maxPriceDate: maxPriceDateK2After40 } =
       caculateMaxPrice(before10inK2After40);
+    const {
+      maxPrice: maxPrice20K2After40,
+      maxPriceDate: maxPrice20DateK2After40,
+    } = caculateMaxPrice(before20inK2After40);
     const k2After40 = (
       (maxPriceK2After40 - minPriceK2After40) /
       maxPriceK2After40
     ).toFixed(2);
+    const k220After40 = (
+      (maxPrice20K2After40 - minPriceK2After40) /
+      maxPrice20K2After40
+    ).toFixed(2);
 
     let kAfter40: any = k1After40 > k2After40 ? k1After40 : k2After40;
+    let k20After40: any = k120After40 > k220After40 ? k120After40 : k220After40;
     let maxPriceDateAfter40 =
       k1After40 > k2After40 ? maxPriceDateK1After40 : maxPriceDateK2After40;
     const minPriceDateAfter40 =
       k1After40 > k2After40 ? minPriceDateK1After40 : minPriceDateK2After40;
+
+    let maxPrice20DateAfter40 =
+      k120After40 > k220After40
+        ? minPrice20DateK1After40
+        : maxPrice20DateK2After40;
+    const minPrice20DateAfter40 =
+      k120After40 > k220After40
+        ? minPrice20DateK1After40
+        : minPriceDateK2After40;
 
     if (maxPriceDateAfter40 <= i.datestr) {
       kAfter40 = null;
@@ -187,6 +238,13 @@ export const caculatePriceData = (
     oneStock.kAfter40 = kAfter40;
     oneStock.kAfterMinDate = minPriceDateAfter40;
     oneStock.kAfterMaxDate = maxPriceDateAfter40;
+
+    oneStock.k20Before40 = k20Before40;
+    oneStock.k20BeforeMinDate = minPriceDate40;
+    oneStock.k20BeforeMaxDate = max20PriceDate40;
+    oneStock.k20After40 = k20After40;
+    oneStock.k20AfterMinDate = minPrice20DateAfter40;
+    oneStock.k20AfterMaxDate = maxPriceDateAfter40;
 
     return oneStock;
   });

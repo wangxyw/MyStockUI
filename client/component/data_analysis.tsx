@@ -620,7 +620,18 @@ export const DataAnalysisCom = (props) => {
       },
       xAxis: {
         type: 'category',
-        data: Object.keys(oneStockData),
+        data: Object.keys(oneStockData)?.map((i, k) => {
+          if (k === Object.keys(oneStockData)?.length / 2) {
+            return {
+              value: i,
+              textStyle: {
+                color: 'red',
+              },
+            };
+          } else {
+            return i;
+          }
+        }),
         axisLabel: { show: true, interval: 0, rotate: 45 },
       },
       yAxis: {
@@ -997,11 +1008,16 @@ export const DataAnalysisCom = (props) => {
       render: (c, record) => {
         return (
           <>
-            <Tag>{c}</Tag>
+            <Tag>10日{c}</Tag>
             <br />
             <Tag>minDate:{record.kBeforeMinDate}</Tag>
             <br />
             <Tag>maxDate:{record.kBeforeMaxDate}</Tag>
+            <Tag>20日{record.k20Before40}</Tag>
+            <br />
+            <Tag>minDate:{record.k20BeforeMinDate}</Tag>
+            <br />
+            <Tag>maxDate:{record.k20BeforeMaxDate}</Tag>
           </>
         );
       },
