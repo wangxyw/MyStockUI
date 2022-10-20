@@ -71,8 +71,11 @@ export const filterByCondition25 = (
   return newStocks;
 };
 
-const dapanOption = (data) => {
+const dapanOption = (data, secondData = {}) => {
   const yData = Object.keys(data)?.map((i) => data[i]?.length);
+  const secondYData = Object.keys(secondData)?.map(
+    (i) => secondData[i]?.length
+  );
   return {
     title: {
       text: '',
@@ -89,7 +92,18 @@ const dapanOption = (data) => {
     },
     xAxis: {
       type: 'category',
-      data: Object.keys(data),
+      data: Object.keys(data)?.map((i) => {
+        if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
+          return {
+            value: i,
+            textStyle: {
+              color: 'red',
+            },
+          };
+        } else {
+          return i;
+        }
+      }),
       axisLabel: { show: true, interval: 0, rotate: 45 },
     },
     yAxis: {
@@ -100,6 +114,19 @@ const dapanOption = (data) => {
         name: 'TotalPct',
         type: 'line',
         data: yData,
+        itemStyle: {
+          normal: {
+            color: '#444',
+          },
+        },
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'Compare-TotalPct',
+        type: 'line',
+        data: secondYData,
         itemStyle: {
           normal: {
             color: '#444',
@@ -849,6 +876,33 @@ export const DataAnalysisCom = (props) => {
           hasCondition5
         );
       });
+      const compareGraphData = {};
+      dateArray?.forEach((i) => {
+        compareGraphData[i] = stockData[i]?.filter((i) => {
+          let a = true;
+          if (hasCondition1) {
+            a = a && i.Condition1;
+          }
+          if (hasCondition2) {
+            a = a && i.Condition2;
+          }
+          if (hasCondition3) {
+            a = a && i.Condition3;
+          }
+          if (hasCondition4) {
+            a = a && i.Condition4;
+          }
+          if (hasCondition5) {
+            a = a && i.Condition5;
+          }
+          if (hasCondition6) {
+            a = a && i.Condition6;
+          }
+          return a;
+        });
+      });
+      setOption(dapanOption(stockData, compareGraphData));
+
       const allDaysStocksArray: any = [];
       Object.keys(allDayStocks)?.forEach((a) => {
         allDaysStocksArray.push(...allDayStocks[a]);

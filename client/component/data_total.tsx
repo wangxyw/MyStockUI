@@ -57,7 +57,18 @@ const dapanOption = (data) => {
     },
     xAxis: {
       type: 'category',
-      data: Object.keys(data),
+      data: Object.keys(data)?.map((i) => {
+        if (DATE.workday.indexOf(getBeforeOneDate(i, 1)) === -1) {
+          return {
+            value: i,
+            textStyle: {
+              color: 'red',
+            },
+          };
+        } else {
+          return i;
+        }
+      }),
       axisLabel: { show: true, interval: 0, rotate: 45 },
     },
     yAxis: {
@@ -408,7 +419,7 @@ export const TotalDataCom = (props) => {
                 }}
                 size="small"
               >
-                {[5, 10, 20, 30, 40, 50, 60].map((i) => (
+                {[60, 80, 100, 120].map((i) => (
                   <Select.Option key={i} value={i}>
                     {i}
                   </Select.Option>

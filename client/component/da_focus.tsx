@@ -437,45 +437,45 @@ export const DAFocusListComponent = () => {
         );
       },
     },
-    {
-      title: 'CurPrice - MinPrice',
-      dataIndex: 'minPrice',
-      key: 'minPrice',
-      sorter: (a: any, b: any): any => {
-        const aPrice = ((a.currentPrice - a.minPrice) / a.minPrice).toFixed(2);
-        const bPrice = ((b.currentPrice - b.minPrice) / b.minPrice).toFixed(2);
-        return Number(aPrice) - Number(bPrice);
-      },
-      render: (c, record) => {
-        const diff = (
-          ((record.currentPrice - record.minPrice) / record.minPrice) *
-          100
-        ).toFixed(2);
-        return (
-          <Tag>
-            {(record.currentPrice - record.minPrice).toFixed(2)}/{diff}%
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'Min-Today Day',
-      dataIndex: 'minPriceDay',
-      key: 'minPriceDay',
-      sorter: (a: any, b: any): any => {
-        const indexToday = workDays.indexOf(caculateDate(simulateDate, 0));
-        const indexa = workDays.indexOf(a.datestr);
-        const indexb = workDays.indexOf(b.datestr);
-        const aN = indexToday - indexa - a.minPriceDay;
-        const bN = indexToday - indexb - b.minPriceDay;
-        return Number(aN) - Number(bN);
-      },
-      render: (c, record) => {
-        const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
-        const index2 = workDays.indexOf(record.datestr);
-        return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
-      },
-    },
+    // {
+    //   title: 'CurPrice - MinPrice',
+    //   dataIndex: 'minPrice',
+    //   key: 'minPrice',
+    //   sorter: (a: any, b: any): any => {
+    //     const aPrice = ((a.currentPrice - a.minPrice) / a.minPrice).toFixed(2);
+    //     const bPrice = ((b.currentPrice - b.minPrice) / b.minPrice).toFixed(2);
+    //     return Number(aPrice) - Number(bPrice);
+    //   },
+    //   render: (c, record) => {
+    //     const diff = (
+    //       ((record.currentPrice - record.minPrice) / record.minPrice) *
+    //       100
+    //     ).toFixed(2);
+    //     return (
+    //       <Tag>
+    //         {(record.currentPrice - record.minPrice).toFixed(2)}/{diff}%
+    //       </Tag>
+    //     );
+    //   },
+    // },
+    // {
+    //   title: 'Min-Today Day',
+    //   dataIndex: 'minPriceDay',
+    //   key: 'minPriceDay',
+    //   sorter: (a: any, b: any): any => {
+    //     const indexToday = workDays.indexOf(caculateDate(simulateDate, 0));
+    //     const indexa = workDays.indexOf(a.datestr);
+    //     const indexb = workDays.indexOf(b.datestr);
+    //     const aN = indexToday - indexa - a.minPriceDay;
+    //     const bN = indexToday - indexb - b.minPriceDay;
+    //     return Number(aN) - Number(bN);
+    //   },
+    //   render: (c, record) => {
+    //     const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
+    //     const index2 = workDays.indexOf(record.datestr);
+    //     return <Tag>{index1 - index2 - record.minPriceDay}</Tag>;
+    //   },
+    // },
     {
       title: '左斜率',
       dataIndex: 'kBefore40',
