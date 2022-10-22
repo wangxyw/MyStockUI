@@ -993,7 +993,7 @@ export const DAFocusListComponent = () => {
             flexDirection: 'column',
           }}
         >
-          <div
+          {/*<div
             style={{
               border: '2px solid #f33875',
               padding: '10px',
@@ -1020,7 +1020,7 @@ export const DAFocusListComponent = () => {
                 </a>
               </Tag>
             ))}
-          </div>
+          </div>*/}
           <div
             style={{
               border: '2px solid #46a865',
@@ -1061,7 +1061,7 @@ export const DAFocusListComponent = () => {
               </Popconfirm>
             ))}
           </div>
-          <div
+          {/*<div
             style={{
               border: '2px solid #f33875',
               padding: '10px',
@@ -1089,7 +1089,7 @@ export const DAFocusListComponent = () => {
                 </a>
               </Tag>
             ))}
-          </div>
+          </div>*/}
           <div
             style={{
               border: '2px solid #f33875',
@@ -1119,7 +1119,7 @@ export const DAFocusListComponent = () => {
               </Tag>
             ))}
           </div>
-          <div
+          {/*<div
             style={{
               border: '2px solid #f33875',
               padding: '10px',
@@ -1147,7 +1147,7 @@ export const DAFocusListComponent = () => {
                 </a>
               </Tag>
             ))}
-          </div>
+          </div>*/}
           <div
             style={{
               border: '2px solid #46a865',
@@ -1157,10 +1157,10 @@ export const DAFocusListComponent = () => {
           >
             占比：
             <br />
-            极力推荐关注： {`${alarmType1?.length}/${data?.length}`}
-            推荐关注： {`${alarmType3?.length}/${data?.length}`}
-            横盘： {`${alarmType4?.length}/${data?.length}`}
-            推荐删除： {`${alarmType2?.length}/${data?.length}`}
+            极力推荐关注:{`${alarmType1?.length}/${data?.length}  `}
+            推荐关注:{`${alarmType3?.length}/${data?.length}  `}
+            横盘:{`${alarmType4?.length}/${data?.length}  `}
+            推荐删除:{`${alarmType2?.length}/${data?.length}`}
           </div>
         </div>
       )}
