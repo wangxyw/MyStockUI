@@ -308,10 +308,10 @@ router.get('/all_focus_stock', function (req, res, next) {
 
 router.get('/all_da_focus', function (req, res, next) {
   let sql =
-    'SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr';
+    `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.deleted != '1';`;
   const simulateDate = req.query.simulateDate;
   if (simulateDate) {
-    sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
+    sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}' and a.deleted != '1';`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
@@ -323,9 +323,9 @@ router.get('/get_focus_stock_price', function (req, res, next) {
   const symbols = req.query.stocks;
   const endDate = req.query.datestr;
   const startDate = req.query.start_date;
-  let sql = `SELECT * FROM stock_big_data where symbol in (${symbols})`;
+  let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
   if (startDate && endDate) {
-    sql = `SELECT * FROM stock_big_data where symbol in (${symbols}) and datestr <= '${endDate}' and datestr > '${startDate}'`;
+    sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr <= '${endDate}' and datestr > '${startDate}'`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
