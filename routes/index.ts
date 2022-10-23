@@ -142,7 +142,7 @@ router.post('/delete_focus', function (req, res, next) {
 router.post('/delete_da_focus', function (req, res, next) {
   const symbol = req.body.symbol;
   const datestr = req.body.datestr;
-  const sql = `DELETE from focus_da where symbol= '${symbol}' and datestr= '${datestr}';`;
+  const sql = `UPDATE focus_da SET deleted='1' where symbol= '${symbol}' and datestr= '${datestr}';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -284,7 +284,7 @@ router.get('/get_stock_plate', (req, res, next) => {
 });
 
 router.get('/all_focus_stock', function (req, res, next) {
-  const sql = `SELECT * FROM focus_stocks a join stock_big_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  const sql = `SELECT * FROM focus_stocks a join stock_day_common_data b on a.symbol = b.symbol where a.datestr=b.datestr and a.deleted != '1';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     //res.json(rows);
