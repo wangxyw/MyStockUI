@@ -308,10 +308,10 @@ router.get('/all_focus_stock', function (req, res, next) {
 
 router.get('/all_da_focus', function (req, res, next) {
   let sql =
-    'SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr';
+    'SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr';
   const simulateDate = req.query.simulateDate;
   if (simulateDate) {
-    sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_big_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
+    sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}';`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
