@@ -1142,7 +1142,7 @@ export const DAFocusListComponent = () => {
               </Popconfirm>
             ))}
           </div>
-          {/*<div
+          <div
             style={{
               border: '2px solid #f33875',
               padding: '10px',
@@ -1170,7 +1170,7 @@ export const DAFocusListComponent = () => {
                 </a>
               </Tag>
             ))}
-          </div>*/}
+          </div>
           <div
             style={{
               border: '2px solid #f33875',
