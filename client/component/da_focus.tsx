@@ -26,7 +26,7 @@ import moment from 'moment';
 import { getBeforeOneDate, validateStock } from './new_alarm';
 import './alarm.css';
 import DATA from './date.json';
-import { pullWorkDaysArray } from './data_analysis';
+import { pullWorkDaysArray, pullWorkDaysArrayAfter } from './data_analysis';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -79,6 +79,38 @@ async function getAllStocksPrice(symbols, simulateDate: any = null) {
   return stockData;
 }
 
+const meetDataFunc = (
+  dateArr,
+  res,
+  oneStockConsAllDays,
+  oneStockSelectConsDays
+) => {
+  const stockDataByDate = {};
+  dateArr?.forEach((date) => {
+    const allStockDataByDate = res?.filter(
+      (e) =>
+        e?.datestr <= caculateDate(date, 0) &&
+        e?.datestr > caculateDate(date, parseInt(oneStockConsAllDays, 10))
+    );
+    const data = groupBy(allStockDataByDate, 'symbol');
+    let selectedStocks: any = [];
+    Object.keys(data).forEach((k) => {
+      const item = data[k];
+      const lastStock = item?.[item?.length - 1];
+      const { isTrue, start, end } = validateCons(
+        item,
+        'up',
+        oneStockSelectConsDays
+      );
+      if (isTrue) {
+        selectedStocks.push(lastStock);
+      }
+    });
+    stockDataByDate[date] = selectedStocks;
+  });
+  return stockDataByDate;
+};
+
 export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
   const [alarmType1, setAlarmType1] = useState<any>([]);
@@ -107,6 +139,7 @@ export const DAFocusListComponent = () => {
   const [oneStockSelectConsDays, setOneStockSelectConsDays] = useState('5');
   const [oneStockSelectDays, setOneStockSelectDays] = useState('60');
   const [oneStockData, setOneStockData] = useState({});
+  const [oneStockAfterData, setOneStockAfterData] = useState({});
   const [oneStockDate, setOneStockDate] = useState(today);
   const [from100, setFrom100] = useState('400s');
 
@@ -117,6 +150,7 @@ export const DAFocusListComponent = () => {
       oneStockDate,
       parseInt(oneStockSelectDays, 10)
     );
+    const afterDateArr = pullWorkDaysArrayAfter(oneStockDate, today);
     const fromOld100 = from100 === '400s' ? false : true;
     const isDR = !!from100.match('DR');
     get(
@@ -128,30 +162,21 @@ export const DAFocusListComponent = () => {
       }&stock=${inputStock}`,
       { method: 'GET' }
     ).then((res) => {
-      const stockDataByDate = {};
-      dateArr?.forEach((date) => {
-        const allStockDataByDate = res?.filter(
-          (e) =>
-            e?.datestr <= caculateDate(date, 0) &&
-            e?.datestr > caculateDate(date, parseInt(oneStockConsAllDays, 10))
-        );
-        const data = groupBy(allStockDataByDate, 'symbol');
-        let selectedStocks: any = [];
-        Object.keys(data).forEach((k) => {
-          const item = data[k];
-          const lastStock = item?.[item?.length - 1];
-          const { isTrue, start, end } = validateCons(
-            item,
-            'up',
-            oneStockSelectConsDays
-          );
-          if (isTrue) {
-            selectedStocks.push(lastStock);
-          }
-        });
-        stockDataByDate[date] = selectedStocks;
-      });
+      const stockDataByDate = meetDataFunc(
+        dateArr,
+        res,
+        oneStockConsAllDays,
+        oneStockSelectConsDays
+      );
+      const stockDataAfterDate = meetDataFunc(
+        afterDateArr,
+        res,
+        oneStockConsAllDays,
+        oneStockSelectConsDays
+      );
+
       setOneStockData(stockDataByDate);
+      setOneStockAfterData(stockDataAfterDate);
     });
 
     // ============= ************ use backend to calulate ********** =====================
@@ -248,6 +273,61 @@ export const DAFocusListComponent = () => {
       ],
     };
   }, [oneStockData]);
+
+  const oneStockAfterChartOption = useMemo(() => {
+    const yData = Object.keys(oneStockAfterData)?.map(
+      (i) => oneStockAfterData[i]?.length
+    );
+    return {
+      title: {
+        text: '',
+        left: 0,
+      },
+      legend: {
+        data: ['Count'],
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: Object.keys(oneStockAfterData)?.map((i, k) => {
+          if (k === Object.keys(oneStockAfterData)?.length / 2) {
+            return {
+              value: i,
+              textStyle: {
+                color: 'red',
+              },
+            };
+          } else {
+            return i;
+          }
+        }),
+        axisLabel: { show: true, interval: 0, rotate: 45 },
+      },
+      yAxis: {
+        type: 'value',
+      },
+      series: [
+        {
+          name: 'TotalPct',
+          type: 'line',
+          data: yData,
+          itemStyle: {
+            normal: {
+              color: '#444',
+            },
+          },
+          label: {
+            position: 'top',
+          },
+        },
+      ],
+    };
+  }, [oneStockAfterData]);
 
   const columns = [
     {
@@ -538,6 +618,7 @@ export const DAFocusListComponent = () => {
             onClick={() => {
               setIsBeforeDatesModalVisible(true);
               setOneStockData({});
+              setOneStockAfterData({});
               setOneStockDate(record.datestr);
               setInputStock(record?.symbol);
             }}
@@ -1174,7 +1255,7 @@ export const DAFocusListComponent = () => {
       <Modal
         title="Check Before Dates Modal"
         visible={isBeforeDatesModalVisible}
-        // onCancel={() => setIsBeforeDatesModalVisible(false)}
+        onCancel={() => setIsBeforeDatesModalVisible(false)}
         footer={[
           <Button
             onClick={() => setIsBeforeDatesModalVisible(false)}
@@ -1256,6 +1337,12 @@ export const DAFocusListComponent = () => {
           notMerge={true}
           lazyUpdate={true}
           option={oneStockChartOption}
+        />
+        <ReactEcharts
+          style={{ height: 350, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={oneStockAfterChartOption}
         />
       </Modal>
     </div>
