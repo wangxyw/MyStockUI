@@ -2,6 +2,7 @@ import { useCallback, useState, useMemo, useEffect } from 'react';
 import './alarm.css';
 import DATE from './date.json';
 import React from 'react';
+import { CheckCircleTwoTone } from '@ant-design/icons';
 import {
   Button,
   Tooltip,
@@ -146,6 +147,13 @@ export const pullWorkDaysArray = (date, days) => {
   return workDaysArray;
 };
 
+export const pullWorkDaysArrayAfter = (beforeDate, afterDate) => {
+  const startIndex = workdays.indexOf(caculateDate(beforeDate, 0));
+  const endIndex = workdays.indexOf(caculateDate(afterDate, 0));
+  const workDaysArray = workdays.slice(startIndex + 1, endIndex + 1);
+  return workDaysArray;
+};
+
 const composeCompareData = (stockData) => {
   const more100 = stockData?.filter((i) => i.maxPriceDiff > 100)?.length;
   const form20to100 = stockData?.filter(
@@ -253,6 +261,36 @@ const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
     } else {
       i.isJustFirst = false;
     }
+    return i;
+  });
+  return curDay;
+};
+
+const before60Data = (stockData, selectDateTab, dateArray, beforeDays = 60) => {
+  const beforeDaySymbols: any = [];
+  const curDaySymbols = stockData[selectDateTab];
+  const symbolDayMap = {};
+  dateArray?.forEach((i) => {
+    if (i < selectDateTab && i > caculateDate(selectDateTab, beforeDays)) {
+      beforeDaySymbols.push(...stockData[i]);
+    }
+  });
+  const bMap = groupBy(beforeDaySymbols, 'symbol');
+  const beforeSymbols = uniq(beforeDaySymbols?.map((i) => i.symbol));
+  const curDay = curDaySymbols?.map((i) => {
+    if (beforeSymbols?.includes(i.symbol)) {
+      i.beforeDays = bMap[i.symbol]?.map((i) => i.datestr).join(', ');
+      i.is60First = false;
+    } else {
+      i.is60First = true;
+    }
+    // //如果之前只出现过一次 也认为是第一次出现。
+    // if (bMap[i.symbol]?.map((i) => i.datestr)?.length === 1) {
+    //   i.isJustFirst = true;
+    //   i.isNotFirst = false;
+    // } else {
+    //   i.isJustFirst = false;
+    // }
     return i;
   });
   return curDay;
@@ -829,10 +867,66 @@ export const DataAnalysisCom = (props) => {
           const resbyPlates = res.plates;
           setPlates(resbyPlates);
         });
-      setData(stockData[selectDateTab]);
-      setConditionData(
-        stockData[selectDateTab]?.filter((i) => i.chosen === true)
-      );
+      stockData[selectDateTab]?.length > 0 &&
+        get(
+          `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
+            selectDateTab,
+            60
+          )}&end_date_str=${today}&from100=${from100}&symbols=${stockData[
+            selectDateTab
+          ]
+            ?.filter((i) => i.isNotFirst === false)
+            ?.map((i) => `'${i.symbol}'`)
+            ?.join(',')}`,
+          { method: 'GET' }
+        ).then((res) => {
+          const stockDataByDate = {};
+          const dateArr = pullWorkDaysArray(selectDateTab, 60);
+
+          dateArr?.forEach((date) => {
+            const allStockDataByDate = res?.filter(
+              (e) =>
+                e?.datestr <= caculateDate(date, 0) &&
+                e?.datestr >
+                  caculateDate(date, parseInt(oneStockConsAllDays, 10))
+            );
+            const data = groupBy(allStockDataByDate, 'symbol');
+            let selectedStocks: any = [];
+            Object.keys(data).forEach((k) => {
+              const item = data[k];
+              const lastStock = item?.[item?.length - 1];
+              const { isTrue, start, end } = validateCons(
+                item,
+                selectConsUpDown,
+                selectConsDays
+              );
+              if (isTrue) {
+                selectedStocks.push(lastStock);
+              }
+            });
+            stockDataByDate[date] = selectedStocks;
+          });
+
+          const be60Data = before60Data(
+            stockDataByDate,
+            selectDateTab,
+            dateArr,
+            60
+          );
+          const newStockDataByDay = stockData[selectDateTab]?.map((i) => {
+            if (be60Data?.find((d) => d.symbol === i.symbol)?.is60First) {
+              return { ...i, is60First: true };
+            } else {
+              return i;
+            }
+          });
+          setData(newStockDataByDay);
+          setConditionData(newStockDataByDay?.filter((i) => i.chosen === true));
+        });
+      // setData(stockData[selectDateTab]);
+      // setConditionData(
+      //   stockData[selectDateTab]?.filter((i) => i.chosen === true)
+      // );
       const compareData = {};
       const conditionData = {};
       const allDayStocks = {};
@@ -876,6 +970,7 @@ export const DataAnalysisCom = (props) => {
           hasCondition5
         );
       });
+
       const compareGraphData = {};
       dateArray?.forEach((i) => {
         compareGraphData[i] = stockData[i]?.filter((i) => {
@@ -912,6 +1007,8 @@ export const DataAnalysisCom = (props) => {
     }
   }, [
     stockData,
+    selectConsUpDown,
+    selectConsDays,
     selectDateTab,
     hasCondition4,
     hasCondition1,
@@ -1033,7 +1130,7 @@ export const DataAnalysisCom = (props) => {
     },
     {
       title: 'BeforeDates',
-      width: '20%',
+      width: '10%',
       dataIndex: 'beforeDays',
       key: 'beforeDays',
       render: (text, record) => (
@@ -1051,6 +1148,24 @@ export const DataAnalysisCom = (props) => {
           </Button>
         </Space>
       ),
+    },
+    {
+      title: '60天内从没出现过',
+      width: '10%',
+      dataIndex: 'is60First',
+      key: 'is60First',
+      render: (text, record) => {
+        return (
+          <div>
+            {text && (
+              <CheckCircleTwoTone
+                twoToneColor="#52c41a"
+                style={{ fontSize: '26px' }}
+              />
+            )}
+          </div>
+        );
+      },
     },
     {
       title: '左斜率',
