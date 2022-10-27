@@ -11,11 +11,17 @@ import {
   Table,
   Tag,
 } from 'antd';
+import Icon, {
+  CheckCircleOutlined,
+  ConsoleSqlOutlined,
+} from '@ant-design/icons';
+
+import { CheckCircleTwoTone } from '@ant-design/icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { caculateAfterDate, caculateDate, validateCons } from './alarm';
-import { groupBy, orderBy } from 'lodash';
+import { groupBy, orderBy, cloneDeep } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
@@ -113,6 +119,9 @@ const meetDataFunc = (
 
 export const DAFocusListComponent = () => {
   const [data, setData] = useState<any>([]);
+  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
+  const [selectConsUpDown, setSelectConsUpDown] = useState('up');
+  const [selectConsDays, setSelectConsDays] = useState(5);
   const [alarmType1, setAlarmType1] = useState<any>([]);
   const [alarmType2, setAlarmType2] = useState<any>([]);
   const [alarmType3, setAlarmType3] = useState<any>([]);
@@ -334,6 +343,12 @@ export const DAFocusListComponent = () => {
       title: 'Symbol',
       dataIndex: 'symbol',
       key: 'symbol',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.symbol.replaceAll('sh', '').replaceAll('sz', '')) -
+          Number(b.symbol.replaceAll('sh', '').replaceAll('sz', ''))
+        );
+      },
       render: (text, record) => {
         return (
           <div>
@@ -608,11 +623,11 @@ export const DAFocusListComponent = () => {
     },
     {
       title: 'BeforeDates',
-      width: '20%',
+      width: '10%',
       dataIndex: 'beforeDays',
       key: 'beforeDays',
       render: (text, record) => (
-        <Space size="middle">
+        <div>
           <Button
             className="button"
             onClick={() => {
@@ -625,9 +640,118 @@ export const DAFocusListComponent = () => {
           >
             Before Dates
           </Button>
-        </Space>
+          <div>
+            <Button
+              onClick={() => displayCondition(record.symbol, record.datestr)}
+            >
+              Condition
+            </Button>
+            {record?.finished && (
+              <>
+                {
+                  <Tag
+                    icon={<CheckCircleOutlined />}
+                    color={record?.is60First_400s ? 'success' : 'default'}
+                  >
+                    400s
+                  </Tag>
+                }
+                {
+                  <Tag
+                    icon={<CheckCircleOutlined />}
+                    color={record?.is60First_dr_100w ? 'success' : 'default'}
+                  >
+                    DR 100w
+                  </Tag>
+                }
+                {
+                  <Tag
+                    icon={<CheckCircleOutlined />}
+                    color={record?.is60First_100w ? 'success' : 'default'}
+                  >
+                    100w
+                  </Tag>
+                }
+                {
+                  <Tag
+                    icon={<CheckCircleOutlined />}
+                    color={record?.is60First_dr_400s ? 'success' : 'default'}
+                  >
+                    DR 400s
+                  </Tag>
+                }
+                {
+                  <Tag
+                    icon={<CheckCircleOutlined />}
+                    color={record?.is60First_dr_100s ? 'success' : 'default'}
+                  >
+                    DR 100s
+                  </Tag>
+                }
+                {(record?.is60First_400s ||
+                  record?.is60First_dr_100s ||
+                  record?.is60First_dr_100w ||
+                  record?.is60First_100w ||
+                  record?.is60First_dr_400s) && (
+                  <div>Condition: {record.condition}</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       ),
     },
+    // {
+    //   title: '60天内从没出现过',
+    //   width: '10%',
+    //   dataIndex: 'is60First',
+    //   key: 'is60First',
+    //   render: (text, record) => {
+    //     return (
+    //       <div>
+    //         <Button
+    //           onClick={() => displayCondition(record.symbol, record.datestr)}
+    //         >
+    //           Display Condition
+    //         </Button>
+    //         {record?.is60First_400s && (
+    //           <Tag icon={<CheckCircleOutlined />} color="success">
+    //             400s
+    //           </Tag>
+    //         )}
+    //         {record?.is60First_dr_100w && (
+    //           <Tag icon={<CheckCircleOutlined />} color="success">
+    //             DR 100w
+    //           </Tag>
+    //         )}
+    //         {record?.is60First_100w && (
+    //           <Tag icon={<CheckCircleOutlined />} color="success">
+    //             100w
+    //           </Tag>
+    //         )}
+    //         {record?.is60First_dr_400s && (
+    //           <Tag icon={<CheckCircleOutlined />} color="success">
+    //             DR 400s
+    //           </Tag>
+    //         )}
+    //         {record?.is60First_dr_100s && (
+    //           <Tag icon={<CheckCircleOutlined />} color="success">
+    //             DR 100s
+    //           </Tag>
+    //         )}
+    //         {(record?.is60First_400s ||
+    //           record?.is60First_dr_100s ||
+    //           record?.is60First_dr_100w ||
+    //           record?.is60First_100w ||
+    //           record?.is60First_dr_400s) && (
+    //           <div>
+    //             Condition: {selectConsDays}/{selectConsAllDays}
+    //           </div>
+    //         )}
+    //       </div>
+    //     );
+    //   },
+    // },
     // {
     //   title: 'Viewed',
     //   key: 'viewed',
@@ -871,6 +995,140 @@ export const DAFocusListComponent = () => {
     handleAllStockData();
   };
 
+  const displayCondition = (symbol, addDate) => {
+    setIsLoading(true);
+    symbol &&
+      get(
+        `/api/all_alarm_data_view?date_str=${caculateDate(
+          addDate,
+          70
+        )}&end_date_str=${today}&symbols='${symbol}'`,
+        { method: 'GET' }
+      ).then((res) => {
+        const fromCondition = {};
+        // data?.forEach((stock) => {
+        const dateArr = pullWorkDaysArray(addDate, 60);
+        ['400s', '100w', 'dr_100s', 'dr_400s', 'dr_100w'].forEach((from) => {
+          const dateStockArr: any[] = [];
+          dateArr?.forEach((date) => {
+            const oneStockDataByDate = res?.filter(
+              (e) =>
+                e?.datestr <= caculateDate(date, 0) &&
+                e?.datestr > caculateDate(date, selectConsAllDays) &&
+                e.symbol === symbol
+            );
+            const item = oneStockDataByDate;
+            const lastStock = item?.[item?.length - 1];
+            const { isTrue, start, end } = validateCons(
+              item,
+              selectConsUpDown,
+              selectConsDays,
+              from
+            );
+            if (isTrue) {
+              dateStockArr.push(lastStock);
+            }
+          });
+          if (dateStockArr?.length === 1) {
+            fromCondition[`is60First_${from}`] = true;
+            // newData.find(
+            //   (n) => n.symbol === stock.symbol && n.datestr === stock.datestr
+            // )[`is60First_${from}`] = true;
+            //return { ...stock, [`is60First_${from}`]: true };
+          } else {
+            fromCondition[`is60First_${from}`] = false;
+            // newData.find(
+            //   (n) => n.symbol === stock.symbol && n.datestr === stock.datestr
+            // )[`is60First_${from}`] = false;
+            //return { ...stock, [`is60First_${from}`]: false };
+          }
+        });
+        // });
+        //return fromCondition;
+        console.log(fromCondition);
+        setData((data) => {
+          const newData = cloneDeep(data);
+          Object.keys(fromCondition)?.forEach((key) => {
+            newData.find((i) => i.symbol === symbol && i.datestr === addDate)[
+              key
+            ] = fromCondition[key];
+          });
+          newData.find(
+            (i) => i.symbol === symbol && i.datestr === addDate
+          ).finished = true;
+          newData.find(
+            (i) => i.symbol === symbol && i.datestr === addDate
+          ).condition = `${selectConsDays}/${selectConsAllDays}`;
+          return newData;
+        });
+        setIsLoading(false);
+      });
+  };
+
+  const alldisplayCondition = (symbol, addDate) => {
+    setIsLoading(true);
+    symbol &&
+      get(
+        `/api/all_alarm_data_view?date_str=${caculateDate(
+          addDate,
+          70
+        )}&end_date_str=${today}&symbols='${symbol}'`,
+        { method: 'GET' }
+      ).then((res) => {
+        const fromCondition = {};
+        // data?.forEach((stock) => {
+        const dateArr = pullWorkDaysArray(addDate, 60);
+        ['400s', '100w', 'dr_100s', 'dr_400s', 'dr_100w'].forEach((from) => {
+          const dateStockArr: any[] = [];
+          dateArr?.forEach((date) => {
+            const oneStockDataByDate = res?.filter(
+              (e) =>
+                e?.datestr <= caculateDate(date, 0) &&
+                e?.datestr > caculateDate(date, selectConsAllDays) &&
+                e.symbol === symbol
+            );
+            const item = oneStockDataByDate;
+            const lastStock = item?.[item?.length - 1];
+            const { isTrue, start, end } = validateCons(
+              item,
+              selectConsUpDown,
+              selectConsDays,
+              from
+            );
+            if (isTrue) {
+              dateStockArr.push(lastStock);
+            }
+          });
+          if (dateStockArr?.length === 1) {
+            fromCondition[`is60First_${from}`] = true;
+            // newData.find(
+            //   (n) => n.symbol === stock.symbol && n.datestr === stock.datestr
+            // )[`is60First_${from}`] = true;
+            //return { ...stock, [`is60First_${from}`]: true };
+          } else {
+            fromCondition[`is60First_${from}`] = false;
+            // newData.find(
+            //   (n) => n.symbol === stock.symbol && n.datestr === stock.datestr
+            // )[`is60First_${from}`] = false;
+            //return { ...stock, [`is60First_${from}`]: false };
+          }
+        });
+        // });
+        //return fromCondition;
+        console.log(fromCondition);
+        setData((data) => {
+          const newData = cloneDeep(data);
+          Object.keys(fromCondition)?.forEach((key) => {
+            newData.find((i) => i.symbol === symbol && i.datestr === addDate)[
+              key
+            ] = fromCondition[key];
+          });
+          return newData;
+        });
+        setIsLoading(false);
+      });
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <div>
@@ -1060,6 +1318,40 @@ export const DAFocusListComponent = () => {
             }}
           />
           <Button onClick={filterListByAddDate}>Filter in list</Button>
+        </div>
+        <div>
+          <Select
+            style={{ width: '80px' }}
+            value={selectConsUpDown}
+            onChange={(v) => {
+              setSelectConsUpDown(v);
+            }}
+            size="small"
+          >
+            <Select.Option value="up">Up</Select.Option>
+            <Select.Option value="down">Down</Select.Option>
+          </Select>
+          {' for '}
+          <Input
+            style={{ width: '50px', height: '32px' }}
+            size="small"
+            placeholder="Input Days"
+            value={selectConsDays}
+            onChange={(e) => {
+              setSelectConsDays(parseInt(e.target.value, 10));
+            }}
+          />
+          days in
+          <Input
+            style={{ width: '50px', height: '32px' }}
+            size="small"
+            placeholder="Input Days"
+            value={selectConsAllDays}
+            onChange={(e) => {
+              setSelectConsAllDays(e.target.value);
+            }}
+          />
+          days
         </div>
       </div>
 

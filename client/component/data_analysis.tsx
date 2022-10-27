@@ -299,7 +299,7 @@ const before60Data = (stockData, selectDateTab, dateArray, beforeDays = 60) => {
 export const DataAnalysisCom = (props) => {
   const { isDR } = props;
   const [selectDays, setSelectDays] = useState('20');
-  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
+
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
   const [dateArray, setDateArray] = useState<any>([]);
@@ -310,7 +310,7 @@ export const DataAnalysisCom = (props) => {
   const [dataUp, setDataUp] = useState<any>();
   const [dataDown, setDataDown] = useState<any>();
   const [plates, setPlates] = useState<any>([]);
-
+  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');

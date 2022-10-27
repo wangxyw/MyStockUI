@@ -116,7 +116,12 @@ const getBeforeDate = (n) => {
   return s;
 };
 
-export const validateCons = (data, selectConsUpDown, selectConsDays) => {
+export const validateCons = (
+  data,
+  selectConsUpDown,
+  selectConsDays,
+  from = ''
+) => {
   let consNum = 0;
   let end = 0;
   let j = 0;
@@ -125,16 +130,25 @@ export const validateCons = (data, selectConsUpDown, selectConsDays) => {
   let typeC = false;
   data &&
     data.forEach((i, k) => {
-      if (i?.alarmtype === 'A1' && i?.status === selectConsUpDown) {
+      if (
+        i?.alarmtype === 'A1' &&
+        i?.[`${from ? `${from}_` : ''}status`] === selectConsUpDown
+      ) {
         typeA = true;
       }
-      if (i?.alarmtype === 'A2' && i?.status === selectConsUpDown) {
+      if (
+        i?.alarmtype === 'A2' &&
+        i?.[`${from ? `${from}_` : ''}status`] === selectConsUpDown
+      ) {
         typeB = true;
       }
-      if (i?.alarmtype === 'A3' && i?.status === selectConsUpDown) {
+      if (
+        i?.alarmtype === 'A3' &&
+        i?.[`${from ? `${from}_` : ''}status`] === selectConsUpDown
+      ) {
         typeC = true;
       }
-      if (i.status === selectConsUpDown) {
+      if (i?.[`${from ? `${from}_` : ''}status`] === selectConsUpDown) {
         j++;
       } else {
         if (j > consNum) {
