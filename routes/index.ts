@@ -307,8 +307,7 @@ router.get('/all_focus_stock', function (req, res, next) {
 });
 
 router.get('/all_da_focus', function (req, res, next) {
-  let sql =
-    `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.deleted != '1';`;
+  let sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.deleted != '1';`;
   const simulateDate = req.query.simulateDate;
   if (simulateDate) {
     sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.datestr <= '${simulateDate}' and a.deleted != '1';`;
@@ -407,6 +406,20 @@ router.get('/all_alarm_data_dr', function (req, res, next) {
   }
   if (symbols) {
     sql = `select b.name, a.symbol, a.kuvolume_${from100} as kuvolume, a.kdvolume_${from100} as kdvolume, a.kevolume_${from100} as kevolume, a.status_${from100} as status, b.finalprice, b.marketvalue, b.datestr from stock_big_data_dr a join stock_day_common_data b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and b.name not like "%ST%" and a.symbol in (${symbols})`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/all_alarm_data_view', function (req, res, next) {
+  const datestr = req.query.date_str;
+  const endDateStr = req.query.end_date_str;
+  const symbols = req.query.symbols;
+  let sql = `select * from v_stock a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}';`;
+  if (symbols) {
+    sql = `select * from v_stock a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.symbol in (${symbols});`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
