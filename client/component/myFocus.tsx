@@ -80,7 +80,9 @@ export const caculatePriceData = (
 ) => {
   const priceData = stockData.map((i) => {
     //i.datestr is addDate
-
+    const todayData = stockPriceByDay?.find(
+      (e) => e.symbol === i.symbol && e.datestr === today
+    );
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
@@ -245,6 +247,8 @@ export const caculatePriceData = (
     oneStock.k20After40 = k20After40;
     oneStock.k20AfterMinDate = minPrice20DateAfter40;
     oneStock.k20AfterMaxDate = maxPriceDateAfter40;
+
+    oneStock.todayMgsy = todayData?.var_props?.zyzb?.mgsy;
 
     return oneStock;
   });
