@@ -351,25 +351,31 @@ export const DAFocusListComponent = () => {
       },
       render: (text, record) => {
         return (
-          <div>
-            <a
-              target="_blank"
-              href={`https://quote.eastmoney.com/${text}.html`}
-            >
-              {text}
-            </a>
-            {record.name}
-            <Tag>
+          <>
+            <div>
               <a
                 target="_blank"
-                href={`http://${
-                  location.host
-                }/alarm?symbol=${text}&datestr=${caculateDate(today, 0)}`}
+                href={`https://quote.eastmoney.com/${text}.html`}
               >
-                {'Show alarm'}
+                {text}
               </a>
-            </Tag>
-          </div>
+              {record.name}
+              <Tag>
+                <a
+                  target="_blank"
+                  href={`http://${
+                    location.host
+                  }/alarm?symbol=${text}&datestr=${caculateDate(today, 0)}`}
+                >
+                  {'Show alarm'}
+                </a>
+              </Tag>
+            </div>
+            <div>
+              addDate每股收益:{JSON.parse(record.var_props)?.zyzb?.mgsy}
+            </div>
+            <div>today每股收益:{record?.todayMgsy}</div>
+          </>
         );
       },
     },
@@ -481,12 +487,16 @@ export const DAFocusListComponent = () => {
         const diff = record.maxPriceDiff;
         return (
           <>
-            <Tag color={diff > 0 ? 'red' : 'green'}>
-              {record.maxPrice}/{diff + '%'}
-            </Tag>
-            <Tag>
-              {record.maxPriceDate} <br /> {c}
-            </Tag>
+            <div>
+              <Tag color={diff > 0 ? 'red' : 'green'}>
+                {record.maxPrice}/{diff + '%'}
+              </Tag>
+            </div>
+            <div>
+              <Tag>
+                {record.maxPriceDate} <br /> {c}
+              </Tag>
+            </div>
           </>
         );
       },
@@ -521,13 +531,17 @@ export const DAFocusListComponent = () => {
         const diff = record.minPriceDiff;
         return (
           <>
-            <Tag color={diff > 0 ? 'red' : 'green'}>
-              {record.minPrice}/ {diff + '%'}
-            </Tag>
-            <Tag>
-              {record.minPriceDate}
-              <br /> {c}
-            </Tag>
+            <div>
+              <Tag color={diff > 0 ? 'red' : 'green'}>
+                {record.minPrice}/ {diff + '%'}
+              </Tag>
+            </div>
+            <div>
+              <Tag>
+                {record.minPriceDate}
+                <br /> {c}
+              </Tag>
+            </div>
           </>
         );
       },
