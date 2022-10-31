@@ -2,7 +2,11 @@ import { Table, Form, Input, Popconfirm, Tag, Dropdown, Menu } from 'antd';
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  ConsoleSqlOutlined,
+} from '@ant-design/icons';
 import { caculateAfterDate, caculateDate, today } from './alarm';
 export const focusStatusMap = {
   '1': {
@@ -76,13 +80,21 @@ export const caculateMinPrice = (priceByDayData) => {
 export const caculatePriceData = (
   stockData,
   stockPriceByDay,
-  timeWindow: any = 60
+  timeWindow: any = 60,
+  simulateDate: any = today
 ) => {
   const priceData = stockData.map((i) => {
     //i.datestr is addDate
     const todayData = stockPriceByDay?.find(
-      (e) => e.symbol === i.symbol && e.datestr === today
+      (e) => e.symbol === i.symbol && e.datestr === simulateDate
     );
+    if (i.symbol === 'sz300465') {
+      console.log(
+        '====',
+        todayData,
+        stockPriceByDay?.filter((e) => e.symbol === i.symbol)
+      );
+    }
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
@@ -248,7 +260,7 @@ export const caculatePriceData = (
     oneStock.k20AfterMinDate = minPrice20DateAfter40;
     oneStock.k20AfterMaxDate = maxPriceDateAfter40;
 
-    oneStock.todayMgsy = todayData?.var_props?.zyzb?.mgsy;
+    oneStock.todayMgsy = JSON.parse(todayData?.var_props ?? '{}')?.zyzb?.mgsy;
 
     return oneStock;
   });

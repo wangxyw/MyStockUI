@@ -65,7 +65,12 @@ async function getAllFocusedStocks(
       .join(',')}`
   );
   //caculate stock price
-  const stockPriceData = caculatePriceData(stockData, stockPriceByDay, '不限');
+  const stockPriceData = caculatePriceData(
+    stockData,
+    stockPriceByDay,
+    '不限',
+    simulateDate
+  );
 
   return stockPriceData.map((s) => {
     const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
@@ -126,10 +131,10 @@ export const DAFocusListComponent = () => {
   const [alarmType2, setAlarmType2] = useState<any>([]);
   const [alarmType3, setAlarmType3] = useState<any>([]);
   const [alarmType4, setAlarmType4] = useState<any>([]);
-  const [alarmType5, setAlarmType5] = useState<any>([]);
+  // const [alarmType5, setAlarmType5] = useState<any>([]);
   const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
   const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
-  const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);
+  // const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);
   const [priceMargin, setPriceMargin] = useState<number>(10);
   const [inputStock, setInputStock] = useState<string>('');
   const [selectDate, setSelectDate] = useState<string>(caculateDate(today, 0));
@@ -151,6 +156,7 @@ export const DAFocusListComponent = () => {
   const [oneStockAfterData, setOneStockAfterData] = useState({});
   const [oneStockDate, setOneStockDate] = useState(today);
   const [from100, setFrom100] = useState('400s');
+  const [selectType1Price, setType1Price] = useState(20);
 
   const runOneAnalysis = () => {
     let days =
@@ -418,11 +424,15 @@ export const DAFocusListComponent = () => {
         const index2 = workDays.indexOf(record.datestr);
         return (
           <>
-            <Tag>{record.finalprice}</Tag>
-            <Tag color={'blue'}>
-              {c} <br />
-              {index1 - index2}
-            </Tag>
+            <div>
+              <Tag>{record.finalprice}</Tag>
+            </div>
+            <div>
+              <Tag color={'blue'}>
+                {c} <br />
+                {index1 - index2}
+              </Tag>
+            </div>
           </>
         );
       },
@@ -888,28 +898,81 @@ export const DAFocusListComponent = () => {
       let alarmType2: any = [];
       let alarmType4: any = [];
       let alarmType5: any = [];
-      Object.keys(priceDataGroupByStock)?.forEach((i) => {
-        const recordData = data?.find((e) => e.symbol === i);
+      // Object.keys(priceDataGroupByStock)?.forEach((i) => {
+      //   const recordData = data?.find((e) => e.symbol === i);
+      //   const recordDate = recordData?.datestr;
+      //   const recordDatePrice = recordData?.finalprice;
+      //   const stock = priceDataGroupByStock[i]?.filter(
+      //     (e) => e.datestr >= recordDate
+      //   );
+      //   const daysStock = priceDataGroupByStock[i]?.filter(
+      //     (e) => e.datestr >= caculateDate(today, selectHorPriceDays)
+      //   );
+      //   const minDaysStock = priceDataGroupByStock[i]?.filter(
+      //     (e) => e.datestr >= caculateDate(today, selectMinPriceDays)
+      //   );
+      //   const currentPrice =
+      //     stock?.find((i) => i.datestr === caculateDate(today, 0))
+      //       ?.finalprice ??
+      //     stock?.find((i) => i.datestr === caculateDate(today, 1))?.finalprice;
+      //   const { minPrice } = caculateMinPrice(stock);
+      //   const { maxPrice } = caculateMaxPrice(stock);
+      //   const minDaysPrice = caculateMinPrice(minDaysStock);
+      //   //const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
+      //   if (currentPrice > minPrice && currentPrice < recordDatePrice) {
+      //     alarmType1.push(recordData);
+      //   }
+      //   if (currentPrice == minPrice && currentPrice < recordDatePrice) {
+      //     alarmType3.push(recordData);
+      //   }
+      //   if (
+      //     (maxPrice - recordDatePrice) / recordDatePrice >
+      //     priceMargin / 100
+      //   ) {
+      //     alarmType2.push(recordData);
+      //   }
+      //   const daysMinPrice = caculateMinPrice(daysStock);
+      //   const daysMaxPrice = caculateMaxPrice(daysStock);
+      //   if (
+      //     (daysMaxPrice.maxPrice - daysMinPrice.minPrice) /
+      //       daysMinPrice.minPrice <
+      //     selectHorPriceMargin / 100
+      //   ) {
+      //     alarmType4.push(recordData);
+      //   }
+      //   if (
+      //     currentPrice == minDaysPrice.minPrice &&
+      //     currentPrice < recordDatePrice
+      //   ) {
+      //     alarmType5.push(recordData);
+      //   }
+      // });
+
+      data?.forEach((d) => {
+        const recordData = d;
         const recordDate = recordData?.datestr;
         const recordDatePrice = recordData?.finalprice;
-        const stock = priceDataGroupByStock[i]?.filter(
+        const stock = priceDataGroupByStock[d.symbol]?.filter(
           (e) => e.datestr >= recordDate
         );
-        const daysStock = priceDataGroupByStock[i]?.filter(
+        const daysStock = priceDataGroupByStock[d.symbol]?.filter(
           (e) => e.datestr >= caculateDate(today, selectHorPriceDays)
         );
-        const minDaysStock = priceDataGroupByStock[i]?.filter(
-          (e) => e.datestr >= caculateDate(today, selectMinPriceDays)
-        );
+        // const minDaysStock = priceDataGroupByStock[d.symbol]?.filter(
+        //   (e) => e.datestr >= caculateDate(today, selectMinPriceDays)
+        // );
         const currentPrice =
           stock?.find((i) => i.datestr === caculateDate(today, 0))
             ?.finalprice ??
           stock?.find((i) => i.datestr === caculateDate(today, 1))?.finalprice;
         const { minPrice } = caculateMinPrice(stock);
         const { maxPrice } = caculateMaxPrice(stock);
-        const minDaysPrice = caculateMinPrice(minDaysStock);
+        //const minDaysPrice = caculateMinPrice(minDaysStock);
         //const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
-        if (currentPrice > minPrice && currentPrice < recordDatePrice) {
+        if (
+          (currentPrice - minPrice) / minPrice > selectType1Price / 100 &&
+          currentPrice < recordDatePrice
+        ) {
           alarmType1.push(recordData);
         }
         if (currentPrice == minPrice && currentPrice < recordDatePrice) {
@@ -930,12 +993,12 @@ export const DAFocusListComponent = () => {
         ) {
           alarmType4.push(recordData);
         }
-        if (
-          currentPrice == minDaysPrice.minPrice &&
-          currentPrice < recordDatePrice
-        ) {
-          alarmType5.push(recordData);
-        }
+        // if (
+        //   currentPrice == minDaysPrice.minPrice &&
+        //   currentPrice < recordDatePrice
+        // ) {
+        //   alarmType5.push(recordData);
+        // }
       });
 
       if (startDate || endDate) {
@@ -953,7 +1016,7 @@ export const DAFocusListComponent = () => {
       setAlarmType2(alarmType2);
       setAlarmType3(alarmType3);
       setAlarmType4(alarmType4);
-      setAlarmType5(alarmType5);
+      //setAlarmType5(alarmType5);
     }
   };
 
@@ -1059,7 +1122,6 @@ export const DAFocusListComponent = () => {
         });
         // });
         //return fromCondition;
-        console.log(fromCondition);
         setData((data) => {
           const newData = cloneDeep(data);
           Object.keys(fromCondition)?.forEach((key) => {
@@ -1129,7 +1191,6 @@ export const DAFocusListComponent = () => {
         });
         // });
         //return fromCondition;
-        console.log(fromCondition);
         setData((data) => {
           const newData = cloneDeep(data);
           Object.keys(fromCondition)?.forEach((key) => {
@@ -1163,22 +1224,23 @@ export const DAFocusListComponent = () => {
                 </Select.Option>
               ))}
             </Select>
-            <Space>
-              {'推荐关注横盘用 涨幅小于'}
-              <Select
-                style={{ width: '80px' }}
-                value={selectHorPriceMargin}
-                onChange={(v) => {
-                  setSelectHorPriceMargin(v);
-                }}
-                size="small"
-              >
-                {[5, 10, 15, 20].map((i) => (
-                  <Select.Option key={i} value={i}>
-                    {i}
-                  </Select.Option>
-                ))}
-              </Select>
+            {'右侧用 涨幅小于'}
+            <Select
+              style={{ width: '80px' }}
+              value={selectType1Price}
+              onChange={(v) => {
+                setType1Price(v);
+              }}
+              size="small"
+            >
+              {[5, 10, 20, 30, 40, 50].map((i) => (
+                <Select.Option key={i} value={i}>
+                  {i}
+                </Select.Option>
+              ))}
+            </Select>
+            {/* <Space>
+              
               % in
               <Select
                 style={{ width: '80px' }}
@@ -1195,8 +1257,8 @@ export const DAFocusListComponent = () => {
                 ))}
               </Select>{' '}
               days
-            </Space>
-            <Space>
+            </Space> */}
+            {/* <Space>
               {'当前值=最小值用 往前'}
               <Select
                 style={{ width: '80px' }}
@@ -1213,7 +1275,7 @@ export const DAFocusListComponent = () => {
                 ))}
               </Select>{' '}
               天
-            </Space>
+            </Space> */}
             <Button type="primary" onClick={() => alarm()}>
               Alarm
             </Button>
@@ -1241,7 +1303,7 @@ export const DAFocusListComponent = () => {
             </Button>
           </Space>
         </div>
-        <div>
+        {/* <div>
           <Space>
             关注超过
             <Select
@@ -1274,7 +1336,7 @@ export const DAFocusListComponent = () => {
               Filter
             </Button>
           </Space>
-        </div>{' '}
+        </div>{' '} */}
         <div>
           模拟今天是:
           <DatePicker
@@ -1291,7 +1353,7 @@ export const DAFocusListComponent = () => {
           />
         </div>
         <div>
-          <Space>
+          {/* <Space>
             筛选没看过的，view_date距离今天有
             <Input
               type="number"
@@ -1299,8 +1361,8 @@ export const DAFocusListComponent = () => {
               onChange={(e) => setViewedToToday(e?.target?.value as any)}
             />
             个自然日
-          </Space>
-          <Button
+          </Space> */}
+          {/* <Button
             type={isFilterd ? 'primary' : 'default'}
             onClick={() => {
               async function handleAllStockData() {
@@ -1314,7 +1376,7 @@ export const DAFocusListComponent = () => {
               }
               handleAllStockData();
             }}
-          ></Button>
+          ></Button> */}
         </div>
         <div>
           StartDate:
