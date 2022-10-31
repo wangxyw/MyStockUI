@@ -88,13 +88,6 @@ export const caculatePriceData = (
     const todayData = stockPriceByDay?.find(
       (e) => e.symbol === i.symbol && e.datestr === simulateDate
     );
-    if (i.symbol === 'sz300465') {
-      console.log(
-        '====',
-        todayData,
-        stockPriceByDay?.filter((e) => e.symbol === i.symbol)
-      );
-    }
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
