@@ -970,7 +970,6 @@ export const DAFocusListComponent = () => {
         const { maxPrice } = caculateMaxPrice(stock);
         //const minDaysPrice = caculateMinPrice(minDaysStock);
         //const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
-
         if (
           (currentPrice - minPrice) / minPrice > selectType1Price / 100 &&
           currentPrice < recordDatePrice
