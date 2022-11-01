@@ -888,7 +888,7 @@ export const DAFocusListComponent = () => {
   const alarm = async () => {
     if (data?.length > 0) {
       const symbols = data
-        ?.filter((i) => !i.added)
+        // ?.filter((i) => !i.added)
         ?.map((i) => `'${i.symbol}'`)
         .join(',');
       const priceData = await getAllStocksPrice(symbols, simulateDate);
@@ -952,12 +952,13 @@ export const DAFocusListComponent = () => {
         const recordData = d;
         const recordDate = recordData?.datestr;
         const recordDatePrice = recordData?.finalprice;
-        const stock = priceDataGroupByStock[d.symbol]?.filter(
+        const stock = priceDataGroupByStock?.[d?.symbol]?.filter(
           (e) => e.datestr >= recordDate
         );
-        const daysStock = priceDataGroupByStock[d.symbol]?.filter(
+        const daysStock = priceDataGroupByStock?.[d?.symbol]?.filter(
           (e) => e.datestr >= caculateDate(today, selectHorPriceDays)
         );
+
         // const minDaysStock = priceDataGroupByStock[d.symbol]?.filter(
         //   (e) => e.datestr >= caculateDate(today, selectMinPriceDays)
         // );
@@ -969,6 +970,7 @@ export const DAFocusListComponent = () => {
         const { maxPrice } = caculateMaxPrice(stock);
         //const minDaysPrice = caculateMinPrice(minDaysStock);
         //const currentPrice = data?.find((e) => e.symbol === i)?.currentPrice;
+
         if (
           (currentPrice - minPrice) / minPrice > selectType1Price / 100 &&
           currentPrice < recordDatePrice
