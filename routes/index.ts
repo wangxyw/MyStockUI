@@ -332,10 +332,10 @@ router.get('/get_focus_stock_price', function (req, res, next) {
   });
 });
 
-router.get('/get_price_from_common_data', function (req, res, next) {
-  const symbols = req.query.stocks;
+router.post('/get_price_from_common_data', function (req, res, next) {
+  const symbols = req.body.stocks;
   let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
-  const simulateDate = req.query.simulateDate;
+  const simulateDate = req.body.simulateDate;
   if (simulateDate) {
     sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr <= '${simulateDate}';`;
   }
