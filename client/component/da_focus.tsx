@@ -58,7 +58,11 @@ async function getAllFocusedStocks(
       })
     : stockData1;
   const symbols = stockData.map((d) => d.symbol);
-  const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
+  const realtimeData = await post(`/api/qt_realtime`, {
+    body: JSON.stringify({
+      q: `${symbols.join(',')}`,
+    }),
+  });
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
     body: JSON.stringify({
       stocks: symbols.map((i) => `'${i}'`).join(','),
