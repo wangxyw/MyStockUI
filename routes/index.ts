@@ -646,8 +646,8 @@ router.get('/all_stock_alarm', function (req, res, next) {
   });
 });
 
-router.get('/qt_realtime', async function (req, res) {
-  const q = req.query.q;
+router.post('/qt_realtime', async function (req, res) {
+  const q = req.body.q;
   const { data } = await request(`http://qt.gtimg.cn/q=${q}`);
   const dataArrWithEmpty = data.split(';');
   const dataArr = dataArrWithEmpty.slice(0, dataArrWithEmpty.length - 1);
