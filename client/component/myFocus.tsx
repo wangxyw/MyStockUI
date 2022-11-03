@@ -83,10 +83,11 @@ export const caculatePriceData = (
   timeWindow: any = 60,
   simulateDate: any = today
 ) => {
+  const yesterday = caculateDate(simulateDate ?? today, 1);
   const priceData = stockData.map((i) => {
     //i.datestr is addDate
     const todayData = stockPriceByDay?.find(
-      (e) => e.symbol === i.symbol && e.datestr === simulateDate
+      (e) => e.symbol === i.symbol && e.datestr === yesterday
     );
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
@@ -254,6 +255,7 @@ export const caculatePriceData = (
     oneStock.k20AfterMaxDate = maxPriceDateAfter40;
 
     oneStock.todayMgsy = JSON.parse(todayData?.var_props ?? '{}')?.zyzb?.mgsy;
+    oneStock.todayPrice = todayData?.finalprice;
 
     return oneStock;
   });
