@@ -58,11 +58,11 @@ async function getAllFocusedStocks(
       })
     : stockData1;
   const symbols = stockData.map((d) => d.symbol);
-  const realtimeData = await post(`/api/qt_realtime`, {
-    body: JSON.stringify({
-      q: `${symbols.join(',')}`,
-    }),
-  });
+  // const realtimeData = await post(`/api/qt_realtime`, {
+  //   body: JSON.stringify({
+  //     q: `${symbols.join(',')}`,
+  //   }),
+  // });
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
     body: JSON.stringify({
       stocks: symbols.map((i) => `'${i}'`).join(','),
@@ -77,14 +77,7 @@ async function getAllFocusedStocks(
     simulateDate
   );
 
-  return stockPriceData.map((s) => {
-    const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
-
-    return {
-      ...s,
-      currentPrice,
-    };
-  });
+  return stockPriceData;
 }
 
 async function getAllStocksPrice(symbols, simulateDate: any = null) {
@@ -395,8 +388,8 @@ export const DAFocusListComponent = () => {
     },
     {
       title: 'Current Price',
-      dataIndex: 'currentPrice',
-      key: 'currentPrice',
+      dataIndex: 'todayPrice',
+      key: 'todayPrice',
       render: (c, record) => {
         const isUp = c - record.finalprice > 0;
         const arrow = !isUp ? (
