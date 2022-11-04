@@ -86,9 +86,13 @@ export const caculatePriceData = (
   const yesterday = caculateDate(simulateDate ?? today, 1);
   const priceData = stockData.map((i) => {
     //i.datestr is addDate
-    const todayData = stockPriceByDay?.find(
-      (e) => e.symbol === i.symbol && e.datestr === yesterday
-    );
+    const todayData =
+      stockPriceByDay?.find(
+        (e) => e.symbol === i.symbol && e.datestr === simulateDate
+      ) ??
+      stockPriceByDay?.find(
+        (e) => e.symbol === i.symbol && e.datestr === yesterday
+      );
     const priceByDayData = stockPriceByDay?.filter((e) => {
       let a = e.symbol === i.symbol && e.datestr >= i.datestr;
       if (timeWindow !== '不限') {
