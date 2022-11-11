@@ -1043,14 +1043,17 @@ export const DataAnalysisCom = (props) => {
             >
               {text}
             </a>
-            <Tag>
-              <a
-                target="_blank"
-                href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
-              >
-                {'Show alarm'}
-              </a>
-            </Tag>
+            <div>
+              <Tag>
+                <a
+                  target="_blank"
+                  href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
+                >
+                  {'Show alarm'}
+                </a>
+              </Tag>
+            </div>
+            <div>每股收益:{record.todayMgsy}</div>
           </>
         );
       },
