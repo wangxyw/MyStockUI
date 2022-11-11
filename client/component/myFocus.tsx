@@ -355,7 +355,9 @@ const EditableCell: React.FC<EditableCellProps> = ({
 async function getAllFocusedStocks() {
   const stockData = await get('/api/all_focus_stock');
   const symbols = stockData.map((d) => d.symbol);
-  const realtimeData = await get(`/api/qt_realtime?q=${symbols.join(',')}`);
+  const realtimeData = await post(`/api/qt_realtime`, {
+    body: JSON.stringify({ q: symbols.join(',') }),
+  });
 
   const stockPriceByDay = await get(
     `/api/get_focus_stock_price?stocks=${symbols

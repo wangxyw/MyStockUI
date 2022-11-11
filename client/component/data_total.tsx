@@ -103,20 +103,17 @@ export const TotalDataCom = (props) => {
   const [selectDays, setSelectDays] = useState('80');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
-  const [data, setData] = useState([]);
   const [dateArray, setDateArray] = useState<any>([]);
   const [showDateArray, setShowDateArray] = useState<any>([]);
-  const [selectDateTab, setSelectDateTab] = useState<any>();
-  const [stockData, setStockData] = useState<any>();
-  const [dataTotal, setDataTotal] = useState<any>();
-  const [dataUp, setDataUp] = useState<any>();
-  const [dataDown, setDataDown] = useState<any>();
-  const [plates, setPlates] = useState<any>([]);
+
   const [from100, setFrom100] = useState('400s');
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   const [option, setOption] = useState({});
+  const [dr100option, setDr100option] = useState({});
+  const [dr400option, setDr400option] = useState({});
+  const [option100, setOption100] = useState({});
   const curDate = new Date();
   const year = curDate.getFullYear();
   const month = curDate.getMonth() + 1;
@@ -135,10 +132,10 @@ export const TotalDataCom = (props) => {
     const dateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     get(
-      `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
+      `/api/all_alarm_data?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${today}&from100=${isDR ? from100.slice(3) : fromOld100}`,
+      )}&end_date_str=${today}&from100=false`,
       { method: 'GET' }
     ).then((res) => {
       const stockDataByDate = {};
@@ -187,9 +184,182 @@ export const TotalDataCom = (props) => {
       });
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
-      setStockData(stockDataByDate);
       setOption(dapanOption(stockDataByDate));
-      setSelectDateTab(showDateArr[0]);
+      setIsLoading(false);
+    });
+
+    get(
+      `/api/all_alarm_data?date_str=${caculateDate(
+        selectDate,
+        days
+      )}&end_date_str=${today}&from100=true`,
+      { method: 'GET' }
+    ).then((res) => {
+      const stockDataByDate = {};
+      //const allSelectStocks: any = [];
+      dateArr?.forEach((date) => {
+        const allStockDataByDate = res?.filter(
+          (e) =>
+            e?.datestr <= caculateDate(date, 0) &&
+            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+        );
+        const data = groupBy(allStockDataByDate, 'symbol');
+        let selectedStocks: any = [];
+        Object.keys(data).forEach((k) => {
+          const item = data[k];
+          const lastStock = item?.[item?.length - 1];
+          if (selectConsTotal === 'CONS') {
+            const { isTrue, start, end } = validateCons(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+          if (selectConsTotal === 'TOTAL') {
+            const { isTrue } = validateTotal(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+        });
+        const selectSymbols = selectedStocks?.map((i) => i.symbol);
+        const priceSymbolData = res?.filter((i) =>
+          selectSymbols?.includes(i.symbol)
+        );
+        stockDataByDate[date] = caculatePriceData(
+          selectedStocks,
+          priceSymbolData
+        );
+        //allSelectStocks.push(...selectedStocks);
+      });
+      setDateArray(dateArr);
+      setShowDateArray(showDateArr);
+      setOption100(dapanOption(stockDataByDate));
+      setIsLoading(false);
+    });
+
+    get(
+      `/api/all_alarm_data_dr?date_str=${caculateDate(
+        selectDate,
+        days
+      )}&end_date_str=${today}&from100=400s`,
+      { method: 'GET' }
+    ).then((res) => {
+      const stockDataByDate = {};
+      //const allSelectStocks: any = [];
+      dateArr?.forEach((date) => {
+        const allStockDataByDate = res?.filter(
+          (e) =>
+            e?.datestr <= caculateDate(date, 0) &&
+            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+        );
+        const data = groupBy(allStockDataByDate, 'symbol');
+        let selectedStocks: any = [];
+        Object.keys(data).forEach((k) => {
+          const item = data[k];
+          const lastStock = item?.[item?.length - 1];
+          if (selectConsTotal === 'CONS') {
+            const { isTrue, start, end } = validateCons(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+          if (selectConsTotal === 'TOTAL') {
+            const { isTrue } = validateTotal(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+        });
+        const selectSymbols = selectedStocks?.map((i) => i.symbol);
+        const priceSymbolData = res?.filter((i) =>
+          selectSymbols?.includes(i.symbol)
+        );
+        stockDataByDate[date] = caculatePriceData(
+          selectedStocks,
+          priceSymbolData
+        );
+        //allSelectStocks.push(...selectedStocks);
+      });
+      setDateArray(dateArr);
+      setShowDateArray(showDateArr);
+
+      setDr400option(dapanOption(stockDataByDate));
+
+      setIsLoading(false);
+    });
+
+    get(
+      `/api/all_alarm_data_dr?date_str=${caculateDate(
+        selectDate,
+        days
+      )}&end_date_str=${today}&from100=100w`,
+      { method: 'GET' }
+    ).then((res) => {
+      const stockDataByDate = {};
+      //const allSelectStocks: any = [];
+      dateArr?.forEach((date) => {
+        const allStockDataByDate = res?.filter(
+          (e) =>
+            e?.datestr <= caculateDate(date, 0) &&
+            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+        );
+        const data = groupBy(allStockDataByDate, 'symbol');
+        let selectedStocks: any = [];
+        Object.keys(data).forEach((k) => {
+          const item = data[k];
+          const lastStock = item?.[item?.length - 1];
+          if (selectConsTotal === 'CONS') {
+            const { isTrue, start, end } = validateCons(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+          if (selectConsTotal === 'TOTAL') {
+            const { isTrue } = validateTotal(
+              item,
+              selectConsUpDown,
+              selectConsDays
+            );
+            if (isTrue) {
+              selectedStocks.push(lastStock);
+            }
+          }
+        });
+        const selectSymbols = selectedStocks?.map((i) => i.symbol);
+        const priceSymbolData = res?.filter((i) =>
+          selectSymbols?.includes(i.symbol)
+        );
+        stockDataByDate[date] = caculatePriceData(
+          selectedStocks,
+          priceSymbolData
+        );
+        //allSelectStocks.push(...selectedStocks);
+      });
+      setDateArray(dateArr);
+      setShowDateArray(showDateArr);
+
+      setDr100option(dapanOption(stockDataByDate));
+
       setIsLoading(false);
     });
   };
@@ -457,11 +627,33 @@ export const TotalDataCom = (props) => {
           </div>
         </div>
         <Spin spinning={isLoading} tip="Loading and caculating...">
+          400s:
           <ReactEcharts
             style={{ height: 350, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
             option={option}
+          />
+          100w:
+          <ReactEcharts
+            style={{ height: 350, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={option100}
+          />
+          DR 400s:
+          <ReactEcharts
+            style={{ height: 350, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={dr400option}
+          />
+          DR 100w:
+          <ReactEcharts
+            style={{ height: 350, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={dr100option}
           />
         </Spin>
       </div>
