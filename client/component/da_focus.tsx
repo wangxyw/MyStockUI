@@ -382,6 +382,9 @@ export const DAFocusListComponent = () => {
               addDate每股收益:{JSON.parse(record.var_props)?.zyzb?.mgsy}
             </div>
             <div>today每股收益:{record?.todayMgsy}</div>
+            <div>
+              流通股本: {(record.marketvalue / record.finalprice).toFixed(3)}
+            </div>
           </>
         );
       },
@@ -438,15 +441,15 @@ export const DAFocusListComponent = () => {
         );
       },
     },
-    {
-      title: '流通股本',
-      dataIndex: 'circulation_stock',
-      key: 'circulation_stock',
-      render: (c, record) => {
-        const re = (record.marketvalue / record.finalprice).toFixed(3);
-        return <>{re}</>;
-      },
-    },
+    // {
+    //   title: '流通股本',
+    //   dataIndex: 'circulation_stock',
+    //   key: 'circulation_stock',
+    //   render: (c, record) => {
+    //     const re = (record.marketvalue / record.finalprice).toFixed(3);
+    //     return <>{re}</>;
+    //   },
+    // },
     {
       title: '量最小',
       dataIndex: 'minVol',
@@ -557,27 +560,39 @@ export const DAFocusListComponent = () => {
         );
       },
     },
-    // {
-    //   title: 'CurPrice - MinPrice',
-    //   dataIndex: 'minPrice',
-    //   key: 'minPrice',
-    //   sorter: (a: any, b: any): any => {
-    //     const aPrice = ((a.currentPrice - a.minPrice) / a.minPrice).toFixed(2);
-    //     const bPrice = ((b.currentPrice - b.minPrice) / b.minPrice).toFixed(2);
-    //     return Number(aPrice) - Number(bPrice);
-    //   },
-    //   render: (c, record) => {
-    //     const diff = (
-    //       ((record.currentPrice - record.minPrice) / record.minPrice) *
-    //       100
-    //     ).toFixed(2);
-    //     return (
-    //       <Tag>
-    //         {(record.currentPrice - record.minPrice).toFixed(2)}/{diff}%
-    //       </Tag>
-    //     );
-    //   },
-    // },
+    {
+      title: 'CurPrice - AddPrice',
+      dataIndex: 'finalprice',
+      key: 'finalprice',
+      sorter: (a: any, b: any): any => {
+        const aPrice = ((a.todayPrice - a.finalprice) / a.finalprice).toFixed(
+          2
+        );
+        const bPrice = ((b.todayPrice - b.finalprice) / b.finalprice).toFixed(
+          2
+        );
+        return Number(aPrice) - Number(bPrice);
+      },
+      render: (c, record) => {
+        const isUp = record.todayPrice - record.finalprice > 0;
+        const arrow = !isUp ? (
+          <ArrowDownOutlined style={{ color: 'green' }} />
+        ) : (
+          <ArrowUpOutlined style={{ color: 'red' }} />
+        );
+
+        const diff = (
+          ((record.todayPrice - record.finalprice) / record.finalprice) *
+          100
+        ).toFixed(2);
+        return (
+          <Tag>
+            {arrow}
+            {diff}%
+          </Tag>
+        );
+      },
+    },
     // {
     //   title: 'Min-Today Day',
     //   dataIndex: 'minPriceDay',
