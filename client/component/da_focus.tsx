@@ -565,11 +565,11 @@ export const DAFocusListComponent = () => {
       dataIndex: 'finalprice',
       key: 'finalprice',
       sorter: (a: any, b: any): any => {
-        const aPrice = ((a.todayPrice - a.finalprice) / a.finalprice).toFixed(
-          2
+        const aPrice = Math.abs(
+          ((a.todayPrice - a.finalprice) / a.finalprice) * 100 - a.minPriceDiff
         );
-        const bPrice = ((b.todayPrice - b.finalprice) / b.finalprice).toFixed(
-          2
+        const bPrice = Math.abs(
+          ((b.todayPrice - b.finalprice) / b.finalprice) * 100 - b.minPriceDiff
         );
         return Number(aPrice) - Number(bPrice);
       },
@@ -585,11 +585,20 @@ export const DAFocusListComponent = () => {
           ((record.todayPrice - record.finalprice) / record.finalprice) *
           100
         ).toFixed(2);
+        const minDiff = record.minPriceDiff;
+        const d = Math.abs(+diff - minDiff);
         return (
-          <Tag>
-            {arrow}
-            {diff}%
-          </Tag>
+          <div>
+            <div>
+              <Tag>
+                {arrow}
+                {diff}%
+              </Tag>
+            </div>
+            <div>
+              <Tag>{d}%</Tag>
+            </div>
+          </div>
         );
       },
     },
