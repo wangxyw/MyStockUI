@@ -417,9 +417,9 @@ router.get('/all_alarm_data_view', function (req, res, next) {
   const datestr = req.query.date_str;
   const endDateStr = req.query.end_date_str;
   const symbols = req.query.symbols;
-  let sql = `select * from v_stock a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}';`;
+  let sql = `select a.*, b.name from v_stock  a join stock_day_common_data b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}';`;
   if (symbols) {
-    sql = `select * from v_stock a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.symbol in (${symbols});`;
+    sql = `select a.*, b.name from v_stock a join stock_day_common_data b on a.symbol=b.symbol and a.datestr=b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.symbol in (${symbols});`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
