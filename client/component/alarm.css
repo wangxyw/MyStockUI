@@ -22,23 +22,47 @@
   background-color: #06cde3;
 }
 
-.red-row a {
+.s-row {
+  pointer-events: none;
+  background-color: #06cde3;
+}
+.w-row {
+  pointer-events: none;
+  background-color: #ace306;
+}
+.sdr-row {
+  pointer-events: none;
+  background-color: #9eb7ba;
+}
+.wdr-row {
+  pointer-events: none;
+  background-color: #deb1e7;
+}
+.red-row,
+.s-row,
+.w-row,
+.sdr-row,
+.wdr-row a {
   pointer-events: auto;
 }
 
-.red-row .button {
+.red-row,
+.s-row,
+.w-row,
+.sdr-row,
+.wdr-row .button {
   pointer-events: auto;
 }
 
 .red-row-first {
   pointer-events: none;
-  background-color: #06cde3;
+  /* background-color: #06cde3; */
   color: #ff0000;
 }
 
 .just-row-first {
   pointer-events: none;
-  background-color: #06cde3;
+  /* background-color: #06cde3; */
   color: #1126be;
 }
 
