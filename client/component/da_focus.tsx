@@ -461,12 +461,13 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (c, record) => {
-        const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
+        //const index1 = workDays.indexOf(caculateDate(simulateDate, 0));
         const index2 = workDays.indexOf(record.minVolDate);
+        const index1 = workDays.indexOf(record.datestr);
         return (
           <Tag color={'purple'}>
             {record.minVolDate}
-            <br /> {index1 - index2}
+            <br /> {index2 - index1}
           </Tag>
         );
       },
