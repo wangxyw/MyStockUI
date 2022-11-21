@@ -1,20 +1,19 @@
-
-
-var request = require("request");
-var fs = require("fs");
+var request = require('request');
+var fs = require('fs');
 
 // this holiday data get from http://timor.tech/api/holiday/year/2022/ when offical holiday is announced
 var year = process.argv.splice(2)[0];
-var options = { method: 'GET',
-  url: `http://timor.tech/api/holiday/year/${year}`
+var options = {
+  method: 'GET',
+  url: `http://timor.tech/api/holiday/year/${year}`,
 };
 
 request(options, function (error, response, body) {
   if (error) throw new Error(error);
- 
+
   const data = JSON.parse(body).holiday;
- 
-  const newholidays = Object.keys(data).map(i => data[i].date);
+
+  const newholidays = Object.keys(data).map((i) => data[i].date);
   const tradingDays = getTradingDays(year, newholidays);
   fs.readFile('../client/component/date.json', (err, d) => {
     const existedDate = JSON.parse(d.toString());
@@ -22,17 +21,16 @@ request(options, function (error, response, body) {
     const existedWorkday = existedDate.workday;
     const newData = {
       holiday: existedHoliday.concat(newholidays),
-      workday: existedWorkday.concat(tradingDays)
-    }
+      workday: existedWorkday.concat(tradingDays),
+    };
     console.log(newData);
-    fs.writeFile('../client/component/date.json', JSON.stringify(newData), () => {
-    })
+    fs.writeFile(
+      '../client/component/date.json',
+      JSON.stringify(newData),
+      () => {}
+    );
   });
 });
-
-
-
-
 
 function getMonthLength(date) {
   const d = new Date(date);
@@ -65,11 +63,9 @@ function getTradingDays(year, holidays) {
         }
         if (!holidays.includes(`${year}-${i1}-${j1}`)) {
           arr.push(`${year}-${i1}-${j1}`);
-        }  
+        }
       }
     }
   }
   return arr;
 }
-
-
