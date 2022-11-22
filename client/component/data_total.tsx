@@ -131,11 +131,13 @@ export const TotalDataCom = (props) => {
     const isDR = !!from100.match('DR');
     const dateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
     const showDateArr = pullWorkDaysArray(selectDate, parseInt(selectDays, 10));
+    const realFrom = isDR ? from100.slice(3) : fromOld100;
+
     get(
-      `/api/all_alarm_data?date_str=${caculateDate(
+      `/api/all_alarm_data${isDR ? '_dr' : ''}?date_str=${caculateDate(
         selectDate,
         days
-      )}&end_date_str=${today}&from100=false`,
+      )}&end_date_str=${today}&from100=${realFrom}`,
       { method: 'GET' }
     ).then((res) => {
       const stockDataByDate = {};
@@ -184,184 +186,196 @@ export const TotalDataCom = (props) => {
       });
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
-      setOption(dapanOption(stockDataByDate));
+      ['400s', '100w', 'DR_100s', 'DR_400s', 'DR_100w'];
+      if (from100 === '400s') {
+        setOption(dapanOption(stockDataByDate));
+      }
+      if (from100 === '100w') {
+        setOption100(dapanOption(stockDataByDate));
+      }
+      if (from100 === 'DR_400s') {
+        setDr400option(dapanOption(stockDataByDate));
+      }
+      if (from100 === 'DR_100w') {
+        setDr100option(dapanOption(stockDataByDate));
+      }
       setIsLoading(false);
     });
 
-    get(
-      `/api/all_alarm_data?date_str=${caculateDate(
-        selectDate,
-        days
-      )}&end_date_str=${today}&from100=true`,
-      { method: 'GET' }
-    ).then((res) => {
-      const stockDataByDate = {};
-      //const allSelectStocks: any = [];
-      dateArr?.forEach((date) => {
-        const allStockDataByDate = res?.filter(
-          (e) =>
-            e?.datestr <= caculateDate(date, 0) &&
-            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
-        );
-        const data = groupBy(allStockDataByDate, 'symbol');
-        let selectedStocks: any = [];
-        Object.keys(data).forEach((k) => {
-          const item = data[k];
-          const lastStock = item?.[item?.length - 1];
-          if (selectConsTotal === 'CONS') {
-            const { isTrue, start, end } = validateCons(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-          if (selectConsTotal === 'TOTAL') {
-            const { isTrue } = validateTotal(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-        });
-        const selectSymbols = selectedStocks?.map((i) => i.symbol);
-        const priceSymbolData = res?.filter((i) =>
-          selectSymbols?.includes(i.symbol)
-        );
-        stockDataByDate[date] = caculatePriceData(
-          selectedStocks,
-          priceSymbolData
-        );
-        //allSelectStocks.push(...selectedStocks);
-      });
-      setDateArray(dateArr);
-      setShowDateArray(showDateArr);
-      setOption100(dapanOption(stockDataByDate));
-      setIsLoading(false);
-    });
+    // get(
+    //   `/api/all_alarm_data?date_str=${caculateDate(
+    //     selectDate,
+    //     days
+    //   )}&end_date_str=${today}&from100=true`,
+    //   { method: 'GET' }
+    // ).then((res) => {
+    //   const stockDataByDate = {};
+    //   //const allSelectStocks: any = [];
+    //   dateArr?.forEach((date) => {
+    //     const allStockDataByDate = res?.filter(
+    //       (e) =>
+    //         e?.datestr <= caculateDate(date, 0) &&
+    //         e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+    //     );
+    //     const data = groupBy(allStockDataByDate, 'symbol');
+    //     let selectedStocks: any = [];
+    //     Object.keys(data).forEach((k) => {
+    //       const item = data[k];
+    //       const lastStock = item?.[item?.length - 1];
+    //       if (selectConsTotal === 'CONS') {
+    //         const { isTrue, start, end } = validateCons(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //       if (selectConsTotal === 'TOTAL') {
+    //         const { isTrue } = validateTotal(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //     });
+    //     const selectSymbols = selectedStocks?.map((i) => i.symbol);
+    //     const priceSymbolData = res?.filter((i) =>
+    //       selectSymbols?.includes(i.symbol)
+    //     );
+    //     stockDataByDate[date] = caculatePriceData(
+    //       selectedStocks,
+    //       priceSymbolData
+    //     );
+    //     //allSelectStocks.push(...selectedStocks);
+    //   });
+    //   setDateArray(dateArr);
+    //   setShowDateArray(showDateArr);
+    //   setOption100(dapanOption(stockDataByDate));
+    //   setIsLoading(false);
+    // });
 
-    get(
-      `/api/all_alarm_data_dr?date_str=${caculateDate(
-        selectDate,
-        days
-      )}&end_date_str=${today}&from100=400s`,
-      { method: 'GET' }
-    ).then((res) => {
-      const stockDataByDate = {};
-      //const allSelectStocks: any = [];
-      dateArr?.forEach((date) => {
-        const allStockDataByDate = res?.filter(
-          (e) =>
-            e?.datestr <= caculateDate(date, 0) &&
-            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
-        );
-        const data = groupBy(allStockDataByDate, 'symbol');
-        let selectedStocks: any = [];
-        Object.keys(data).forEach((k) => {
-          const item = data[k];
-          const lastStock = item?.[item?.length - 1];
-          if (selectConsTotal === 'CONS') {
-            const { isTrue, start, end } = validateCons(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-          if (selectConsTotal === 'TOTAL') {
-            const { isTrue } = validateTotal(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-        });
-        const selectSymbols = selectedStocks?.map((i) => i.symbol);
-        const priceSymbolData = res?.filter((i) =>
-          selectSymbols?.includes(i.symbol)
-        );
-        stockDataByDate[date] = caculatePriceData(
-          selectedStocks,
-          priceSymbolData
-        );
-        //allSelectStocks.push(...selectedStocks);
-      });
-      setDateArray(dateArr);
-      setShowDateArray(showDateArr);
+    // get(
+    //   `/api/all_alarm_data_dr?date_str=${caculateDate(
+    //     selectDate,
+    //     days
+    //   )}&end_date_str=${today}&from100=400s`,
+    //   { method: 'GET' }
+    // ).then((res) => {
+    //   const stockDataByDate = {};
+    //   //const allSelectStocks: any = [];
+    //   dateArr?.forEach((date) => {
+    //     const allStockDataByDate = res?.filter(
+    //       (e) =>
+    //         e?.datestr <= caculateDate(date, 0) &&
+    //         e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+    //     );
+    //     const data = groupBy(allStockDataByDate, 'symbol');
+    //     let selectedStocks: any = [];
+    //     Object.keys(data).forEach((k) => {
+    //       const item = data[k];
+    //       const lastStock = item?.[item?.length - 1];
+    //       if (selectConsTotal === 'CONS') {
+    //         const { isTrue, start, end } = validateCons(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //       if (selectConsTotal === 'TOTAL') {
+    //         const { isTrue } = validateTotal(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //     });
+    //     const selectSymbols = selectedStocks?.map((i) => i.symbol);
+    //     const priceSymbolData = res?.filter((i) =>
+    //       selectSymbols?.includes(i.symbol)
+    //     );
+    //     stockDataByDate[date] = caculatePriceData(
+    //       selectedStocks,
+    //       priceSymbolData
+    //     );
+    //     //allSelectStocks.push(...selectedStocks);
+    //   });
+    //   setDateArray(dateArr);
+    //   setShowDateArray(showDateArr);
 
-      setDr400option(dapanOption(stockDataByDate));
+    //   setDr400option(dapanOption(stockDataByDate));
 
-      setIsLoading(false);
-    });
+    //   setIsLoading(false);
+    // });
 
-    get(
-      `/api/all_alarm_data_dr?date_str=${caculateDate(
-        selectDate,
-        days
-      )}&end_date_str=${today}&from100=100w`,
-      { method: 'GET' }
-    ).then((res) => {
-      const stockDataByDate = {};
-      //const allSelectStocks: any = [];
-      dateArr?.forEach((date) => {
-        const allStockDataByDate = res?.filter(
-          (e) =>
-            e?.datestr <= caculateDate(date, 0) &&
-            e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
-        );
-        const data = groupBy(allStockDataByDate, 'symbol');
-        let selectedStocks: any = [];
-        Object.keys(data).forEach((k) => {
-          const item = data[k];
-          const lastStock = item?.[item?.length - 1];
-          if (selectConsTotal === 'CONS') {
-            const { isTrue, start, end } = validateCons(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-          if (selectConsTotal === 'TOTAL') {
-            const { isTrue } = validateTotal(
-              item,
-              selectConsUpDown,
-              selectConsDays
-            );
-            if (isTrue) {
-              selectedStocks.push(lastStock);
-            }
-          }
-        });
-        const selectSymbols = selectedStocks?.map((i) => i.symbol);
-        const priceSymbolData = res?.filter((i) =>
-          selectSymbols?.includes(i.symbol)
-        );
-        stockDataByDate[date] = caculatePriceData(
-          selectedStocks,
-          priceSymbolData
-        );
-        //allSelectStocks.push(...selectedStocks);
-      });
-      setDateArray(dateArr);
-      setShowDateArray(showDateArr);
+    // get(
+    //   `/api/all_alarm_data_dr?date_str=${caculateDate(
+    //     selectDate,
+    //     days
+    //   )}&end_date_str=${today}&from100=100w`,
+    //   { method: 'GET' }
+    // ).then((res) => {
+    //   const stockDataByDate = {};
+    //   //const allSelectStocks: any = [];
+    //   dateArr?.forEach((date) => {
+    //     const allStockDataByDate = res?.filter(
+    //       (e) =>
+    //         e?.datestr <= caculateDate(date, 0) &&
+    //         e?.datestr > caculateDate(date, parseInt(selectConsAllDays, 10))
+    //     );
+    //     const data = groupBy(allStockDataByDate, 'symbol');
+    //     let selectedStocks: any = [];
+    //     Object.keys(data).forEach((k) => {
+    //       const item = data[k];
+    //       const lastStock = item?.[item?.length - 1];
+    //       if (selectConsTotal === 'CONS') {
+    //         const { isTrue, start, end } = validateCons(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //       if (selectConsTotal === 'TOTAL') {
+    //         const { isTrue } = validateTotal(
+    //           item,
+    //           selectConsUpDown,
+    //           selectConsDays
+    //         );
+    //         if (isTrue) {
+    //           selectedStocks.push(lastStock);
+    //         }
+    //       }
+    //     });
+    //     const selectSymbols = selectedStocks?.map((i) => i.symbol);
+    //     const priceSymbolData = res?.filter((i) =>
+    //       selectSymbols?.includes(i.symbol)
+    //     );
+    //     stockDataByDate[date] = caculatePriceData(
+    //       selectedStocks,
+    //       priceSymbolData
+    //     );
+    //     //allSelectStocks.push(...selectedStocks);
+    //   });
+    //   setDateArray(dateArr);
+    //   setShowDateArray(showDateArr);
 
-      setDr100option(dapanOption(stockDataByDate));
+    //   setDr100option(dapanOption(stockDataByDate));
 
-      setIsLoading(false);
-    });
+    //   setIsLoading(false);
+    // });
   };
 
   const [oneStockConsAllDays, setOneStockConsAllDays] = useState('5');
