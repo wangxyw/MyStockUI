@@ -2,6 +2,7 @@ import { useCallback, useState, useMemo, useEffect } from 'react';
 import './alarm.css';
 import DATE from './date.json';
 import React from 'react';
+import { isEmpty } from 'lodash';
 import {
   Button,
   Tooltip,
@@ -107,13 +108,19 @@ export const TotalDataCom = (props) => {
   const [showDateArray, setShowDateArray] = useState<any>([]);
 
   const [from100, setFrom100] = useState('400s');
+
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   const [option, setOption] = useState({});
+  const [optionDown, setOptionDown] = useState({});
+
   const [dr100option, setDr100option] = useState({});
+  const [dr100optionDown, setDr100optionDown] = useState({});
   const [dr400option, setDr400option] = useState({});
+  const [dr400optionDown, setDr400optionDown] = useState({});
   const [option100, setOption100] = useState({});
+  const [option100Down, setOption100Down] = useState({});
   const curDate = new Date();
   const year = curDate.getFullYear();
   const month = curDate.getMonth() + 1;
@@ -188,16 +195,32 @@ export const TotalDataCom = (props) => {
       setShowDateArray(showDateArr);
       ['400s', '100w', 'DR_100s', 'DR_400s', 'DR_100w'];
       if (from100 === '400s') {
-        setOption(dapanOption(stockDataByDate));
+        if (selectConsUpDown === 'up') {
+          setOption(dapanOption(stockDataByDate));
+        } else if (selectConsUpDown === 'down') {
+          setOptionDown(dapanOption(stockDataByDate));
+        }
       }
       if (from100 === '100w') {
-        setOption100(dapanOption(stockDataByDate));
+        if (selectConsUpDown === 'up') {
+          setOption100(dapanOption(stockDataByDate));
+        } else if (selectConsUpDown === 'down') {
+          setOption100Down(dapanOption(stockDataByDate));
+        }
       }
       if (from100 === 'DR_400s') {
-        setDr400option(dapanOption(stockDataByDate));
+        if (selectConsUpDown === 'up') {
+          setDr400option(dapanOption(stockDataByDate));
+        } else if (selectConsUpDown === 'down') {
+          setDr400optionDown(dapanOption(stockDataByDate));
+        }
       }
       if (from100 === 'DR_100w') {
-        setDr100option(dapanOption(stockDataByDate));
+        if (selectConsUpDown === 'up') {
+          setDr100option(dapanOption(stockDataByDate));
+        } else if (selectConsUpDown === 'down') {
+          setDr100optionDown(dapanOption(stockDataByDate));
+        }
       }
       setIsLoading(false);
     });
@@ -641,34 +664,94 @@ export const TotalDataCom = (props) => {
           </div>
         </div>
         <Spin spinning={isLoading} tip="Loading and caculating...">
-          400s:
-          <ReactEcharts
-            style={{ height: 350, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={option}
-          />
-          100w:
-          <ReactEcharts
-            style={{ height: 350, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={option100}
-          />
-          DR 400s:
-          <ReactEcharts
-            style={{ height: 350, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={dr400option}
-          />
-          DR 100w:
-          <ReactEcharts
-            style={{ height: 350, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={dr100option}
-          />
+          {!isEmpty(option) && (
+            <>
+              400s Up:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={option}
+              />
+            </>
+          )}
+          {!isEmpty(optionDown) && (
+            <>
+              400s Down:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={optionDown}
+              />
+            </>
+          )}
+          {!isEmpty(option100) && (
+            <>
+              100w UP:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={option100}
+              />
+            </>
+          )}
+          {!isEmpty(option100Down) && (
+            <>
+              100w Down:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={option100Down}
+              />
+            </>
+          )}
+          {!isEmpty(dr400option) && (
+            <>
+              DR 400s UP:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={dr400option}
+              />
+            </>
+          )}
+          {!isEmpty(dr400optionDown) && (
+            <>
+              DR 400s Down:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={dr400optionDown}
+              />
+            </>
+          )}
+          {!isEmpty(dr100option) && (
+            <>
+              DR 100w UP:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={dr100option}
+              />
+            </>
+          )}
+          {!isEmpty(dr100optionDown) && (
+            <>
+              DR 100w Down:
+              <ReactEcharts
+                style={{ height: 350, width: 1450 }}
+                notMerge={true}
+                lazyUpdate={true}
+                option={dr100optionDown}
+              />
+            </>
+          )}
         </Spin>
       </div>
     </div>
