@@ -62,6 +62,19 @@ export const caculateMinVol = (priceByDayData) => {
   });
   return { minVol, minVolDay, minVolDate };
 };
+export const caculateMaxVol = (priceByDayData) => {
+  let maxVol = priceByDayData[0]?.totaltradevol;
+  let maxVolDay = 0;
+  let maxVolDate = priceByDayData[0]?.datestr;
+  priceByDayData.forEach((i, k) => {
+    if (i.totaltradevol && i.totaltradevol > maxVol) {
+      maxVol = i.totaltradevol;
+      maxVolDay = k;
+      maxVolDate = i.datestr;
+    }
+  });
+  return { maxVol, maxVolDay, maxVolDate };
+};
 
 export const caculateMinPrice = (priceByDayData) => {
   let minPrice = priceByDayData[0]?.finalprice;
@@ -105,6 +118,13 @@ export const caculatePriceData = (
         e.symbol === i.symbol &&
         e.datestr <= i.datestr &&
         e.datestr > caculateDate(i.datestr, 60);
+      return a;
+    });
+    const before20Cur = stockPriceByDay?.filter((e) => {
+      let a =
+        e.symbol === i.symbol &&
+        e.datestr <= i.datestr &&
+        e.datestr > caculateDate(i.datestr, 20);
       return a;
     });
     const { minPrice: minPrice40, minPriceDate: minPriceDate40 } =
@@ -227,6 +247,10 @@ export const caculatePriceData = (
     const { minPrice, minPriceDay, minPriceDate } =
       caculateMinPrice(priceByDayData);
     const { minVol, minVolDay, minVolDate } = caculateMinVol(priceByDayData);
+    const { minVol: minVolIn20, minVolDate: minVolDateIn20 } =
+      caculateMinVol(before20Cur);
+    const { maxVol: maxVolIn20, maxVolDate: maxVolDateIn20 } =
+      caculateMaxVol(before20Cur);
     const oneStock = i;
     const maxPriceDiff = ((maxPrice - i.finalprice) / i.finalprice) * 100;
     const minPriceDiff = ((minPrice - i.finalprice) / i.finalprice) * 100;
@@ -244,6 +268,11 @@ export const caculatePriceData = (
     oneStock.minVol = minVol;
     oneStock.minVolDate = minVolDate;
 
+    oneStock.minVol20 = minVolIn20;
+    oneStock.minVolDate20 = minVolDateIn20;
+    oneStock.maxVol20 = maxVolIn20;
+    oneStock.maxVolDate20 = maxVolDateIn20;
+
     oneStock.kBefore40 = kBefore40;
     oneStock.kBeforeMinDate = minPriceDate40;
     oneStock.kBeforeMaxDate = maxPriceDate40;
@@ -256,7 +285,7 @@ export const caculatePriceData = (
     oneStock.k20BeforeMaxDate = max20PriceDate40;
     oneStock.k20After40 = k20After40;
     oneStock.k20AfterMinDate = minPrice20DateAfter40;
-    oneStock.k20AfterMaxDate = maxPriceDateAfter40;
+    oneStock.k20AfterMaxDate = maxPrice20DateAfter40;
 
     oneStock.todayMgsy = JSON.parse(todayData?.var_props ?? '{}')?.zyzb?.mgsy;
     oneStock.todayPrice = todayData?.finalprice;

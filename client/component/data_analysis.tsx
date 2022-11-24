@@ -1171,6 +1171,21 @@ export const DataAnalysisCom = (props) => {
       },
     },
     {
+      title: 'TotalTradeVol',
+      width: '10%',
+      dataIndex: 'totaltradevol',
+      key: 'totaltradevol',
+      render: (text, record) => {
+        return (
+          <>
+            <div>当天: {(text / 10000).toFixed(2)}万；</div>
+            <div>20Min: {(record.minVol20 / 10000).toFixed(2)}万;</div>
+            <div>20Max: {(record.maxVol20 / 10000).toFixed(2)}万;</div>
+          </>
+        );
+      },
+    },
+    {
       title: '左斜率',
       dataIndex: 'kBefore40',
       key: 'kBefore40',
