@@ -40,7 +40,6 @@ const hangyeMap = [
   { value: 'diyu', name: '地域板块' },
 ];
 
-
 export const pullWorkDaysArray = (date, days) => {
   const endIndex = workdays.indexOf(caculateDate(date, 0));
   const workDaysArray = workdays.slice(endIndex - days + 1, endIndex + 1);
@@ -397,19 +396,7 @@ export const DAPlatesCom = () => {
               selectConsDays
             );
             if (isTrue) {
-              if (caculatePriceBy) {
-                if (isAverageDistribution(item, selectPriceMargin))
-                  selectedStocks.push(lastStock);
-              } else {
-                const startPrice = item[start].finalprice;
-                const endPrice = item[end].finalprice;
-                if (
-                  Math.abs((endPrice - startPrice) / startPrice) <
-                  selectPriceMargin / 100
-                ) {
-                  selectedStocks.push(lastStock);
-                }
-              }
+              selectedStocks.push(lastStock);
             }
           }
           if (selectConsTotal === 'TOTAL') {
@@ -419,12 +406,7 @@ export const DAPlatesCom = () => {
               selectConsDays
             );
             if (isTrue) {
-              if (caculatePriceBy) {
-                if (isAverageDistribution(item, selectPriceMargin))
-                  selectedStocks.push(lastStock);
-              } else {
-                selectedStocks.push(lastStock);
-              }
+              selectedStocks.push(lastStock);
             }
           }
         });
@@ -663,43 +645,6 @@ export const DAPlatesCom = () => {
               ></Switch>
             </Space>
           </div>
-        </div>
-        <div>
-          {' '}
-          <Space
-            style={{
-              padding: '10px',
-              boxShadow: '1px 1px 3px #ccc',
-            }}
-          >
-            Condition 1
-            <Select
-              style={{ width: '80px' }}
-              value={selectPriceMargin}
-              onChange={(v) => {
-                setSelectPriceMargin(v);
-              }}
-              size="small"
-            >
-              {[
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-                19, 20,
-              ].map((i) => (
-                <Select.Option key={i} value={i}>
-                  {i}
-                </Select.Option>
-              ))}
-            </Select>
-            % price margin
-            <Switch
-              unCheckedChildren="Former"
-              checkedChildren="Latter"
-              style={{ margin: '0 10px' }}
-              // defaultChecked
-              checked={caculatePriceBy}
-              onChange={setCaculatePriceBy}
-            />
-          </Space>
         </div>
         <Space>
           选择行业:
