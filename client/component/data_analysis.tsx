@@ -321,7 +321,6 @@ const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
 const before60Data = (stockData, selectDateTab, dateArray, beforeDays = 60) => {
   const beforeDaySymbols: any = [];
   const curDaySymbols = stockData[selectDateTab];
-  const symbolDayMap = {};
   dateArray?.forEach((i) => {
     if (i < selectDateTab && i > caculateDate(selectDateTab, beforeDays)) {
       beforeDaySymbols.push(...stockData[i]);
@@ -336,13 +335,6 @@ const before60Data = (stockData, selectDateTab, dateArray, beforeDays = 60) => {
     } else {
       i.is60First = true;
     }
-    // //如果之前只出现过一次 也认为是第一次出现。
-    // if (bMap[i.symbol]?.map((i) => i.datestr)?.length === 1) {
-    //   i.isJustFirst = true;
-    //   i.isNotFirst = false;
-    // } else {
-    //   i.isJustFirst = false;
-    // }
     return i;
   });
   return curDay;
