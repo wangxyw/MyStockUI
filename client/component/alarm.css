@@ -19,24 +19,24 @@
 
 .red-row {
   pointer-events: none;
-  background-color: #06cde3;
+  /* background-color: #06cde3; */
 }
 
 .s-row {
   pointer-events: none;
-  background-color: #06cde3;
+  /* background-color: #06cde3; */
 }
 .w-row {
   pointer-events: none;
-  background-color: #ace306;
+  /* background-color: #ace306; */
 }
 .sdr-row {
   pointer-events: none;
-  background-color: #9eb7ba;
+  /* background-color: #9eb7ba; */
 }
 .wdr-row {
   pointer-events: none;
-  background-color: #deb1e7;
+  /* background-color: #deb1e7; */
 }
 .red-row,
 .s-row,

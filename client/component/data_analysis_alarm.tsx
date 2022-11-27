@@ -2,7 +2,7 @@ import { useCallback, useState, useMemo, useEffect } from 'react';
 import './alarm.css';
 import DATE from './date.json';
 import React from 'react';
-import { CheckCircleTwoTone } from '@ant-design/icons';
+import { CheckCircleTwoTone, ConsoleSqlOutlined } from '@ant-design/icons';
 import {
   Button,
   Tooltip,
@@ -85,88 +85,6 @@ export const pullWorkDaysArrayAfter = (beforeDate, afterDate) => {
   return workDaysArray;
 };
 
-const composeCompareData = (stockData) => {
-  const more100 = stockData?.filter((i) => i.maxPriceDiff > 100)?.length;
-  const form20to100 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 20
-  )?.length;
-  const from0to20 = stockData?.filter(
-    (i) => i.maxPriceDiff <= 20 && i.maxPriceDiff > 0
-  )?.length;
-  const less0 = stockData?.filter((i) => i.maxPriceDiff <= 0)?.length;
-  return {
-    more100,
-    form20to100,
-    from0to20,
-    less0,
-  };
-};
-const composeData = (stockData) => {
-  const total = stockData?.length;
-  const up = stockData?.filter((i) => i.maxPriceDay > 0)?.length;
-  const down = stockData?.filter((i) => i.maxPriceDay === 0)?.length;
-  return {
-    total,
-    up,
-    down,
-  };
-};
-const composeConditionData = (
-  eachDayData,
-  hasCondition1,
-  hasCondition2,
-  hasCondition3,
-  hasCondition6,
-  hasCondition4,
-  hasCondition5
-) => {
-  let condition1Data = eachDayData;
-  let condition2Data = eachDayData;
-  let condition3Data = eachDayData;
-  let condition4Data = eachDayData;
-  let condition5Data = eachDayData;
-  let condition6Data = eachDayData;
-  if (hasCondition1) {
-    condition1Data = eachDayData?.filter((i) => i.Condition1);
-  }
-  if (hasCondition2) {
-    condition2Data = eachDayData?.filter((i) => i.Condition2);
-  }
-  if (hasCondition3) {
-    condition3Data = eachDayData?.filter((i) => i.Condition3);
-  }
-  if (hasCondition6) {
-    condition6Data = eachDayData?.filter((i) => i.Condition6);
-  }
-  if (hasCondition4) {
-    condition4Data = eachDayData?.filter((i) => i.Condition4);
-  }
-  if (hasCondition5) {
-    condition5Data = eachDayData?.filter((i) => i.Condition5);
-  }
-  eachDayData = [
-    condition1Data,
-    condition2Data,
-    condition3Data,
-    condition6Data,
-    condition4Data,
-    condition5Data,
-  ].reduce((a, b) => a?.filter((c) => b.includes(c)));
-  const more100 = eachDayData?.filter((i) => i.maxPriceDiff > 100)?.length;
-  const form20to100 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 100 && i.maxPriceDiff > 20
-  )?.length;
-  const from0to20 = eachDayData?.filter(
-    (i) => i.maxPriceDiff <= 20 && i.maxPriceDiff > 0
-  )?.length;
-  const less0 = eachDayData?.filter((i) => i.maxPriceDiff <= 0)?.length;
-  return {
-    more100,
-    form20to100,
-    from0to20,
-    less0,
-  };
-};
 const removeBeforeData = (stockData, selectDateTab, dateArray, beforeDays) => {
   const beforeDaySymbols: any = [];
   const curDaySymbols = stockData[selectDateTab];
@@ -312,7 +230,7 @@ export const DataAlarmCom = (props) => {
       days = selectHorPriceDays + selectConsDays;
     }
     // +30 to remove duplicated
-    days = days + +beforeDays;
+    days = days + (+beforeDays > 60 ? +beforeDays : 60);
     const dateArr = pullWorkDaysArray(selectDate, 1 + +beforeDays);
     const showDateArr = pullWorkDaysArray(selectDate, 1);
     get(
@@ -346,19 +264,6 @@ export const DataAlarmCom = (props) => {
                 from
               );
               if (isTrue) {
-                if (caculatePriceBy) {
-                  if (isAverageDistribution(item, selectPriceMargin))
-                    lastStock.Condition1 = true;
-                } else {
-                  const startPrice = item[start].finalprice;
-                  const endPrice = item[end].finalprice;
-                  if (
-                    Math.abs((endPrice - startPrice) / startPrice) <
-                    selectPriceMargin / 100
-                  ) {
-                    lastStock.Condition1 = true;
-                  }
-                }
                 if (lastStock.finalprice < givenPrice) {
                   lastStock.Condition3 = true;
                 }
@@ -386,10 +291,6 @@ export const DataAlarmCom = (props) => {
                 selectConsDays
               );
               if (isTrue) {
-                if (caculatePriceBy) {
-                  if (isAverageDistribution(item, selectPriceMargin))
-                    lastStock.Condition1 = true;
-                }
                 if (lastStock.finalprice < givenPrice) {
                   lastStock.Condition3 = true;
                 }
@@ -425,22 +326,35 @@ export const DataAlarmCom = (props) => {
         const totayData = removeBeforeData(
           stockDataByDate,
           showDateArr[0],
-          dateArray,
+          dateArr,
           beforeDays
         );
-        let eachDayData = totayData;
-        let condition1Data = totayData;
-        let condition2Data = totayData;
-        let condition3Data = totayData;
-        let condition6Data = totayData;
-        let condition4Data = totayData;
-        let condition5Data = totayData;
-        if (hasCondition1) {
-          condition1Data = eachDayData?.filter((i) => i.Condition1);
-        }
-        if (hasCondition2) {
-          condition2Data = eachDayData?.filter((i) => i.Condition2);
-        }
+
+        const be60Data = before60Data(
+          stockDataByDate,
+          showDateArr[0],
+          dateArr,
+          60
+        );
+        const newStockDataToday = totayData?.map((i) => {
+          if (be60Data?.find((d) => d.symbol === i.symbol)?.is60First) {
+            return { ...i, is60First: true };
+          } else {
+            return { ...i };
+          }
+        });
+        console.log('=====', totayData);
+        let eachDayData = newStockDataToday;
+        let condition3Data = newStockDataToday;
+        let condition6Data = newStockDataToday;
+        let condition4Data = newStockDataToday;
+
+        // if (hasCondition1) {
+        //   condition1Data = eachDayData?.filter((i) => i.Condition1);
+        // }
+        // if (hasCondition2) {
+        //   condition2Data = eachDayData?.filter((i) => i.Condition2);
+        // }
         if (hasCondition3) {
           condition3Data = eachDayData?.filter((i) => i.Condition3);
         }
@@ -450,27 +364,52 @@ export const DataAlarmCom = (props) => {
         if (hasCondition4) {
           condition4Data = eachDayData?.filter((i) => i.Condition4);
         }
-        if (hasCondition5) {
-          condition5Data = eachDayData?.filter((i) => i.Condition5);
-        }
-        eachDayData = [
-          condition1Data,
-          condition2Data,
-          condition3Data,
-          condition4Data,
-          condition5Data,
-          condition6Data,
-        ].reduce((a, b) => a?.filter((c) => b.includes(c)));
+        // if (hasCondition5) {
+        //   condition5Data = eachDayData?.filter((i) => i.Condition5);
+        // }
+        eachDayData = [condition3Data, condition4Data, condition6Data].reduce(
+          (a, b) => a?.filter((c) => b.includes(c))
+        );
         allTypeStocks[from] = eachDayData;
+      });
+
+      const data400s = allTypeStocks['400s'];
+      const dataDR400s = allTypeStocks['dr_400s'];
+      const data100w = allTypeStocks['100w'];
+      const dataDR100w = allTypeStocks['dr_100w'];
+
+      const newData400s = data400s?.map((i) => {
+        const dr400s = dataDR400s?.map((s) => s.symbol).includes(i.symbol);
+        const _100w = data100w?.map((s) => s.symbol).includes(i.symbol);
+        const dr100w = dataDR100w?.map((s) => s.symbol).includes(i.symbol);
+        return { ...i, dr400s, _100w, dr100w, _400s: true };
+      });
+      const newDataDR400s = dataDR400s?.map((i) => {
+        const _400s = data400s?.map((s) => s.symbol).includes(i.symbol);
+        const _100w = data100w?.map((s) => s.symbol).includes(i.symbol);
+        const dr100w = dataDR100w?.map((s) => s.symbol).includes(i.symbol);
+        return { ...i, _400s, _100w, dr100w, dr400s: true };
+      });
+      const newData100w = data100w?.map((i) => {
+        const dr400s = dataDR400s?.map((s) => s.symbol).includes(i.symbol);
+        const _400s = data400s?.map((s) => s.symbol).includes(i.symbol);
+        const dr100w = dataDR100w?.map((s) => s.symbol).includes(i.symbol);
+        return { ...i, dr400s, _400s, dr100w, _100w: true };
+      });
+      const newDataDR100w = dataDR100w?.map((i) => {
+        const dr400s = dataDR400s?.map((s) => s.symbol).includes(i.symbol);
+        const _100w = data100w?.map((s) => s.symbol).includes(i.symbol);
+        const _400s = data400s?.map((s) => s.symbol).includes(i.symbol);
+        return { ...i, dr400s, _100w, _400s, dr100w: true };
       });
 
       setDateArray(dateArr);
       setShowDateArray(showDateArr);
       // setStockData(stockDataByDate);
-      setData400s(allTypeStocks['400s']);
-      setData400dr(allTypeStocks['dr_400s']);
-      setData100w(allTypeStocks['100w']);
-      setData100dr(allTypeStocks['dr_100w']);
+      setData400s(newData400s);
+      setData400dr(newDataDR400s);
+      setData100w(newData100w);
+      setData100dr(newDataDR100w);
       setSelectDateTab(showDateArr[0]);
       setIsLoading(false);
     });
@@ -823,15 +762,10 @@ export const DataAlarmCom = (props) => {
     return [];
   }, [showDateArray]);
 
-  // useEffect(() => {
-  //   if (stockData && selectDateTab) {
-  //     stockData[selectDateTab] = removeBeforeData(
-  //       stockData,
-  //       selectDateTab,
-  //       dateArray,
-  //       beforeDays
-  //     );
-  //   }
+  useEffect(() => {
+    if (stockData && selectDateTab) {
+    }
+  });
   //   if (stockData && selectDateTab) {
   //     setData(stockData[selectDateTab]);
   //     const more100 = stockData[selectDateTab]?.filter(
@@ -1191,6 +1125,26 @@ export const DataAlarmCom = (props) => {
       },
     },
     {
+      title: '出现次数',
+      width: '10%',
+      dataIndex: '_400s',
+      key: '_400s',
+      render: (text, record) => {
+        const has400s = record?._400s;
+        const hasDr400s = record?.dr400s;
+        const has100w = record?._100w;
+        const hasDr100w = record?.dr100w;
+        return (
+          <>
+            {has400s && <div>400s</div>}
+            {hasDr400s && <div>DR 400s</div>}
+            {has100w && <div>100w</div>}
+            {hasDr100w && <div>DR 100w</div>}
+          </>
+        );
+      },
+    },
+    {
       title: '左斜率',
       dataIndex: 'kBefore40',
       key: 'kBefore40',
@@ -1313,7 +1267,7 @@ export const DataAlarmCom = (props) => {
               )} */}
             </Space>
           </div>
-          <div style={{ marginTop: '10px' }}>
+          {/* <div style={{ marginTop: '10px' }}>
             <Space
               style={{
                 padding: '10px',
@@ -1441,7 +1395,7 @@ export const DataAlarmCom = (props) => {
               </Select>{' '}
               days
             </Space>
-          </div>
+          </div> */}
           <div style={{ marginTop: '10px' }}>
             <Space
               style={{
