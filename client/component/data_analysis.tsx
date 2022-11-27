@@ -2,7 +2,8 @@ import { useCallback, useState, useMemo, useEffect } from 'react';
 import './alarm.css';
 import DATE from './date.json';
 import React from 'react';
-import { CheckCircleTwoTone } from '@ant-design/icons';
+import ExportJsonExcel from 'js-export-excel';
+import { CheckCircleTwoTone, ConsoleSqlOutlined } from '@ant-design/icons';
 import {
   Button,
   Tooltip,
@@ -30,7 +31,7 @@ import {
   validateTotal,
   workdays,
 } from './alarm';
-import { groupBy, uniq, uniqBy } from 'lodash';
+import { groupBy, uniq, uniqBy, orderBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
@@ -39,6 +40,57 @@ import {
 } from './myFocus';
 import { composedQuery, getBeforeOneDate, SELECT_COLOR } from './new_alarm';
 import FormItem from 'antd/lib/form/FormItem';
+
+export const formatFileContent = (
+  data,
+  selectConsDays,
+  selectConsAllDays,
+  hasCondition3,
+  hasCondition4,
+  hasCondition6
+) => {
+  const optionData: any = {};
+  const firstDate = Object.keys(data)?.[0];
+  const lastDate = Object.keys(data)?.[Object.keys(data)?.length - 1];
+  optionData.fileName = `From_${firstDate}_to_${lastDate}_${selectConsDays}_in_${selectConsAllDays}_${
+    hasCondition3 ? 'condition3' : ''
+  }_${hasCondition4 ? 'condition4' : ''}_${hasCondition6 ? 'condition6' : ''}`;
+  const contentData: any = [];
+  Object.keys(data).forEach((i) => {
+    const dailyStocks = data[i];
+    const daily: any = [];
+    dailyStocks.forEach((s) => {
+      daily.push({
+        股票代码: s.symbol,
+        股票名字: s.name,
+        报警日期: s.datestr,
+        报警价格: s.finalprice,
+        最高价格: s.maxPrice,
+        最高涨幅百分比: +s.maxPriceDiff,
+        最高距报警天数: s.maxPriceDay,
+      });
+    });
+    const sortDaily = orderBy(daily, '最高涨幅百分比', 'desc');
+    contentData.push(...sortDaily);
+  });
+  const contentHeader = [
+    '股票代码',
+    '股票名字',
+    '报警日期',
+    '报警价格',
+    '最高价格',
+    '最高涨幅百分比',
+    '最高距报警天数',
+  ];
+  optionData.datas = [
+    {
+      sheetData: contentData,
+      sheetHeader: contentHeader,
+    },
+  ];
+  const toExcel = new ExportJsonExcel(optionData);
+  toExcel.saveExcel();
+};
 
 export const filterByCondition25 = (
   priceData,
@@ -319,6 +371,7 @@ export const DataAnalysisCom = (props) => {
   const month = curDate.getMonth() + 1;
   const day = curDate.getDate();
   const dateFormat = 'YYYY-MM-DD';
+  const [allDaysStockData, setAllDaysStockData] = useState<any>({});
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
@@ -1004,6 +1057,7 @@ export const DataAnalysisCom = (props) => {
       });
       setAllDayStocks(uniqBy(allDaysStocksArray, 'symbol'));
       setCompareData([compareData, conditionData]);
+      setAllDaysStockData(allDayStocks);
     }
   }, [
     stockData,
@@ -1028,6 +1082,24 @@ export const DataAnalysisCom = (props) => {
       { method: 'GET' }
     ).then((res) => res.json());
   }, []);
+
+  const exportFile = useCallback(() => {
+    formatFileContent(
+      allDaysStockData,
+      selectConsDays,
+      selectConsAllDays,
+      hasCondition3,
+      hasCondition4,
+      hasCondition6
+    );
+  }, [
+    allDaysStockData,
+    selectConsDays,
+    selectConsAllDays,
+    hasCondition3,
+    hasCondition4,
+    hasCondition6,
+  ]);
 
   const columns: any = [
     {
@@ -1720,6 +1792,9 @@ export const DataAnalysisCom = (props) => {
               </div>
               <Button type="primary" onClick={() => setIsModalVisible(true)}>
                 Export
+              </Button>{' '}
+              <Button type="primary" onClick={() => exportFile()}>
+                Export File
               </Button>
               <p>
                 第一次出现 黑色，
