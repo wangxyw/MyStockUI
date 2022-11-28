@@ -1537,7 +1537,7 @@ export const DataAlarmCom = (props) => {
               </p>
               <h1>400s:</h1>
               <Table
-                pagination={{ defaultPageSize: 20 }}
+                pagination={{ defaultPageSize: 100 }}
                 columns={columns}
                 dataSource={data400s}
                 rowClassName={(record: any) => {
@@ -1552,7 +1552,7 @@ export const DataAlarmCom = (props) => {
               />
               <h1>100w:</h1>
               <Table
-                pagination={{ defaultPageSize: 20 }}
+                pagination={{ defaultPageSize: 100 }}
                 columns={columns}
                 dataSource={data100w}
                 rowClassName={(record: any) => {
@@ -1567,7 +1567,7 @@ export const DataAlarmCom = (props) => {
               />
               <h1>400sDR:</h1>
               <Table
-                pagination={{ defaultPageSize: 20 }}
+                pagination={{ defaultPageSize: 100 }}
                 columns={columns}
                 dataSource={data400dr}
                 rowClassName={(record: any) => {
@@ -1582,7 +1582,7 @@ export const DataAlarmCom = (props) => {
               />
               <h1>100wDR:</h1>
               <Table
-                pagination={{ defaultPageSize: 20 }}
+                pagination={{ defaultPageSize: 100 }}
                 columns={columns}
                 dataSource={data100dr}
                 rowClassName={(record: any) => {
