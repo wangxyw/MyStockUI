@@ -456,7 +456,7 @@ router.get('/all_alarm_data_with_plates', function (req, res, next) {
     sql = `select s.symbol, s.status_${from100.replace(
       'dr_',
       ''
-    )} as status, s.datestr, j.platename, j.platecode, j.btype from stock_big_data_dr s left join (select symbol,group_concat(b.business_type) as btype, group_concat(b.name) as platename, group_concat(b.code) as platecode from sw_stock_business a join business b on a.business_code = b.code where b.business_type in ('${type}') group by symbol) j on s.symbol = j.symbol join stock_day_common_data d on s.symbol = d.symbol and s.datestr= d.datestr where s.datestr > '${datestr}' and s.datestr <= '${endDateStr}' and d.name not like "%ST%";`;
+    )} as status, s.datestr, j.platename, j.platecode, j.btype, d.name from stock_big_data_dr s left join (select symbol,group_concat(b.business_type) as btype, group_concat(b.name) as platename, group_concat(b.code) as platecode from sw_stock_business a join business b on a.business_code = b.code where b.business_type in ('${type}') group by symbol) j on s.symbol = j.symbol join stock_day_common_data d on s.symbol = d.symbol and s.datestr= d.datestr where s.datestr > '${datestr}' and s.datestr <= '${endDateStr}' and d.name not like "%ST%";`;
   }
   console.log(sql);
   pool.query(sql, function (err, rows, fields) {
