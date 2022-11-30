@@ -15,7 +15,7 @@ import {
   Tag,
 } from 'antd';
 import moment from 'moment';
-import { get } from '../lib/request';
+import { get, post } from '../lib/request';
 import {
   caculateDate,
   isAverageDistribution,
@@ -28,6 +28,7 @@ import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
 import { basename } from 'path';
+import { ConsoleSqlOutlined } from '@ant-design/icons';
 
 const hangyeMap = [
   { value: 'sinahy', name: '新浪行业' },
@@ -289,10 +290,11 @@ export const DAPlatesCom = () => {
   const [selectDate, setSelectDate] = useState(
     moment(`${year}-${month}-${day}`).format(dateFormat)
   );
+  const [focusStocks, setFocusStocks] = useState<any>();
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [caculatePriceBy, setCaculatePriceBy] = useState(false);
   const [option, setOption] = useState<any>({});
-  const [from100, setFrom100] = useState<boolean>(false);
+  const [from100, setFrom100] = useState<string>('400s');
   const [curPlate, setCurPlate] = useState<any>('');
   const [curStocks, setCurStocks] = useState<any>([]);
   const [curStockDate, setCurStockDate] = useState<any>('');
@@ -300,6 +302,8 @@ export const DAPlatesCom = () => {
   const [weighingOption, setWeighingOption] = useState<any>({});
   const [selectHangye, setSelectHangye] = useState<any>('sw1_hy');
   const [plateCount, setPlateCount] = useState<any>([]);
+  const [focusStock, setFocusStock] = useState<any>([]);
+
   const composeData = (data) => {
     return Object.keys(data).map((date) => {
       const stocks = data[date];
@@ -363,6 +367,9 @@ export const DAPlatesCom = () => {
     get(`/api/all_plates_count`, { method: 'GET' }).then((res) => {
       setPlateCount(res);
     });
+    get(`/api/all_da_focus`, { method: 'GET' }).then((res) => {
+      setFocusStock(res);
+    });
   }, []);
 
   const runAnalysis = () => {
@@ -425,7 +432,6 @@ export const DAPlatesCom = () => {
         [t.fifthLabel]: 2,
         [t.sixthLabel]: 1,
       }));
-      console.log(weighing);
 
       const weighingMap: any = {};
       weighing.forEach((i) => {
@@ -450,12 +456,24 @@ export const DAPlatesCom = () => {
     click: (e) => {
       const sts: any = [];
       tableData?.forEach((d) => {
-        console.log('=====', d);
         ['first', 'second', 'third', 'forth', 'fifth', 'sixth'].forEach((l) => {
           if (d?.[`${l}Label`] === e.name) {
             sts.push(...(d?.[`${l}Stocks`] ?? []));
           }
         });
+      });
+      const symbols = focusStock?.map((i) => i.symbol);
+      const newSts = sts?.map((i) => {
+        if (symbols.includes(i.symbol)) {
+          return { ...i, isFocused: true };
+        } else {
+          return i;
+        }
+      });
+      post(`/api/all_plates_in_da_focus`, {
+        body: JSON.stringify({ bName: e.name, hName: selectHangye }),
+      }).then((res) => {
+        setFocusStocks(res);
       });
       //const plate = tableData?.find((i) => i.datestr === e.name);
       //const stocks = pStocks(plate, e?.seriesIndex);
@@ -468,8 +486,9 @@ export const DAPlatesCom = () => {
       //     )?.length,
       //   };
       // });
+
       setCurPlate(e?.name);
-      setCurStocks(uniqBy(sts, 'symbol'));
+      setCurStocks(uniqBy(newSts, 'symbol'));
       //setCurStockDate(plate?.datestr);
       //setCurPlateByDate(dateOptions(plateByDate));
     },
@@ -635,14 +654,21 @@ export const DAPlatesCom = () => {
                 format={dateFormat}
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
-              <Switch
-                unCheckedChildren="Not100"
-                checkedChildren="From100"
-                style={{ margin: '0 10px' }}
-                // defaultChecked
-                checked={from100}
-                onChange={setFrom100}
-              ></Switch>
+              <Select
+                style={{ width: '80px' }}
+                value={from100}
+                onChange={(v) => {
+                  setFrom100(v);
+                  setWeighingOption({});
+                }}
+                size="small"
+              >
+                {['400s', '100w', 'dr_400s', 'dr_100w'].map((i) => (
+                  <Select.Option key={i} value={i}>
+                    {i}
+                  </Select.Option>
+                ))}
+              </Select>
             </Space>
           </div>
         </div>
@@ -695,18 +721,57 @@ export const DAPlatesCom = () => {
               所选板块： <Tag color="red">{curPlate}</Tag>, 所选日期：
               {curStockDate} 所有股票： {curStocks?.length}
               {curStocks &&
-                curStocks?.map((i) => (
-                  <Tag color="blue">
-                    <a
-                      target="_blank"
-                      href={`https://quote.eastmoney.com/${i.symbol}.html`}
-                    >
-                      {' '}
-                      {i?.symbol}
-                      {i?.name}
-                    </a>
-                  </Tag>
-                ))}
+                curStocks?.map((i) => {
+                  if (i.isFocused) {
+                    return (
+                      <>
+                        <Tag color="red">
+                          <a
+                            target="_blank"
+                            href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                          >
+                            {' '}
+                            {'*'}
+                            {i?.symbol}
+                            {i?.name}
+                          </a>
+                        </Tag>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <Tag color="blue">
+                        <a
+                          target="_blank"
+                          href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                        >
+                          {' '}
+                          {i?.symbol}
+                          {i?.name}
+                        </a>
+                      </Tag>
+                    );
+                  }
+                })}
+              {focusStocks && (
+                <div style={{ margin: '20px 0' }}>
+                  Focused:
+                  {focusStocks?.map((s) => (
+                    <>
+                      <Tag color="#74676e">
+                        <a
+                          target="_blank"
+                          href={`https://quote.eastmoney.com/${s.symbol}.html`}
+                        >
+                          {' '}
+                          {s?.symbol}
+                          {s?.name}
+                        </a>
+                      </Tag>
+                    </>
+                  ))}
+                </div>
+              )}
             </>
           )}
           {/* {curPlateByDate && (

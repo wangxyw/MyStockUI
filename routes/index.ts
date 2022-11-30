@@ -318,6 +318,17 @@ router.get('/all_da_focus', function (req, res, next) {
   });
 });
 
+router.post('/all_plates_in_da_focus', function (req, res, next) {
+  const bName = req.body.bName;
+  const hName = req.body.hName;
+  const sql = `select focus_da.symbol, stocks.name from focus_da join sw_stock_business sw on focus_da.symbol=sw.symbol join stocks on focus_da.symbol=stocks.symbol join business b on b.code= sw.business_code where b.name='${bName}' and b.business_type='${hName}' and focus_da.deleted='0';`;
+  console.log('ssjsj', sql);
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/get_focus_stock_price', function (req, res, next) {
   const symbols = req.query.stocks;
   const endDate = req.query.datestr;
@@ -433,9 +444,21 @@ router.get('/all_alarm_data_with_plates', function (req, res, next) {
   const from100 = req.query.from100;
   const type = req.query.bz_type ?? 'sw1_hy';
   let table = 'stock_big_data';
-  if (from100 === 'true') table = 'stock_big_data_100';
+  if (from100 === '400s') table = 'stock_big_data';
+  if (from100 === '100w') table = 'stock_big_data_100';
+  if (from100 === 'dr_400s' || from100 === 'dr_100w')
+    table = 'stock_big_data_dr';
   //let sql = `select * from ${table} a left join (SELECT distinct(a.symbol), group_concat(a.code), group_concat(a.name) as platename FROM plate a join focus_plate b on a.code = b.code where b.focus = 1 group by a.symbol) joinT on a.symbol=joinT.symbol where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%";`;
-  let sql = `select * from ${table} s left join (select symbol,group_concat(b.business_type), group_concat(b.name) as platename, group_concat(b.code) as platecode  from sw_stock_business a join business b on a.business_code = b.code where b.business_type in ('${type}') group by symbol) j on s.symbol = j.symbol where s.datestr > '${datestr}' and s.datestr <= '${endDateStr}' and s.name not like "%ST%";`;
+  let sql = '';
+  if (from100 === '400s' || from100 === '100w') {
+    sql = `select * from ${table} s left join (select symbol,group_concat(b.business_type), group_concat(b.name) as platename, group_concat(b.code) as platecode  from sw_stock_business a join business b on a.business_code = b.code where b.business_type in ('${type}') group by symbol) j on s.symbol = j.symbol where s.datestr > '${datestr}' and s.datestr <= '${endDateStr}' and s.name not like "%ST%";`;
+  } else if (from100 === 'dr_400s' || from100 === 'dr_100w') {
+    sql = `select s.symbol, s.status_${from100.replace(
+      'dr_',
+      ''
+    )} as status, s.datestr, j.platename, j.platecode, j.btype from stock_big_data_dr s left join (select symbol,group_concat(b.business_type) as btype, group_concat(b.name) as platename, group_concat(b.code) as platecode from sw_stock_business a join business b on a.business_code = b.code where b.business_type in ('${type}') group by symbol) j on s.symbol = j.symbol join stock_day_common_data d on s.symbol = d.symbol and s.datestr= d.datestr where s.datestr > '${datestr}' and s.datestr <= '${endDateStr}' and d.name not like "%ST%";`;
+  }
+  console.log(sql);
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
