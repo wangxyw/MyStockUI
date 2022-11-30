@@ -30,7 +30,7 @@ import {
   validateTotal,
   workdays,
 } from './alarm';
-import { groupBy, uniq, uniqBy } from 'lodash';
+import { groupBy, uniq, uniqBy, orderBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
@@ -39,37 +39,40 @@ import {
 } from './myFocus';
 import { composedQuery, getBeforeOneDate, SELECT_COLOR } from './new_alarm';
 import FormItem from 'antd/lib/form/FormItem';
+import ExportJsonExcel from 'js-export-excel';
 
-export const filterByCondition25 = (
-  priceData,
-  stocks,
-  price,
-  hasCondition2,
-  hasCondition5
+export const formatFileContent = (
+  data,
+  selectConsDays,
+  selectConsAllDays,
+  hasCondition3,
+  hasCondition4,
+  hasCondition6,
+  today
 ) => {
-  const newStocks = stocks?.map((item) => {
-    const pData = priceData?.filter((i) => i.symbol === item.symbol);
+  const optionData: any = {};
 
-    if (hasCondition2 && pData?.length > 0) {
-      const { minPrice } = caculateMinPrice(pData);
-      let curPrice = item?.finalprice;
-      if (!curPrice) {
-        curPrice = priceData[priceData?.length - 2]?.finalprice;
-      }
-      if ((curPrice - minPrice) / minPrice < price / 100) {
-        item.Condition2 = true;
-      }
-    }
-    if (hasCondition5 && pData?.length > 0) {
-      const { minPrice } = caculateMinPrice(pData);
-      const { maxPrice } = caculateMaxPrice(pData);
-      if ((maxPrice - minPrice) / minPrice < price / 100) {
-        item.Condition5 = true;
-      }
-    }
-    return { ...item };
+  optionData.fileName = `${today}_${selectConsDays}_in_${selectConsAllDays}_${
+    hasCondition3 ? 'condition3' : ''
+  }_${hasCondition4 ? 'condition4' : ''}_${hasCondition6 ? 'condition6' : ''}`;
+  const daily: any = [];
+  data.forEach((s) => {
+    daily.push({
+      股票代码: s.symbol,
+      股票名字: s.name,
+      报警日期: s.datestr,
+      报警价格: s.finalprice,
+    });
   });
-  return newStocks;
+  const contentHeader = ['股票代码', '股票名字', '报警日期', '报警价格'];
+  optionData.datas = [
+    {
+      sheetData: daily,
+      sheetHeader: contentHeader,
+    },
+  ];
+  const toExcel = new ExportJsonExcel(optionData);
+  toExcel.saveExcel();
 };
 
 export const pullWorkDaysArray = (date, days) => {
@@ -761,11 +764,6 @@ export const DataAlarmCom = (props) => {
     }
     return [];
   }, [showDateArray]);
-
-  useEffect(() => {
-    if (stockData && selectDateTab) {
-    }
-  });
   //   if (stockData && selectDateTab) {
   //     setData(stockData[selectDateTab]);
   //     const more100 = stockData[selectDateTab]?.filter(
@@ -972,6 +970,34 @@ export const DataAlarmCom = (props) => {
   //   hasCondition5,
   //   beforeDays,
   // ]);
+
+  const exportFile = useCallback(() => {
+    formatFileContent(
+      [
+        ...(data400s ?? []),
+        ...(data100w ?? []),
+        ...(data100dr ?? []),
+        ...(data400dr ?? []),
+      ],
+      selectConsDays,
+      selectConsAllDays,
+      hasCondition3,
+      hasCondition4,
+      hasCondition6,
+      today
+    );
+  }, [
+    data400s,
+    data100w,
+    data100dr,
+    data400dr,
+    selectConsDays,
+    selectConsAllDays,
+    hasCondition3,
+    hasCondition4,
+    hasCondition6,
+    today,
+  ]);
 
   const addDAFocus = useCallback((record, isAdded) => {
     fetch(
@@ -1522,11 +1548,15 @@ export const DataAlarmCom = (props) => {
             </Space>
           </div>
         </div>
+
         <Spin spinning={isLoading} tip="Loading and caculating...">
           {isSetCondition && data && (
             <div>
-              <Button type="primary" onClick={() => setIsModalVisible(true)}>
-                Export
+              {/* <Button type="primary" onClick={() => setIsModalVisible(true)}>
+                Export 
+              </Button> */}
+              <Button type="primary" onClick={() => exportFile()}>
+                Export File
               </Button>
               <p>
                 第一次出现 黑色，
