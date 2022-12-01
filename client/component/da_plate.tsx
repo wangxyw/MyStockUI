@@ -11,14 +11,12 @@ import {
   Switch,
   Button,
   Table,
-  Checkbox,
   Tag,
 } from 'antd';
 import moment from 'moment';
 import { get, post } from '../lib/request';
 import {
   caculateDate,
-  isAverageDistribution,
   today,
   validateCons,
   validateTotal,
@@ -27,8 +25,6 @@ import {
 import { groupBy, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import { getBeforeOneDate } from './new_alarm';
-import { basename } from 'path';
-import { ConsoleSqlOutlined } from '@ant-design/icons';
 
 const hangyeMap = [
   { value: 'sinahy', name: '新浪行业' },
@@ -473,7 +469,16 @@ export const DAPlatesCom = () => {
       post(`/api/all_plates_in_da_focus`, {
         body: JSON.stringify({ bName: e.name, hName: selectHangye }),
       }).then((res) => {
-        setFocusStocks(res);
+        const focusedSymbols = newSts
+          ?.filter((i) => i.isFocused)
+          ?.map((i) => i.symbol);
+        console.log('=====', focusedSymbols, res);
+        setFocusStocks(
+          uniqBy(
+            res?.filter((i) => !focusedSymbols.includes(i.symbol)),
+            'symbol'
+          )
+        );
       });
       //const plate = tableData?.find((i) => i.datestr === e.name);
       //const stocks = pStocks(plate, e?.seriesIndex);
