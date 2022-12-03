@@ -132,6 +132,7 @@ export const DAFocusListComponent = () => {
   const [alarmType2, setAlarmType2] = useState<any>([]);
   const [alarmType3, setAlarmType3] = useState<any>([]);
   const [alarmType4, setAlarmType4] = useState<any>([]);
+  const [moretimeStocks, setMoretimeStocks] = useState<any>([]);
   // const [alarmType5, setAlarmType5] = useState<any>([]);
   const [selectHorPriceMargin, setSelectHorPriceMargin] = useState(10);
   const [selectHorPriceDays, setSelectHorPriceDays] = useState(30);
@@ -917,6 +918,7 @@ export const DAFocusListComponent = () => {
         // ?.filter((i) => !i.added)
         ?.map((i) => `'${i.symbol}'`)
         .join(',');
+
       const priceData = await getAllStocksPrice(symbols, simulateDate);
       const priceDataGroupByStock = groupBy(priceData, 'symbol');
       let alarmType1: any = [];
@@ -924,6 +926,15 @@ export const DAFocusListComponent = () => {
       let alarmType2: any = [];
       let alarmType4: any = [];
       let alarmType5: any = [];
+      let moretimesStocks: any = [];
+
+      const groupByData = groupBy(data, 'symbol');
+      Object.keys(groupByData).forEach((g) => {
+        if (groupByData[g].length > 1) {
+          moretimesStocks.push(groupByData[g][0]);
+        }
+      });
+      console.log('====', moretimesStocks);
       // Object.keys(priceDataGroupByStock)?.forEach((i) => {
       //   const recordData = data?.find((e) => e.symbol === i);
       //   const recordDate = recordData?.datestr;
@@ -1043,6 +1054,7 @@ export const DAFocusListComponent = () => {
       setAlarmType2(alarmType2);
       setAlarmType3(alarmType3);
       setAlarmType4(alarmType4);
+      setMoretimeStocks(moretimesStocks);
       //setAlarmType5(alarmType5);
     }
   };
@@ -1074,6 +1086,7 @@ export const DAFocusListComponent = () => {
     c: '推荐删除',
     d: ' 推荐关注 （当前值 = 最小值）从加入那天起',
     e: '推荐关注 （当前值 = 最小值）从多少天以前起：',
+    f: '出现多次',
   };
 
   const filterInAlarm = (ids) => {
@@ -1461,7 +1474,8 @@ export const DAFocusListComponent = () => {
       {(alarmType1?.length > 0 ||
         alarmType2?.length > 0 ||
         alarmType3?.length > 0 ||
-        alarmType4?.length > 0) && (
+        alarmType4?.length > 0 ||
+        moretimeStocks?.length > 0) && (
         <div
           style={{
             display: 'flex',
@@ -1585,6 +1599,35 @@ export const DAFocusListComponent = () => {
             </Button>
             <br />
             {orderBy(alarmType3, 'datestr', 'desc')?.map((i) => (
+              <Tag className="stock-tag">
+                <a
+                  target="_blank"
+                  href={`https://quote.eastmoney.com/${i.symbol}.html`}
+                >
+                  {`${i.symbol}_${i.name}_${i.datestr}`}
+                </a>
+              </Tag>
+            ))}
+          </div>
+          <div
+            style={{
+              border: '2px solid #f33875',
+              padding: '10px',
+              marginBottom: '10px',
+              backgroundColor: '#f4f469',
+            }}
+          >
+            加入多次：
+            <Button
+              onClick={() => {
+                filterInAlarm(moretimeStocks?.map((i) => i.symbol));
+                setCurrentAlarmList('f');
+              }}
+            >
+              Filter in List
+            </Button>
+            <br />
+            {orderBy(moretimeStocks, 'datestr', 'desc')?.map((i) => (
               <Tag className="stock-tag">
                 <a
                   target="_blank"
