@@ -321,8 +321,8 @@ router.get('/all_da_focus', function (req, res, next) {
 router.post('/all_plates_in_da_focus', function (req, res, next) {
   const bName = req.body.bName;
   const hName = req.body.hName;
-  const sql = `select focus_da.symbol, stocks.name from focus_da join sw_stock_business sw on focus_da.symbol=sw.symbol join stocks on focus_da.symbol=stocks.symbol join business b on b.code= sw.business_code where b.name='${bName}' and b.business_type='${hName}' and focus_da.deleted='0';`;
-  console.log('ssjsj', sql);
+  const date = req.body.date;
+  const sql = `select focus_da.symbol, stocks.name, focus_da.datestr from focus_da join sw_stock_business sw on focus_da.symbol=sw.symbol join stocks on focus_da.symbol=stocks.symbol join business b on b.code= sw.business_code where b.name='${bName}' and b.business_type='${hName}' and focus_da.deleted='0' and focus_da.datestr <= '${date}';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
