@@ -461,24 +461,51 @@ export const DAPlatesCom = () => {
       const symbols = focusStock?.map((i) => i.symbol);
       const newSts = sts?.map((i) => {
         if (symbols.includes(i.symbol)) {
-          return { ...i, isFocused: true };
+          const s = focusStock?.filter((f) => f.symbol === i.symbol);
+          if (s?.length > 1) {
+            return {
+              ...i,
+              isFocused: true,
+              datestr: s.map((r) => r.datestr)?.join('_'),
+            };
+          } else {
+            return { ...i, isFocused: true };
+          }
         } else {
           return i;
         }
       });
       post(`/api/all_plates_in_da_focus`, {
-        body: JSON.stringify({ bName: e.name, hName: selectHangye }),
+        body: JSON.stringify({
+          bName: e.name,
+          hName: selectHangye,
+          date: selectDate,
+        }),
       }).then((res) => {
         const focusedSymbols = newSts
           ?.filter((i) => i.isFocused)
           ?.map((i) => i.symbol);
         console.log('=====', focusedSymbols, res);
-        setFocusStocks(
-          uniqBy(
-            res?.filter((i) => !focusedSymbols.includes(i.symbol)),
-            'symbol'
-          )
+
+        const focusStocks = res?.filter(
+          (i) => !focusedSymbols.includes(i.symbol)
         );
+
+        const groupByFocus = groupBy(focusStocks, 'symbol');
+        const stocks = Object.keys(groupByFocus)?.map((g) => {
+          if (groupByFocus[g].length > 1) {
+            return {
+              name: groupByFocus[g][0]?.name,
+              symbol: groupByFocus[g][0]?.symbol,
+              datestr: groupByFocus[g].map((m) => m.datestr).join('_'),
+              isTwo: true,
+            };
+          } else {
+            return { ...groupByFocus[g][0], isTwo: false };
+          }
+        });
+
+        setFocusStocks(stocks);
       });
       //const plate = tableData?.find((i) => i.datestr === e.name);
       //const stocks = pStocks(plate, e?.seriesIndex);
@@ -739,6 +766,7 @@ export const DAPlatesCom = () => {
                             {'*'}
                             {i?.symbol}
                             {i?.name}
+                            {i?.datestr ? i.datestr : ''}
                           </a>
                         </Tag>
                       </>
@@ -763,7 +791,7 @@ export const DAPlatesCom = () => {
                   Focused:
                   {focusStocks?.map((s) => (
                     <>
-                      <Tag color="#74676e">
+                      <Tag color={`${s?.isTwo ? 'red' : 'blue'}`}>
                         <a
                           target="_blank"
                           href={`https://quote.eastmoney.com/${s.symbol}.html`}
@@ -771,6 +799,7 @@ export const DAPlatesCom = () => {
                           {' '}
                           {s?.symbol}
                           {s?.name}
+                          {s?.datestr}
                         </a>
                       </Tag>
                     </>
