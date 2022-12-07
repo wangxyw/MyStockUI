@@ -9,6 +9,7 @@ import { DAFocusListComponent } from './component/da_focus';
 import { DAPlatesCom } from './component/da_plate';
 import { TotalDataCom } from './component/data_total';
 import { DataAlarmCom } from './component/data_analysis_alarm';
+import { CriticalStocksComponent } from './component/critical_stocks';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_ALARM_100 = 'alarm100';
@@ -19,6 +20,7 @@ const MENU_DA_FOCUS = 'da_focus';
 const MENU_DA_PLATE = 'da_plate';
 const MENU_DA_TOTAL = 'da_total';
 const MENU_DA_ALARM = 'da_alarm';
+const MENU_CRI_STOCK = 'cri_stocks';
 export const MENU_DA_DR = 'da_dr';
 
 function getInitPath() {
@@ -38,6 +40,7 @@ function getInitPath() {
         MENU_DA_DR,
         MENU_DA_TOTAL,
         MENU_DA_ALARM,
+        MENU_CRI_STOCK,
       ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
@@ -76,7 +79,7 @@ const App = (): JSX.Element => {
           <Link to="/data_analysis">Data Analysis</Link>
         </Menu.Item>
         <Menu.Item key={MENU_DA_ALARM}>
-          <Link to="/da_alarm">DA TODAY ALARM</Link>
+          <Link to="/da_alarm">DA Tody Alarm</Link>
         </Menu.Item>
         <Menu.Item key={MENU_DA_FOCUS}>
           <Link to="/da_focus">DA Focus</Link>
@@ -91,7 +94,10 @@ const App = (): JSX.Element => {
           <Link to="/da_dr">DA DR</Link>
         </Menu.Item>
         <Menu.Item key={MENU_DA_TOTAL}>
-          <Link to="/da_total">DA TOTAL</Link>
+          <Link to="/da_total">DA Total</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_CRI_STOCK}>
+          <Link to="/cri_stocks">Critical Stocks</Link>
         </Menu.Item>
       </Menu>
       <Switch>
@@ -121,6 +127,9 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/da_alarm">
           <DataAlarmCom isDR={false} />
+        </Route>
+        <Route path="/cri_stocks">
+          <CriticalStocksComponent />
         </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />

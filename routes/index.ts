@@ -6,6 +6,7 @@ import {
   filterByCondition5,
 } from './biz';
 import { caculateDate } from './utils';
+import { isEmpty } from 'lodash';
 var express = require('express');
 var router = express.Router();
 const YAML = require('yamljs');
@@ -398,6 +399,22 @@ router.get('/all_alarm_data', function (req, res, next) {
   }
   if (symbols) {
     sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol in (${symbols})`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/critical_data', function (req, res, next) {
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  const from = req.query.from;
+  const stock = req.query.stock;
+
+  let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where end_date > '${startDateStr}' and end_date < '${endDateStr}' and source = '${from}';`;
+  if (!isEmpty(stock) && stock !== 'undefined') {
+    sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where end_date > '${startDateStr}' and end_date < '${endDateStr}' and a.symbol = '${stock}';`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;

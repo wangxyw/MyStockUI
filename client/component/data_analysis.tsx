@@ -512,7 +512,7 @@ export const DataAnalysisCom = (props) => {
                 givenMinCirculation
                   ? lastStock.marketvalue / lastStock.finalprice <
                       givenCirculation &&
-                    lastStock.marketvalue / lastStock.finalprice <
+                    lastStock.marketvalue / lastStock.finalprice >
                       givenMinCirculation
                   : lastStock.marketvalue / lastStock.finalprice <
                     givenCirculation
