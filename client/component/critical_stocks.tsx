@@ -3,38 +3,23 @@ import {
   DatePicker,
   Input,
   InputNumber,
-  message,
-  Modal,
-  Popconfirm,
   Select,
   Space,
-  Switch,
   Table,
   Tag,
 } from 'antd';
-import Icon, {
-  CheckCircleOutlined,
-  ConsoleSqlOutlined,
-} from '@ant-design/icons';
 
-import { CheckCircleTwoTone } from '@ant-design/icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { caculateAfterDate, caculateDate, validateCons } from './alarm';
-import { groupBy, orderBy, cloneDeep } from 'lodash';
-import ReactEcharts from 'echarts-for-react';
-import {
-  caculateMaxPrice,
-  caculateMinPrice,
-  caculatePriceData,
-} from './myFocus';
+import { caculateDate } from './alarm';
 import moment from 'moment';
-import { getBeforeOneDate, validateStock } from './new_alarm';
 import './alarm.css';
 import DATA from './date.json';
-import { pullWorkDaysArray, pullWorkDaysArrayAfter } from './data_analysis';
-import { start } from 'repl';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  ConsoleSqlOutlined,
+} from '@ant-design/icons';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -52,8 +37,17 @@ async function getAllCriStocks(
   const stockData = await get(
     `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}`
   );
-
-  return stockData;
+  const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
+    body: JSON.stringify({
+      stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+      today: caculateDate(endDate, 0),
+    }),
+  });
+  console.log(stockPriceByDay);
+  return stockData.map((i) => ({
+    ...i,
+    todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
+  }));
 }
 
 export const CriticalStocksComponent = () => {
@@ -105,6 +99,25 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
+      title: 'End Date',
+      dataIndex: 'end_date',
+      key: 'end_date',
+      //defaultSortOrder: 'descend',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.end_date.replaceAll('-', '')) -
+          Number(b.end_date.replaceAll('-', ''))
+        );
+      },
+      render: (c, record) => {
+        return (
+          <>
+            <span>{c}</span>
+          </>
+        );
+      },
+    },
+    {
       title: 'Days',
       dataIndex: 'days',
       key: 'days',
@@ -142,13 +155,35 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
-      title: 'End Date',
-      dataIndex: 'end_date',
-      key: 'end_date',
+      title: 'To Date Final Price',
+      dataIndex: 'todayPrice',
+      key: 'todayPrice',
+      sorter: (a: any, b: any): any => {
+        const aDiff = (a.todayPrice - a.finalprice) / a.finalprice;
+        const bDiff = (b.todayPrice - b.finalprice) / b.finalprice;
+        return Number(aDiff) - Number(bDiff);
+      },
       render: (c, record) => {
+        const isUp = c - record.finalprice > 0;
+        const arrow = !isUp ? (
+          <ArrowDownOutlined style={{ color: 'green' }} />
+        ) : (
+          <ArrowUpOutlined style={{ color: 'red' }} />
+        );
+        const diff = (c - record.finalprice) / record.finalprice;
         return (
           <>
-            <span>{c}</span>
+            <div>
+              <Tag color={diff > 0 ? 'red' : 'green'}>
+                {arrow}
+                {c}/{diff.toFixed(2) + '%'}
+              </Tag>
+            </div>
+            <div>
+              <Tag>
+                {endDate} <br /> {c}
+              </Tag>
+            </div>
           </>
         );
       },
@@ -187,7 +222,7 @@ export const CriticalStocksComponent = () => {
       setIsLoading(false);
     }
     handleAllStockData();
-  }, []);
+  }, [startDate, endDate, from]);
 
   return (
     <div style={{ padding: '20px' }}>
@@ -290,38 +325,32 @@ export const CriticalStocksComponent = () => {
                 searchStock
               );
               setData(
-                data?.filter((s) => {
-                  // console.log(
-                  //   s.marketvalue / s.finalprice < givenCirculation &&
-                  //     s.marketvalue / s.finalprice > givenMinCirculation
-                  // );
-                  let circulationCondition = false;
-                  if (givenMinCirculation) {
-                    circulationCondition =
-                      s.marketvalue / s.finalprice < givenCirculation &&
-                      s.marketvalue / s.finalprice > givenMinCirculation;
-                  } else {
-                    circulationCondition =
-                      s.marketvalue / s.finalprice < givenCirculation;
-                  }
-                  let priceCondition = false;
-                  if (givenMinPrice) {
-                    priceCondition =
-                      s.finalprice < givenPrice && s.finalprice > givenMinPrice;
-                  } else {
-                    priceCondition = s.finalprice < givenPrice;
-                  }
-                  return circulationCondition && priceCondition;
-                  // givenMinCirculation
-                  //   ? s.marketvalue / s.finalprice < givenCirculation &&
-                  //     s.marketvalue / s.finalprice > givenMinCirculation
-                  //   : s.marketvalue / s.finalprice < givenCirculation;
-                  //  &&
-                  // givenMinPrice &&
-                  // s.finalprice > givenMinPrice &&
-                  // givenPrice &&
-                  // s.finalprice < givenPrice;
-                })
+                searchStock
+                  ? data
+                  : data?.filter((s) => {
+                      // console.log(
+                      //   s.marketvalue / s.finalprice < givenCirculation &&
+                      //     s.marketvalue / s.finalprice > givenMinCirculation
+                      // );
+                      let circulationCondition = false;
+                      if (givenMinCirculation) {
+                        circulationCondition =
+                          s.marketvalue / s.finalprice < givenCirculation &&
+                          s.marketvalue / s.finalprice > givenMinCirculation;
+                      } else {
+                        circulationCondition =
+                          s.marketvalue / s.finalprice < givenCirculation;
+                      }
+                      let priceCondition = false;
+                      if (givenMinPrice) {
+                        priceCondition =
+                          s.finalprice < givenPrice &&
+                          s.finalprice > givenMinPrice;
+                      } else {
+                        priceCondition = s.finalprice < givenPrice;
+                      }
+                      return circulationCondition && priceCondition;
+                    })
               );
               setIsLoading(false);
             }
