@@ -176,7 +176,7 @@ export const CriticalStocksComponent = () => {
             <div>
               <Tag color={diff > 0 ? 'red' : 'green'}>
                 {arrow}
-                {c}/{diff.toFixed(2) + '%'}
+                {c}/{(diff * 100).toFixed(2) + '%'}
               </Tag>
             </div>
             <div>
