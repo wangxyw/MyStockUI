@@ -422,6 +422,9 @@ router.get('/critical_data', function (req, res, next) {
   if (!isEmpty(stock) && stock !== 'undefined') {
     sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol = '${stock}';`;
   }
+  if (!isEmpty(stock) && stock == 'xywang') {
+    sql = `SELECT * FROM critical_stocks a JOIN stock_day_common_data b ON a.symbol=b.symbol AND b.datestr = a.end_date where a.symbol IN (SELECT DISTINCT csa.symbol FROM critical_stocks csa,(SELECT symbol, MIN(end_date) min_end_date FROM critical_stocks group by symbol) csb WHERE csa.symbol=csb.symbol AND csa.end_date=csb.min_end_date AND csa.end_date > '${startDateStr}' AND csa.end_date < '${endDateStr}') group by a.id;`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
