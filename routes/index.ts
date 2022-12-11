@@ -414,12 +414,13 @@ router.get('/all_alarm_data', function (req, res, next) {
 router.get('/critical_data', function (req, res, next) {
   const startDateStr = req.query.start_date;
   const endDateStr = req.query.end_date;
-  const from = req.query.from;
+  // const from = req.query.from;
   const stock = req.query.stock;
 
-  let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
+  //let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
+  let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' group by a.id;`;
   if (!isEmpty(stock) && stock !== 'undefined') {
-    sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where end_date > '${startDateStr}' and end_date < '${endDateStr}' and a.symbol = '${stock}';`;
+    sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol = '${stock}';`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
