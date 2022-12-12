@@ -325,7 +325,7 @@ export const CriticalStocksComponent = () => {
                 searchStock
               );
               setData(
-                searchStock && searchStock != "xywang"
+                searchStock && searchStock.substr(0, 6) != "xywang"
                   ? data
                   : data?.filter((s) => {
                       // console.log(
