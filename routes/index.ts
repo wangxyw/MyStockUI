@@ -428,7 +428,7 @@ router.get('/critical_data', function (req, res, next) {
     if (stock.length > markStr.length) {
       intervalMonth = stock.substr(markStr.length, stock.length)
     }
-    sql = `SELECT * FROM critical_stocks finalcs JOIN stock_day_common_data sdcd ON finalcs.symbol=sdcd.symbol AND sdcd.datestr = finalcs.end_date WHERE finalcs.end_date > '${startDateStr}' AND finalcs.end_date < '${endDateStr}' AND finalcs.symbol not in (SELECT DISTINCT csa.symbol FROM critical_stocks csa, (SELECT symbol, MIN(end_date) min_end_date FROM critical_stocks WHERE end_date > '${startDateStr}' AND end_date < '${endDateStr}' GROUP BY symbol) csb WHERE csa.symbol=csb.symbol AND csa.end_date > date_sub(min_end_date, INTERVAL ${intervalMonth} MONTH) AND csa.end_date < '${startDateStr}');`;
+    sql = `SELECT * FROM critical_stocks finalcs JOIN stock_day_common_data sdcd ON finalcs.symbol=sdcd.symbol AND sdcd.datestr = finalcs.end_date WHERE finalcs.symbol IN (SELECT symbol FROM critical_stocks WHERE end_date > '${startDateStr}' AND end_date < '${endDateStr}') AND finalcs.symbol NOT IN (SELECT DISTINCT csa.symbol FROM critical_stocks csa, (SELECT symbol, MIN(end_date) min_end_date FROM critical_stocks WHERE end_date > '${startDateStr}' AND end_date < '${endDateStr}' GROUP BY symbol) csb WHERE csa.symbol=csb.symbol AND csa.end_date > date_sub(min_end_date, INTERVAL ${intervalMonth} MONTH) AND csa.end_date < '${startDateStr}');`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
