@@ -52,7 +52,7 @@ async function getAllCriStocks(
 
 export const CriticalStocksComponent = () => {
   const [data, setData] = useState<any>([]);
-  const [startDate, setStartDate] = useState(caculateDate(today, 60));
+  const [startDate, setStartDate] = useState(caculateDate(today, 10));
   const [endDate, setEndDate] = useState(today);
   const [from, setFrom] = useState('400s');
   const [searchStock, setSearchStock] = useState<string>();
