@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   DatePicker,
   Input,
   InputNumber,
@@ -32,18 +33,23 @@ async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
   from: any = false,
-  stock
+  stock,
+  isFocused,
+  isDown = false
 ) {
   const stockData = await get(
-    `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}`
+    `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
   );
-  const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
-    body: JSON.stringify({
-      stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
-      today: caculateDate(endDate, 0),
-    }),
-  });
-  console.log(stockPriceByDay);
+  const stockPriceByDay =
+    // stockData?.length > 0
+    //   ? await post(`/api/get_price_from_common_data`, {
+    //       body: JSON.stringify({
+    //         stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+    //         today: caculateDate(endDate, 0),
+    //       }),
+    //     })
+    //   :
+    stockData;
   return stockData.map((i) => ({
     ...i,
     todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
@@ -52,6 +58,7 @@ async function getAllCriStocks(
 
 export const CriticalStocksComponent = () => {
   const [data, setData] = useState<any>([]);
+  const [downData, setDownData] = useState<any>();
   const [startDate, setStartDate] = useState(caculateDate(today, 10));
   const [endDate, setEndDate] = useState(today);
   const [from, setFrom] = useState('400s');
@@ -61,6 +68,7 @@ export const CriticalStocksComponent = () => {
   const [givenCirculation, setGivenCirculation] = useState(20);
   const [givenMinCirculation, setGivenMinCirculation] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   const columns = [
     {
       title: 'Symbol',
@@ -217,12 +225,27 @@ export const CriticalStocksComponent = () => {
   useEffect(() => {
     async function handleAllStockData() {
       setIsLoading(true);
-      const data = await getAllCriStocks(startDate, endDate, from, searchStock);
+      const data = await getAllCriStocks(
+        startDate,
+        endDate,
+        from,
+        searchStock,
+        isFocused
+      );
+      const downData = await getAllCriStocks(
+        startDate,
+        endDate,
+        from,
+        searchStock,
+        isFocused,
+        true
+      );
       setData(data);
+      setDownData(downData);
       setIsLoading(false);
     }
     handleAllStockData();
-  }, [startDate, endDate, from]);
+  }, [startDate, endDate, from, isFocused]);
 
   return (
     <div style={{ padding: '20px' }}>
@@ -258,6 +281,11 @@ export const CriticalStocksComponent = () => {
           style={{ width: '100px' }}
           value={searchStock}
           onChange={(e) => setSearchStock(e.target.value)}
+        />
+        IsFocused:
+        <Checkbox
+          checked={isFocused}
+          onChange={() => setIsFocused(!isFocused)}
         />
       </div>
       <div>
@@ -322,12 +350,49 @@ export const CriticalStocksComponent = () => {
                 startDate,
                 endDate,
                 from,
-                searchStock
+                searchStock,
+                isFocused
+              );
+              const downData = await getAllCriStocks(
+                startDate,
+                endDate,
+                from,
+                searchStock,
+                isFocused,
+                true
               );
               setData(
-                searchStock && searchStock.substr(0, 6) != "xywang"
+                searchStock && searchStock.substr(0, 6) != 'xywang'
                   ? data
                   : data?.filter((s) => {
+                      // console.log(
+                      //   s.marketvalue / s.finalprice < givenCirculation &&
+                      //     s.marketvalue / s.finalprice > givenMinCirculation
+                      // );
+                      let circulationCondition = false;
+                      if (givenMinCirculation) {
+                        circulationCondition =
+                          s.marketvalue / s.finalprice < givenCirculation &&
+                          s.marketvalue / s.finalprice > givenMinCirculation;
+                      } else {
+                        circulationCondition =
+                          s.marketvalue / s.finalprice < givenCirculation;
+                      }
+                      let priceCondition = false;
+                      if (givenMinPrice) {
+                        priceCondition =
+                          s.finalprice < givenPrice &&
+                          s.finalprice > givenMinPrice;
+                      } else {
+                        priceCondition = s.finalprice < givenPrice;
+                      }
+                      return circulationCondition && priceCondition;
+                    })
+              );
+              setDownData(
+                searchStock && searchStock.substr(0, 6) != 'xywang'
+                  ? downData
+                  : downData?.filter((s) => {
                       // console.log(
                       //   s.marketvalue / s.finalprice < givenCirculation &&
                       //     s.marketvalue / s.finalprice > givenMinCirculation
@@ -360,11 +425,19 @@ export const CriticalStocksComponent = () => {
           Search
         </Button>
       </div>
+      UPUP:
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
         dataSource={data}
+      />
+      DownDown:
+      <Table
+        loading={isLoading}
+        pagination={{ defaultPageSize: 100 }}
+        columns={columns}
+        dataSource={downData}
       />
     </div>
   );
