@@ -639,7 +639,7 @@ export const TotalDataCom = (props) => {
                 onChange={(v: any) => setSelectDate(v.format(dateFormat))}
               />
               <Select
-                style={{ width: '80px' }}
+                style={{ width: '100px' }}
                 value={from100}
                 onChange={(v) => {
                   setFrom100(v);

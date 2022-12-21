@@ -52,14 +52,14 @@ async function getAllCriStocks(
 
 export const CriticalStocksComponent = () => {
   const [data, setData] = useState<any>([]);
-  const [startDate, setStartDate] = useState(caculateDate(today, 60));
+  const [startDate, setStartDate] = useState(caculateDate(today, 10));
   const [endDate, setEndDate] = useState(today);
   const [from, setFrom] = useState('400s');
   const [searchStock, setSearchStock] = useState<string>();
-  const [givenPrice, setGivenPrice] = useState(20);
-  const [givenMinPrice, setGivenMinPrice] = useState(10);
+  const [givenPrice, setGivenPrice] = useState(10);
+  const [givenMinPrice, setGivenMinPrice] = useState(0);
   const [givenCirculation, setGivenCirculation] = useState(20);
-  const [givenMinCirculation, setGivenMinCirculation] = useState(10);
+  const [givenMinCirculation, setGivenMinCirculation] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const columns = [
     {
@@ -325,7 +325,7 @@ export const CriticalStocksComponent = () => {
                 searchStock
               );
               setData(
-                searchStock
+                searchStock && searchStock.substr(0, 6) != "xywang"
                   ? data
                   : data?.filter((s) => {
                       // console.log(
