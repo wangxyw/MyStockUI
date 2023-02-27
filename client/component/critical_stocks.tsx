@@ -41,14 +41,14 @@ async function getAllCriStocks(
     `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
   );
   const stockPriceByDay =
-    // stockData?.length > 0
-    //   ? await post(`/api/get_price_from_common_data`, {
-    //       body: JSON.stringify({
-    //         stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
-    //         today: caculateDate(endDate, 0),
-    //       }),
-    //     })
-    //   :
+    stockData?.length > 0
+      ? await post(`/api/get_price_from_common_data`, {
+          body: JSON.stringify({
+            stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+            today: caculateDate(endDate, 0),
+          }),
+        })
+      :
     stockData;
   return stockData.map((i) => ({
     ...i,
