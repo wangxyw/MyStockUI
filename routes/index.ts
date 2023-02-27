@@ -377,7 +377,7 @@ router.get('/stock_alarm', function (req, res, next) {
     sql = `SELECT * FROM ${table} a where a.symbol='${symbol}' and a.datestr > '${datestr}';`;
   }
   const plateSQL = `SELECT group_concat(p.name) as plates from plate p join focus_plate f on p.code= f.code where p.symbol='${symbol}' and f.focus =1 group by p.symbol;`;
-  const commonDataSQL = `SELECT finalprice, turnoverrate, per_dynamic, per_static, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
+  const commonDataSQL = `SELECT finalprice, turnoverrate, per_dynamic, per_static, profit_chip, datestr FROM stock_day_common_data where symbol='${symbol}' and datestr >= '${afterDate}';`;
   pool.query(`${sql}${plateSQL}${commonDataSQL}`, function (err, rows, fields) {
     if (err) throw err;
     res.json(
@@ -398,12 +398,12 @@ router.get('/all_alarm_data', function (req, res, next) {
   const symbols = req.query.symbols;
   let table = 'stock_big_data';
   if (from100 === 'true') table = 'stock_big_data_100';
-  let sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
+  let sql = `select a.*, b.profit_chip from ${table} a join stock_day_common_data b on a.symbol = b.symbol and a.datestr = b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%"`;
   if (stock) {
-    sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol='${stock}'`;
+    sql = `select a.*, b.profit_chip from ${table} a join stock_day_common_data b on a.symbol = b.symbol and a.datestr = b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol='${stock}'`;
   }
   if (symbols) {
-    sql = `select * from ${table} a where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol in (${symbols})`;
+    sql = `select a.*, b.profit_chip from ${table} a join stock_day_common_data b on a.symbol = b.symbol and a.datestr = b.datestr where a.datestr > '${datestr}' and a.datestr <= '${endDateStr}' and a.name not like "%ST%" and a.symbol in (${symbols})`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;

@@ -176,6 +176,7 @@ export const AlarmComponent = (props) => {
   const [option, setOption] = useState({});
   const [priceOption, setPriceOption] = useState({});
   const [volOption, setVolOption] = useState({});
+  const [profitOption, setProfitOption] = useState({});
   const [averageOption, setAverageOption] = useState({});
   const [turnOverRateOption, setTurnOverRateOption] = useState({});
   const [staticOption, setStaticOption] = useState({});
@@ -512,6 +513,14 @@ export const AlarmComponent = (props) => {
             if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
               return data?.[0]?.commonData?.find((d) => d.datestr === i)
                 .per_static;
+            } else {
+              return '-';
+            }
+          });
+          const profitArr = dateArr.map((i) => {
+            if (data?.[0]?.commonData?.find((d) => d.datestr === i)) {
+              return data?.[0]?.commonData?.find((d) => d.datestr === i)
+                .profit_chip;
             } else {
               return '-';
             }
@@ -1131,6 +1140,57 @@ export const AlarmComponent = (props) => {
               },
             ],
           });
+          setProfitOption({
+            title: {
+              text: 'Profit',
+              left: 0,
+            },
+            tooltip: {
+              trigger: 'axis',
+              axisPointer: {
+                type: 'cross',
+              },
+            },
+            toolbox: {
+              show: true,
+              orient: 'vertical',
+              left: 'right',
+              top: 'center',
+              feature: {
+                mark: { show: true },
+                magicType: {
+                  show: true,
+                  type: ['line', 'bar', 'stack', 'tiled'],
+                },
+                restore: { show: true },
+                saveAsImage: { show: true },
+              },
+            },
+            xAxis: {
+              type: 'category',
+              data: dateArr,
+              axisLabel: { show: true, interval: 0, rotate: 45 },
+            },
+            yAxis: {
+              type: 'value',
+              min: function (value) {
+                return value.min;
+              },
+            },
+            series: [
+              {
+                name: 'Profit Chip',
+                type: 'line',
+                data: profitArr,
+                itemStyle: {
+                  normal: {
+                    color: 'blue',
+                  },
+                },
+              },
+            ],
+          });
+
           setDynamicOption({
             title: {
               text: 'Dynamic',
@@ -1865,6 +1925,12 @@ export const AlarmComponent = (props) => {
           notMerge={true}
           lazyUpdate={true}
           option={turnOverRateOption}
+        />
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={profitOption}
         />
         <ReactEcharts
           style={{ height: 250, width: 1450 }}
