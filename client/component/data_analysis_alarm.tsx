@@ -346,7 +346,6 @@ export const DataAlarmCom = (props) => {
             return { ...i };
           }
         });
-        console.log('=====', totayData);
         let eachDayData = newStockDataToday;
         let condition3Data = newStockDataToday;
         let condition6Data = newStockDataToday;
@@ -1106,11 +1105,11 @@ export const DataAlarmCom = (props) => {
     //     );
     //   },
     // },
-    // {
-    //   title: 'MinPriceDay',
-    //   dataIndex: 'minPriceDay',
-    //   key: 'minPriceDay',
-    // },
+    {
+      title: 'Profit Chip',
+      dataIndex: 'profit_chip',
+      key: 'profit_chip',
+    },
     {
       title: 'BeforeDates',
       width: '10%',

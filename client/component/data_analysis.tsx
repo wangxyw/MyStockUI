@@ -1275,6 +1275,11 @@ export const DataAnalysisCom = (props) => {
       },
     },
     {
+      title: 'Profit Chip',
+      key: 'profit_chip',
+      render: (text, record) => ({ text }),
+    },
+    {
       title: 'Action',
       key: 'action',
       render: (text, record) => (

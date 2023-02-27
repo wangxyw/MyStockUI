@@ -151,6 +151,19 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
+      title: 'Profit Chips Str',
+      dataIndex: 'profit_chips_str',
+      key: 'profit_chips_str',
+      //width: '10%',
+      render: (c, record) => {
+        return (
+          <>
+            <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+          </>
+        );
+      },
+    },
+    {
       title: 'End Date Final Price',
       dataIndex: 'finalprice',
       key: 'finalprice',
