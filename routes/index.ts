@@ -116,8 +116,8 @@ router.get('/add_da_focus', function (req, res, next) {
   const symbol = req.query.stock_id;
   const datestr = req.query.datestr;
   const updated_at = req.query.updated_at;
-  const added = req.query.added;
-  let sql = `INSERT INTO focus_da (symbol, datestr, updated_at, added) VALUES ('${symbol}', '${datestr}', '${updated_at}', '${added}');`;
+  //const added = req.query.added;
+  let sql = `INSERT INTO focus_da (symbol, datestr, updated_at) VALUES ('${symbol}', '${datestr}', '${updated_at}');`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
