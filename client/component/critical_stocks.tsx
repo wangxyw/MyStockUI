@@ -155,11 +155,19 @@ export const CriticalStocksComponent = () => {
           <>
             <div>
               <span>Max:</span>
-              <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))}
+              </span>
             </div>
             <div>
               <span>Min:</span>
-              <span>{c?.split('|').reduce((a, b) => (a < b ? a : b))}</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
+              </span>
             </div>
           </>
         );
@@ -175,11 +183,19 @@ export const CriticalStocksComponent = () => {
           <>
             <div>
               <span>Max:</span>
-              <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))}
+              </span>
             </div>
             <div>
               <span>Min:</span>
-              <span>{c?.split('|').reduce((a, b) => (a < b ? a : b))}</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
+              </span>
             </div>
           </>
         );
