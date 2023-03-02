@@ -16,11 +16,7 @@ import { caculateDate } from './alarm';
 import moment from 'moment';
 import './alarm.css';
 import DATA from './date.json';
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  ConsoleSqlOutlined,
-} from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -48,8 +44,7 @@ async function getAllCriStocks(
             today: caculateDate(endDate, 0),
           }),
         })
-      :
-    stockData;
+      : stockData;
   return stockData.map((i) => ({
     ...i,
     todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
@@ -158,7 +153,34 @@ export const CriticalStocksComponent = () => {
       render: (c, record) => {
         return (
           <>
-            <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+            <div>
+              <span>Max:</span>
+              <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+            </div>
+            <div>
+              <span>Min:</span>
+              <span>{c?.split('|').reduce((a, b) => (a < b ? a : b))}</span>
+            </div>
+          </>
+        );
+      },
+    },
+    {
+      title: 'Big Order Pcts Str',
+      dataIndex: 'big_order_pcts_str',
+      key: 'big_order_pcts_str',
+      //width: '10%',
+      render: (c, record) => {
+        return (
+          <>
+            <div>
+              <span>Max:</span>
+              <span>{c?.split('|').reduce((a, b) => (a > b ? a : b))}</span>
+            </div>
+            <div>
+              <span>Min:</span>
+              <span>{c?.split('|').reduce((a, b) => (a < b ? a : b))}</span>
+            </div>
           </>
         );
       },
@@ -175,40 +197,40 @@ export const CriticalStocksComponent = () => {
         );
       },
     },
-    {
-      title: 'To Date Final Price',
-      dataIndex: 'todayPrice',
-      key: 'todayPrice',
-      sorter: (a: any, b: any): any => {
-        const aDiff = (a.todayPrice - a.finalprice) / a.finalprice;
-        const bDiff = (b.todayPrice - b.finalprice) / b.finalprice;
-        return Number(aDiff) - Number(bDiff);
-      },
-      render: (c, record) => {
-        const isUp = c - record.finalprice > 0;
-        const arrow = !isUp ? (
-          <ArrowDownOutlined style={{ color: 'green' }} />
-        ) : (
-          <ArrowUpOutlined style={{ color: 'red' }} />
-        );
-        const diff = (c - record.finalprice) / record.finalprice;
-        return (
-          <>
-            <div>
-              <Tag color={diff > 0 ? 'red' : 'green'}>
-                {arrow}
-                {c}/{(diff * 100).toFixed(2) + '%'}
-              </Tag>
-            </div>
-            <div>
-              <Tag>
-                {endDate} <br /> {c}
-              </Tag>
-            </div>
-          </>
-        );
-      },
-    },
+    // {
+    //   title: 'To Date Final Price',
+    //   dataIndex: 'todayPrice',
+    //   key: 'todayPrice',
+    //   sorter: (a: any, b: any): any => {
+    //     const aDiff = (a.todayPrice - a.finalprice) / a.finalprice;
+    //     const bDiff = (b.todayPrice - b.finalprice) / b.finalprice;
+    //     return Number(aDiff) - Number(bDiff);
+    //   },
+    //   render: (c, record) => {
+    //     const isUp = c - record.finalprice > 0;
+    //     const arrow = !isUp ? (
+    //       <ArrowDownOutlined style={{ color: 'green' }} />
+    //     ) : (
+    //       <ArrowUpOutlined style={{ color: 'red' }} />
+    //     );
+    //     const diff = (c - record.finalprice) / record.finalprice;
+    //     return (
+    //       <>
+    //         <div>
+    //           <Tag color={diff > 0 ? 'red' : 'green'}>
+    //             {arrow}
+    //             {c}/{(diff * 100).toFixed(2) + '%'}
+    //           </Tag>
+    //         </div>
+    //         <div>
+    //           <Tag>
+    //             {endDate} <br /> {c}
+    //           </Tag>
+    //         </div>
+    //       </>
+    //     );
+    //   },
+    // },
     {
       title: 'MarketValue',
       dataIndex: 'marketvalue',
