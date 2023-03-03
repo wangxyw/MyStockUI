@@ -48,6 +48,8 @@ async function getAllCriStocks(
   return stockData.map((i) => ({
     ...i,
     todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
+    todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
+      ?.profit_chip,
   }));
 }
 
@@ -214,9 +216,9 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
-      title: 'End Date Profit Chip',
-      dataIndex: 'profit_chip',
-      key: 'profit_chip',
+      title: 'To Date Profit Chip',
+      dataIndex: 'todayProfit',
+      key: 'todayProfit',
       render: (c, record) => {
         return (
           <>
