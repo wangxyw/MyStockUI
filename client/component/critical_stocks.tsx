@@ -204,21 +204,14 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
-      title: 'End Date Final Price',
-      dataIndex: 'finalprice',
-      key: 'finalprice',
-      render: (c, record) => {
-        return (
-          <>
-            <span>{c}</span>
-          </>
-        );
-      },
-    },
-    {
       title: 'To Date Profit Chip',
       dataIndex: 'todayProfit',
       key: 'todayProfit',
+      sorter: (a: any, b: any): any => {
+        return (
+          Number(a.todayProfit) - Number(b.todayProfit)
+        );
+      },
       render: (c, record) => {
         return (
           <>
@@ -261,6 +254,18 @@ export const CriticalStocksComponent = () => {
     //     );
     //   },
     // },
+    {
+      title: 'End Date Final Price',
+      dataIndex: 'finalprice',
+      key: 'finalprice',
+      render: (c, record) => {
+        return (
+          <>
+            <span>{c}</span>
+          </>
+        );
+      },
+    },
     {
       title: 'MarketValue',
       dataIndex: 'marketvalue',
