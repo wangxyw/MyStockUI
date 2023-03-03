@@ -213,6 +213,18 @@ export const CriticalStocksComponent = () => {
         );
       },
     },
+    {
+      title: 'End Date Profit Chip',
+      dataIndex: 'profit_chip',
+      key: 'profit_chip',
+      render: (c, record) => {
+        return (
+          <>
+            <span>{c}</span>
+          </>
+        );
+      },
+    },
     // {
     //   title: 'To Date Final Price',
     //   dataIndex: 'todayPrice',
