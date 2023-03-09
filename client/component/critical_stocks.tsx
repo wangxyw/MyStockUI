@@ -208,14 +208,43 @@ export const CriticalStocksComponent = () => {
       dataIndex: 'todayProfit',
       key: 'todayProfit',
       sorter: (a: any, b: any): any => {
-        return (
-          Number(a.todayProfit) - Number(b.todayProfit)
-        );
+        return Number(a.todayProfit) - Number(b.todayProfit);
       },
       render: (c, record) => {
         return (
           <>
             <span>{c}</span>
+          </>
+        );
+      },
+    },
+    {
+      title: 'Max Profit - To Date Profit Chip',
+      dataIndex: 'todayProfit',
+      key: 'todayProfit',
+      sorter: (a: any, b: any): any => {
+        const sorter = (sortBy) =>
+          (
+            sortBy?.profit_chips_str
+              ?.split('|')
+              .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f)) -
+            sortBy.todayProfit
+          ).toFixed(2);
+        return Number(sorter(a)) - Number(sorter(b));
+      },
+      render: (c, record) => {
+        return (
+          <>
+            <div>
+              <span>
+                {(
+                  record?.profit_chips_str
+                    ?.split('|')
+                    .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
+                  c
+                ).toFixed(2)}{' '}
+              </span>
+            </div>
           </>
         );
       },
