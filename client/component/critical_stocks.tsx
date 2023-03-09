@@ -208,15 +208,8 @@ export const CriticalStocksComponent = () => {
       dataIndex: 'todayProfit',
       key: 'todayProfit',
       sorter: (a: any, b: any): any => {
-        return (
-          Number(a.todayProfit) - Number(b.todayProfit)
-        );
+        return Number(a.todayProfit) - Number(b.todayProfit);
       },
-    },
-    {
-      title: 'To Date Profit Chip',
-      dataIndex: 'todayProfit',
-      key: 'todayProfit',
       render: (c, record) => {
         return (
           <>
