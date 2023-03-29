@@ -349,11 +349,15 @@ router.post('/get_price_from_common_data', function (req, res, next) {
   let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
   const simulateDate = req.body.simulateDate;
   const today = req.body.today;
+  const startDate = req.body.startDate;
   if (simulateDate) {
     sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr <= '${simulateDate}';`;
   }
   if (today) {
     sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr = '${today}';`;
+  }
+  if (startDate && simulateDate) {
+    sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols}) and datestr <= '${simulateDate}' and datestr > '${startDate}';`;
   }
   console.log(sql);
   pool.query(sql, function (err, rows, fields) {
