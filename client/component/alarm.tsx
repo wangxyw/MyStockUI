@@ -74,6 +74,12 @@ export const caculateAfterDate = (startDatestr, days) => {
   }
 };
 
+export const caculateDaysTwoDate = (date1, date2) => {
+  const date1Index = workdays.indexOf(date1);
+  const date2Index = workdays.indexOf(date2);
+  return date2Index - date1Index;
+};
+
 const validateStock = (stock) => {
   if (stock.length < 8) {
     return false;
