@@ -45,16 +45,16 @@ async function getAllCriStocks(
           }),
         })
       : stockData;
-  const stockEachDayPriceData =
-    stockData?.length > 0
-      ? await post(`/api/get_price_from_common_data`, {
-          body: JSON.stringify({
-            stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
-            simulateDate: caculateDate(today, 0),
-            startDate: '2023-01-01',
-          }),
-        })
-      : stockData;
+  // const stockEachDayPriceData =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           simulateDate: caculateDate(today, 0),
+  //           startDate: '2023-01-01',
+  //         }),
+  //       })
+  //     : stockData;
   return stockData.map((i) => ({
     ...i,
     todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
@@ -260,6 +260,42 @@ export const CriticalStocksComponent = () => {
                 ).toFixed(2)}{' '}
               </span>
             </div>
+          </>
+        );
+      },
+    },
+    {
+      title: 'Max TurnOverRate',
+      dataIndex: 'turnoverrates_str',
+      key: 'turnoverrates_str',
+      sorter: (a: any, b: any): any => {
+        const sorter = (sortBy) =>
+          sortBy?.turnoverrates_str
+            ?.split('|')
+            .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f));
+        return Number(sorter(a)) - Number(sorter(b));
+      },
+      render: (c, record) => {
+        console.log(
+          '====',
+          c?.split('|')?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0),
+          c?.split('|')?.length
+        );
+        const maxRate = c
+          ?.split('|')
+          .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
+        const averageRate = (
+          c?.split('|')?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0) /
+          c?.split('|')?.length
+        )?.toFixed(2);
+        const minRate = c
+          ?.split('|')
+          .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a));
+        return (
+          <>
+            <div>Max: {maxRate}</div>
+            <div>Average: {averageRate}</div>
+            <div>Min: {minRate}</div>
           </>
         );
       },
