@@ -45,24 +45,24 @@ async function getAllCriStocks(
           }),
         })
       : stockData;
-  const stockEachDayPriceData =
-    stockData?.length > 0
-      ? await post(`/api/get_price_from_common_data`, {
-          body: JSON.stringify({
-            stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
-            simulateDate: caculateDate(today, 0),
-            startDate: '2023-01-01',
-          }),
-        })
-      : stockData;
+  // const stockEachDayPriceData =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           simulateDate: caculateDate(today, 0),
+  //           startDate: '2023-01-01',
+  //         }),
+  //       })
+  //     : stockData;
   return stockData.map((i) => ({
     ...i,
     todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
     todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
       ?.profit_chip,
-    daysProfit: stockEachDayPriceData
-      ?.filter((s) => s.symbol === i.symbol)
-      ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
+    // daysProfit: stockEachDayPriceData
+    //   ?.filter((s) => s.symbol === i.symbol)
+    //   ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
   }));
 }
 
@@ -265,67 +265,103 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
-      title: 'Profit K',
-      dataIndex: 'todayProfit',
-      key: 'todayProfit',
+      title: 'Max TurnOverRate',
+      dataIndex: 'turnoverrates_str',
+      key: 'turnoverrates_str',
       sorter: (a: any, b: any): any => {
-        const sort = (by) => {
-          const maxProfit = by?.profit_chips_str
+        const sorter = (sortBy) =>
+          sortBy?.turnoverrates_str
             ?.split('|')
-            .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
-          const maxProfitIndex = by?.profit_chips_str
-            ?.split('|')
-            ?.indexOf(maxProfit);
-          const maxProfitDay = by?.days_str?.split('|')?.[maxProfitIndex];
-          const maxToOneDay = by?.daysProfit?.filter(
-            (e) => e?.datestr > maxProfitDay
-          );
-          const minProfitMap =
-            maxToOneDay?.length > 0 &&
-            maxToOneDay?.reduce((a, b) => (a.profit < b.profit ? a : b));
-          const minProfit = minProfitMap?.profit;
-          const minProfitDay = minProfitMap?.datestr;
-          const days = caculateDaysTwoDate(maxProfitDay, minProfitDay);
-          return ((maxProfit - minProfit) / days)?.toFixed(2);
-        };
-        return Number(sort(a)) - Number(sort(b));
+            .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f));
+        return Number(sorter(a)) - Number(sorter(b));
       },
       render: (c, record) => {
-        const maxProfit = record?.profit_chips_str
+        console.log(
+          '====',
+          c?.split('|')?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0),
+          c?.split('|')?.length
+        );
+        const maxRate = c
           ?.split('|')
           .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
-        const maxProfitIndex = record?.profit_chips_str
+        const averageRate = (
+          c?.split('|')?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0) /
+          c?.split('|')?.length
+        )?.toFixed(2);
+        const minRate = c
           ?.split('|')
-          ?.indexOf(maxProfit);
-        const maxProfitDay = record?.days_str?.split('|')?.[maxProfitIndex];
-        const maxToOneDay = record?.daysProfit?.filter(
-          (e) => e?.datestr >= maxProfitDay
-        );
-        const minProfitMap =
-          maxToOneDay?.length > 0 &&
-          maxToOneDay?.reduce((a, b) => (a.profit < b.profit ? a : b));
-        const minProfit = minProfitMap?.profit;
-        const minProfitDay = minProfitMap?.datestr;
-        const days = caculateDaysTwoDate(maxProfitDay, minProfitDay) || 1;
-        const K = ((maxProfit - minProfit) / days)?.toFixed(2);
-
+          .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a));
         return (
           <>
-            <div>
-              <div>K: {K}</div>
-              <div style={{ color: '#c7c1c1' }}>
-                <p>
-                  MaxProfit:{maxProfit}/{maxProfitDay}
-                </p>
-                <p>
-                  MinProFit: {minProfit}/{minProfitDay}
-                </p>
-              </div>
-            </div>
+            <div>Max: {maxRate}</div>
+            <div>Average: {averageRate}</div>
+            <div>Min: {minRate}</div>
           </>
         );
       },
     },
+    // {
+    //   title: 'Profit K',
+    //   dataIndex: 'todayProfit',
+    //   key: 'todayProfit',
+    //   sorter: (a: any, b: any): any => {
+    //     const sort = (by) => {
+    //       const maxProfit = by?.profit_chips_str
+    //         ?.split('|')
+    //         .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
+    //       const maxProfitIndex = by?.profit_chips_str
+    //         ?.split('|')
+    //         ?.indexOf(maxProfit);
+    //       const maxProfitDay = by?.days_str?.split('|')?.[maxProfitIndex];
+    //       const maxToOneDay = by?.daysProfit?.filter(
+    //         (e) => e?.datestr > maxProfitDay
+    //       );
+    //       const minProfitMap =
+    //         maxToOneDay?.length > 0 &&
+    //         maxToOneDay?.reduce((a, b) => (a.profit < b.profit ? a : b));
+    //       const minProfit = minProfitMap?.profit;
+    //       const minProfitDay = minProfitMap?.datestr;
+    //       const days = caculateDaysTwoDate(maxProfitDay, minProfitDay);
+    //       return ((maxProfit - minProfit) / days)?.toFixed(2);
+    //     };
+    //     return Number(sort(a)) - Number(sort(b));
+    //   },
+    //   render: (c, record) => {
+    //     const maxProfit = record?.profit_chips_str
+    //       ?.split('|')
+    //       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
+    //     const maxProfitIndex = record?.profit_chips_str
+    //       ?.split('|')
+    //       ?.indexOf(maxProfit);
+    //     const maxProfitDay = record?.days_str?.split('|')?.[maxProfitIndex];
+    //     const maxToOneDay = record?.daysProfit?.filter(
+    //       (e) => e?.datestr >= maxProfitDay
+    //     );
+    //     const minProfitMap =
+    //       maxToOneDay?.length > 0 &&
+    //       maxToOneDay?.reduce((a, b) => (a.profit < b.profit ? a : b));
+    //     const minProfit = minProfitMap?.profit;
+    //     const minProfitDay = minProfitMap?.datestr;
+    //     const days = caculateDaysTwoDate(maxProfitDay, minProfitDay) || 1;
+    //     const K = ((maxProfit - minProfit) / days)?.toFixed(2);
+
+    //     return (
+    //       <>
+    //         <div>
+    //           <div>K: {K}</div>
+    //           <div style={{ color: '#c7c1c1' }}>
+    //             <p>
+    //               MaxProfit:{maxProfit}/{maxProfitDay}
+    //             </p>
+    //             <p>
+    //               MinProFit: {minProfit}/{minProfitDay}
+    //             </p>
+    //           </div>
+    //         </div>
+    //       </>
+    //     );
+    //   },
+    // },
     // {
     //   title: 'To Date Final Price',
     //   dataIndex: 'todayPrice',
