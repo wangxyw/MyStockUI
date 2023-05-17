@@ -308,9 +308,9 @@ export const CriticalStocksComponent = () => {
         return Number(sorter(a)) - Number(sorter(b));
       },
       render: (c, record) => {
-        const maxPrice = c?.split(',')?.[0];
-        const minPrice = c?.split(',')?.[1];
-        const currentPrice = record?.todayPrice;
+        const maxPrice = parseFloat(c?.split(',')?.[0]);
+        const minPrice = parseFloat(c?.split(',')?.[1]);
+        const currentPrice = parseFloat(record?.todayPrice);
         return (
           <>
             <div>Max: {maxPrice}</div>
