@@ -186,6 +186,7 @@ export const CriticalStocksComponent = () => {
                   .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
               </span>
             </div>
+            <div>To Date Profit: {record?.todayProfit}</div>
           </>
         );
       },
@@ -218,21 +219,21 @@ export const CriticalStocksComponent = () => {
         );
       },
     },
-    {
-      title: 'To Date Profit Chip',
-      dataIndex: 'todayProfit',
-      key: 'todayProfit',
-      sorter: (a: any, b: any): any => {
-        return Number(a.todayProfit) - Number(b.todayProfit);
-      },
-      render: (c, record) => {
-        return (
-          <>
-            <span>{c}</span>
-          </>
-        );
-      },
-    },
+    // {
+    //   title: 'To Date Profit Chip',
+    //   dataIndex: 'todayProfit',
+    //   key: 'todayProfit',
+    //   sorter: (a: any, b: any): any => {
+    //     return Number(a.todayProfit) - Number(b.todayProfit);
+    //   },
+    //   render: (c, record) => {
+    //     return (
+    //       <>
+    //         <span>{c}</span>
+    //       </>
+    //     );
+    //   },
+    // },
     {
       title: 'Max Profit - To Date Profit Chip',
       dataIndex: 'todayProfit',
@@ -276,11 +277,6 @@ export const CriticalStocksComponent = () => {
         return Number(sorter(a)) - Number(sorter(b));
       },
       render: (c, record) => {
-        console.log(
-          '====',
-          c?.split('|')?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0),
-          c?.split('|')?.length
-        );
         const maxRate = c
           ?.split('|')
           .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b));
@@ -296,6 +292,39 @@ export const CriticalStocksComponent = () => {
             <div>Max: {maxRate}</div>
             <div>Average: {averageRate}</div>
             <div>Min: {minRate}</div>
+          </>
+        );
+      },
+    },
+    {
+      title: '90 Max Min Price',
+      dataIndex: 'day90_max_min',
+      key: 'day90_max_min',
+      sorter: (a: any, b: any): any => {
+        const sorter = (sortBy) =>
+          sortBy?.turnoverrates_str
+            ?.split('|')
+            .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f));
+        return Number(sorter(a)) - Number(sorter(b));
+      },
+      render: (c, record) => {
+        const maxPrice = c?.[0];
+        const minPrice = c?.[1];
+        const currentPrice = record?.todayPrice;
+        return (
+          <>
+            <div>Max: {maxPrice}</div>
+            <div>TodayPrice: {currentPrice}</div>
+            <div>Min: {minPrice}</div>
+            <div>
+              Max - Min:{' '}
+              {((maxPrice - minPrice / minPrice) * 100)?.toFixed(2) + '%'}
+            </div>
+            <div>
+              Max - Today:{' '}
+              {((maxPrice - currentPrice / currentPrice) * 100)?.toFixed(2) +
+                '%'}
+            </div>
           </>
         );
       },
