@@ -318,11 +318,11 @@ export const CriticalStocksComponent = () => {
             <div>Min: {minPrice}</div>
             <div>
               Max - Min:{' '}
-              {((maxPrice - minPrice / minPrice) * 100)?.toFixed(2) + '%'}
+              {(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) + '%'}
             </div>
             <div>
               Max - Today:{' '}
-              {((maxPrice - currentPrice / currentPrice) * 100)?.toFixed(2) +
+              {(((maxPrice - currentPrice) / currentPrice) * 100)?.toFixed(2) +
                 '%'}
             </div>
           </>
