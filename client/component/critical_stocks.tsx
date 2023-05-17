@@ -171,7 +171,7 @@ export const CriticalStocksComponent = () => {
         return (
           <>
             <div>
-              <span>Max:</span>
+              <span><b>Max:</b></span>
               <span>
                 {c
                   ?.split('|')
@@ -179,42 +179,14 @@ export const CriticalStocksComponent = () => {
               </span>
             </div>
             <div>
-              <span>Min:</span>
+              <span><b>Min:</b></span>
               <span>
                 {c
                   ?.split('|')
                   .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
               </span>
             </div>
-            <div>To Date Profit: {record?.todayProfit}</div>
-          </>
-        );
-      },
-    },
-    {
-      title: 'Big Order Pcts Str',
-      dataIndex: 'big_order_pcts_str',
-      key: 'big_order_pcts_str',
-      //width: '10%',
-      render: (c, record) => {
-        return (
-          <>
-            <div>
-              <span>Max:</span>
-              <span>
-                {c
-                  ?.split('|')
-                  .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))}
-              </span>
-            </div>
-            <div>
-              <span>Min:</span>
-              <span>
-                {c
-                  ?.split('|')
-                  .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
-              </span>
-            </div>
+            <div><b>T_D:</b> {record?.todayProfit}</div>
           </>
         );
       },
@@ -289,9 +261,9 @@ export const CriticalStocksComponent = () => {
           .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a));
         return (
           <>
-            <div>Max: {maxRate}</div>
-            <div>Average: {averageRate}</div>
-            <div>Min: {minRate}</div>
+            <div><font color="red"><b>Max:</b> {maxRate}</font></div>
+            <div><b>Average:</b> {averageRate}</div>
+            <div><b>Min:</b> {minRate}</div>
           </>
         );
       },
@@ -313,15 +285,15 @@ export const CriticalStocksComponent = () => {
         const currentPrice = parseFloat(record?.todayPrice);
         return (
           <>
-            <div>Max: {maxPrice}</div>
-            <div>TodayPrice: {currentPrice}</div>
-            <div>Min: {minPrice}</div>
+            <div><b>Max:</b> {maxPrice}</div>
+            <div>T_D: {currentPrice}</div>
+            <div><b>Min:</b> {minPrice}</div>
             <div>
-              Max - Min:{' '}
-              {(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) + '%'}
+              <font color="red"><b>Ma - Mi:</b>{' '}
+              {(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) + '%'}</font>
             </div>
             <div>
-              Max - Today:{' '}
+              Ma - Td:{' '}
               {(((maxPrice - currentPrice) / currentPrice) * 100)?.toFixed(2) +
                 '%'}
             </div>
@@ -433,6 +405,34 @@ export const CriticalStocksComponent = () => {
         return (
           <>
             <span>{c}</span>
+          </>
+        );
+      },
+    },
+    {
+      title: 'Big Order Pcts Str',
+      dataIndex: 'big_order_pcts_str',
+      key: 'big_order_pcts_str',
+      //width: '10%',
+      render: (c, record) => {
+        return (
+          <>
+            <div>
+              <span>Max:</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))}
+              </span>
+            </div>
+            <div>
+              <span>Min:</span>
+              <span>
+                {c
+                  ?.split('|')
+                  .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
+              </span>
+            </div>
           </>
         );
       },
