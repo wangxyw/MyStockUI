@@ -308,8 +308,8 @@ export const CriticalStocksComponent = () => {
         return Number(sorter(a)) - Number(sorter(b));
       },
       render: (c, record) => {
-        const maxPrice = c?.[0];
-        const minPrice = c?.[1];
+        const maxPrice = c?.split(',')?.[0];
+        const minPrice = c?.split(',')?.[1];
         const currentPrice = record?.todayPrice;
         return (
           <>
