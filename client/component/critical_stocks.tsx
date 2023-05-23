@@ -101,7 +101,7 @@ export const CriticalStocksComponent = () => {
                 href={`https://quote.eastmoney.com/${text}.html`}
               >
                 {text}
-              </a>
+              </a><br/>
               {record.name}
               <Tag>
                 <a
@@ -444,7 +444,9 @@ export const CriticalStocksComponent = () => {
       render: (c, record) => {
         return (
           <>
-            <span>{(c / record.finalprice).toFixed(2)}</span>
+            <span>{(c / record.finalprice).toFixed(2)}</span><br/>
+            <span><b>P_D:</b> {record?.per_dynamic}</span><br/>
+            <span><b>P_S:</b> {record?.per_static}</span>
           </>
         );
       },
