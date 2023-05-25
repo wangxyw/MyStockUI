@@ -17,17 +17,18 @@ import { caculateDate, caculateDaysTwoDate } from './alarm';
 import moment from 'moment';
 import './alarm.css';
 import DATA from './date.json';
-import { uniqBy, isEmpty } from 'lodash';
+import { uniqBy, isEmpty, orderBy } from 'lodash';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 
 const options = (data) => {
-  const xAxis = uniqBy(data, 'datestr')?.map((i) => i.datestr);
-  const maxT = uniqBy(data, 'datestr')?.map((i) =>
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const xAxis = orderedData?.map((i) => i.datestr);
+  const maxT = orderedData?.map((i) =>
     i?.turnoverrates_str
       .split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
   );
-  const averageT = uniqBy(data, 'datestr')?.map((i) =>
+  const averageT = orderedData?.map((i) =>
     (
       i?.turnoverrates_str
         ?.split('|')
@@ -35,7 +36,7 @@ const options = (data) => {
       i?.turnoverrates_str?.split('|')?.length
     )?.toFixed(2)
   );
-  const minT = uniqBy(data, 'datestr')?.map((i) =>
+  const minT = orderedData?.map((i) =>
     i?.turnoverrates_str
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
