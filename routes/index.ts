@@ -427,7 +427,11 @@ router.get('/critical_data', function (req, res, next) {
   //let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
   let sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' group by a.id;`;
   if (!isEmpty(stock) && stock !== 'undefined') {
-    sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%';`;
+    if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%';`;
+    } else {
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}';`;
+    }
   }
   if (isFocused === 'true') {
     sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
