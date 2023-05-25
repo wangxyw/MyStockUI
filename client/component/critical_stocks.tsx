@@ -9,6 +9,7 @@ import {
   Table,
   Tag,
 } from 'antd';
+import ReactEcharts from 'echarts-for-react';
 
 import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
@@ -16,7 +17,117 @@ import { caculateDate, caculateDaysTwoDate } from './alarm';
 import moment from 'moment';
 import './alarm.css';
 import DATA from './date.json';
+import { uniqBy, isEmpty } from 'lodash';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+
+const options = (data) => {
+  const xAxis = uniqBy(data, 'datestr')?.map((i) => i.datestr);
+  const maxT = uniqBy(data, 'datestr')?.map((i) =>
+    i?.turnoverrates_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const averageT = uniqBy(data, 'datestr')?.map((i) =>
+    (
+      i?.turnoverrates_str
+        ?.split('|')
+        ?.reduce((a, b) => parseFloat(a) + parseFloat(b), 0) /
+      i?.turnoverrates_str?.split('|')?.length
+    )?.toFixed(2)
+  );
+  const minT = uniqBy(data, 'datestr')?.map((i) =>
+    i?.turnoverrates_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['MaxOverRate', 'MinOverRate', 'AverageOverRate'],
+    },
+    // grid: [{
+    //     left: '10%',
+    //     right: '1%',
+    //     top: '1%',
+    //     height: '70%'
+    // }],
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: xAxis,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxOverRate',
+        type: 'line',
+        data: maxT,
+        // itemStyle: {
+        //   normal: {
+        //     color: '#444',
+        //   },
+        // },
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinOverRate',
+        type: 'line',
+        data: minT,
+        // itemStyle: {
+        //   normal: {
+        //     color: function (params) {
+        //       var colorList;
+        //       if (statusArr[params.dataIndex] == 'up') {
+        //         colorList = '#ef232a';
+        //       } else if (statusArr[params.dataIndex] == 'down') {
+        //         colorList = '#14b143';
+        //       }
+        //       return colorList;
+        //     },
+        //   },
+        // },
+      },
+      {
+        name: 'AverageOverRate',
+        type: 'line',
+        data: averageT,
+        // itemStyle: {
+        //   normal: {
+        //     color: 'blue',
+        //   },
+        // },
+      },
+    ],
+  };
+};
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -80,6 +191,9 @@ export const CriticalStocksComponent = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
+  const [upOptions, setUpOptions] = useState({});
+  const [downOptions, setDownOptions] = useState({});
+
   console.log('data', data);
   const columns = [
     {
@@ -101,7 +215,8 @@ export const CriticalStocksComponent = () => {
                 href={`https://quote.eastmoney.com/${text}.html`}
               >
                 {text}
-              </a><br/>
+              </a>
+              <br />
               {record.name}
               <Tag>
                 <a
@@ -171,7 +286,9 @@ export const CriticalStocksComponent = () => {
         return (
           <>
             <div>
-              <span><b>Max:</b></span>
+              <span>
+                <b>Max:</b>
+              </span>
               <span>
                 {c
                   ?.split('|')
@@ -179,14 +296,18 @@ export const CriticalStocksComponent = () => {
               </span>
             </div>
             <div>
-              <span><b>Min:</b></span>
+              <span>
+                <b>Min:</b>
+              </span>
               <span>
                 {c
                   ?.split('|')
                   .reduce((a, b) => (parseFloat(a) < parseFloat(b) ? a : b))}
               </span>
             </div>
-            <div><b>T_D:</b> {record?.todayProfit}</div>
+            <div>
+              <b>T_D:</b> {record?.todayProfit}
+            </div>
           </>
         );
       },
@@ -261,9 +382,17 @@ export const CriticalStocksComponent = () => {
           .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a));
         return (
           <>
-            <div><font color="red"><b>Max:</b> {maxRate}</font></div>
-            <div><b>Average:</b> {averageRate}</div>
-            <div><b>Min:</b> {minRate}</div>
+            <div>
+              <span style={{ color: 'red' }}>
+                <b>Max:</b> {maxRate}
+              </span>
+            </div>
+            <div>
+              <b>Average:</b> {averageRate}
+            </div>
+            <div>
+              <b>Min:</b> {minRate}
+            </div>
           </>
         );
       },
@@ -285,12 +414,18 @@ export const CriticalStocksComponent = () => {
         const currentPrice = parseFloat(record?.todayPrice);
         return (
           <>
-            <div><b>Max:</b> {maxPrice}</div>
-            <div>T_D: {currentPrice}</div>
-            <div><b>Min:</b> {minPrice}</div>
             <div>
-              <font color="red"><b>Ma - Mi:</b>{' '}
-              {(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) + '%'}</font>
+              <b>Max:</b> {maxPrice}
+            </div>
+            <div>T_D: {currentPrice}</div>
+            <div>
+              <b>Min:</b> {minPrice}
+            </div>
+            <div>
+              <span style={{ color: 'red' }}>
+                <b>Ma - Mi:</b>{' '}
+                {(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) + '%'}
+              </span>
             </div>
             <div>
               Ma - Td:{' '}
@@ -444,9 +579,15 @@ export const CriticalStocksComponent = () => {
       render: (c, record) => {
         return (
           <>
-            <span>{(c / record.finalprice).toFixed(2)}</span><br/>
-            <span><b>P_D:</b> {record?.per_dynamic}</span><br/>
-            <span><b>P_S:</b> {record?.per_static}</span>
+            <span>{(c / record.finalprice).toFixed(2)}</span>
+            <br />
+            <span>
+              <b>P_D:</b> {record?.per_dynamic}
+            </span>
+            <br />
+            <span>
+              <b>P_S:</b> {record?.per_static}
+            </span>
           </>
         );
       },
@@ -604,6 +745,10 @@ export const CriticalStocksComponent = () => {
                 isFocused,
                 true
               );
+              if (searchStock) {
+                setUpOptions(options(data));
+                setDownOptions(options(data));
+              }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
                   ? data
@@ -669,6 +814,14 @@ export const CriticalStocksComponent = () => {
         </Button>
       </div>
       UPUP:
+      {!isEmpty(upOptions) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={upOptions}
+        />
+      )}
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
@@ -682,6 +835,14 @@ export const CriticalStocksComponent = () => {
         columns={columns}
         dataSource={downData}
       />
+      {!isEmpty(downOptions) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={downOptions}
+        />
+      )}
     </div>
   );
 };
