@@ -574,25 +574,41 @@ export const CriticalStocksComponent = () => {
       },
     },
     {
-      title: 'MarketValue',
-      dataIndex: 'marketvalue',
-      key: 'marketvalue',
+      title: 'MaxTORChange',
+      dataIndex: 'turnoverrates_changes',
+      key: 'turnoverrates_changes',
       render: (c, record) => {
         return (
           <>
-            <span>{(c / record.finalprice).toFixed(2)}</span>
-            <br />
-            <span>
-              <b>P_D:</b> {record?.per_dynamic}
-            </span>
-            <br />
-            <span>
-              <b>P_S:</b> {record?.per_static}
-            </span>
+             <span style={{ color: 'red' }}><b>{c?.split(',')?.[0]}</b></span>
+             <br />
+             <span>{c?.split(',')?.[1]}</span>
+             <br />
+             <span>{c?.split(',')?.[2]}</span>
           </>
         );
       },
     },
+    // {
+    //   title: 'MarketValue',
+    //   dataIndex: 'marketvalue',
+    //   key: 'marketvalue',
+    //   render: (c, record) => {
+    //     return (
+    //       <>
+    //         <span>{(c / record.finalprice).toFixed(2)}</span>
+    //         <br />
+    //         <span>
+    //           <b>P_D:</b> {record?.per_dynamic}
+    //         </span>
+    //         <br />
+    //         <span>
+    //           <b>P_S:</b> {record?.per_static}
+    //         </span>
+    //       </>
+    //     );
+    //   },
+    // },
     {
       title: 'Source',
       dataIndex: 'source',
