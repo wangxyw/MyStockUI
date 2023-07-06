@@ -148,15 +148,15 @@ async function getAllCriStocks(
   const stockData = await get(
     `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
   );
-  const stockPriceByDay =
-    stockData?.length > 0
-      ? await post(`/api/get_price_from_common_data`, {
-          body: JSON.stringify({
-            stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
-            today: caculateDate(endDate, 0),
-          }),
-        })
-      : stockData;
+  // const stockPriceByDay =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           today: caculateDate(endDate, 0),
+  //         }),
+  //       })
+  //     : stockData;
   // const stockEachDayPriceData =
   //   stockData?.length > 0
   //     ? await post(`/api/get_price_from_common_data`, {
@@ -167,15 +167,16 @@ async function getAllCriStocks(
   //         }),
   //       })
   //     : stockData;
-  return stockData.map((i) => ({
-    ...i,
-    todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
-    todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
-      ?.profit_chip,
-    // daysProfit: stockEachDayPriceData
-    //   ?.filter((s) => s.symbol === i.symbol)
-    //   ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
-  }));
+  return stockData;
+  // .map((i) => ({
+  //   ...i,
+  //   todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
+  //   todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
+  //     ?.profit_chip,
+  //   // daysProfit: stockEachDayPriceData
+  //   //   ?.filter((s) => s.symbol === i.symbol)
+  //   //   ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
+  // }));
 }
 
 export const CriticalStocksComponent = () => {
@@ -307,7 +308,7 @@ export const CriticalStocksComponent = () => {
               </span>
             </div>
             <div>
-              <b>T_D:</b> {record?.todayProfit}
+              <b>T_D:</b> {record?.latest_profit_chips}
             </div>
           </>
         );
@@ -330,15 +331,15 @@ export const CriticalStocksComponent = () => {
     // },
     {
       title: 'Max Profit - To Date Profit Chip',
-      dataIndex: 'todayProfit',
-      key: 'todayProfit',
+      dataIndex: 'latest_profit_chips',
+      key: 'latest_profit_chips',
       sorter: (a: any, b: any): any => {
         const sorter = (sortBy) =>
           (
             sortBy?.profit_chips_str
               ?.split('|')
               .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f)) -
-            sortBy.todayProfit
+            sortBy.latest_profit_chips
           ).toFixed(2);
         return Number(sorter(a)) - Number(sorter(b));
       },
@@ -412,7 +413,7 @@ export const CriticalStocksComponent = () => {
       render: (c, record) => {
         const maxPrice = parseFloat(c?.split(',')?.[0]);
         const minPrice = parseFloat(c?.split(',')?.[1]);
-        const currentPrice = parseFloat(record?.todayPrice);
+        const currentPrice = parseFloat(record?.latest_finalprice);
         return (
           <>
             <div>
@@ -580,11 +581,13 @@ export const CriticalStocksComponent = () => {
       render: (c, record) => {
         return (
           <>
-             <span style={{ color: 'red' }}><b>{c?.split(',')?.[0]}</b></span>
-             <br />
-             <span>{c?.split(',')?.[1]}</span>
-             <br />
-             <span>{c?.split(',')?.[2]}</span>
+            <span style={{ color: 'red' }}>
+              <b>{c?.split(',')?.[0]}</b>
+            </span>
+            <br />
+            <span>{c?.split(',')?.[1]}</span>
+            <br />
+            <span>{c?.split(',')?.[2]}</span>
           </>
         );
       },
@@ -764,7 +767,7 @@ export const CriticalStocksComponent = () => {
               );
               if (searchStock) {
                 setUpOptions(options(data));
-                setDownOptions(options(data));
+                setDownOptions(options(downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -839,6 +842,16 @@ export const CriticalStocksComponent = () => {
           option={upOptions}
         />
       )}
+      DownDown:
+      {!isEmpty(downOptions) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={downOptions}
+        />
+      )}
+      UPUP:
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
@@ -852,14 +865,6 @@ export const CriticalStocksComponent = () => {
         columns={columns}
         dataSource={downData}
       />
-      {!isEmpty(downOptions) && (
-        <ReactEcharts
-          style={{ height: 250, width: 1450 }}
-          notMerge={true}
-          lazyUpdate={true}
-          option={downOptions}
-        />
-      )}
     </div>
   );
 };
