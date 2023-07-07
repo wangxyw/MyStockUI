@@ -130,6 +130,182 @@ const options = (data) => {
   };
 };
 
+const MergeOptions = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const xAxis = orderedData?.map((i) => i.datestr);
+  const maxT = orderedData?.map((i) => ({
+    value: i?.turnoverrates_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+  }));
+
+  const minT = orderedData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+    datestr: i.datestr,
+  }));
+  const maxDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+  }));
+
+  const minDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+    datestr: i.datestr,
+  }));
+
+  const maxTValues = allData?.map((i) =>
+    maxT?.find((m) => m.datestr === i)
+      ? maxT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minTValues = allData?.map((i) =>
+    minT?.find((m) => m.datestr === i)
+      ? minT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const maxDownValues = allData?.map((i) =>
+    maxDownT?.find((m) => m.datestr === i)
+      ? maxDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minDownValues = allData?.map((i) =>
+    minDownT?.find((m) => m.datestr === i)
+      ? minDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: [
+        'MaxOverRate',
+        'MinOverRate',
+        'DownMaxOverRate',
+        'DownMinOverRate',
+      ],
+    },
+    // grid: [{
+    //     left: '10%',
+    //     right: '1%',
+    //     top: '1%',
+    //     height: '70%'
+    // }],
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allData,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxOverRate',
+        type: 'line',
+        data: maxTValues,
+        symbol: 'diamond',
+        symbolSize: 10,
+        itemStyle: {
+          normal: {
+            color: '#d50937',
+          },
+        },
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinOverRate',
+        type: 'line',
+        symbol: 'diamond',
+        symbolSize: 10,
+
+        itemStyle: {
+          normal: {
+            color: '#e07b7b',
+          },
+        },
+        data: minTValues,
+        // itemStyle: {
+        //   normal: {
+        //     color: function (params) {
+        //       var colorList;
+        //       if (statusArr[params.dataIndex] == 'up') {
+        //         colorList = '#ef232a';
+        //       } else if (statusArr[params.dataIndex] == 'down') {
+        //         colorList = '#14b143';
+        //       }
+        //       return colorList;
+        //     },
+        //   },
+        // },
+      },
+      {
+        name: 'DownMaxOverRate',
+        type: 'line',
+        symbol: 'diamond',
+        symbolSize: 10,
+
+        data: maxDownValues,
+        itemStyle: {
+          normal: {
+            color: '#338e06',
+          },
+        },
+      },
+      {
+        name: 'DownMinOverRate',
+        type: 'line',
+        symbol: 'diamond',
+        symbolSize: 10,
+
+        data: minDownValues,
+        itemStyle: {
+          normal: {
+            color: '#8bac7b',
+          },
+        },
+      },
+    ],
+  };
+};
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
@@ -195,6 +371,7 @@ export const CriticalStocksComponent = () => {
 
   const [upOptions, setUpOptions] = useState({});
   const [downOptions, setDownOptions] = useState({});
+  const [mergeOptions, setMergeOptions] = useState({});
 
   console.log('data', data);
   const columns = [
@@ -768,6 +945,7 @@ export const CriticalStocksComponent = () => {
               if (searchStock) {
                 setUpOptions(options(data));
                 setDownOptions(options(downData));
+                setMergeOptions(MergeOptions(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -849,6 +1027,15 @@ export const CriticalStocksComponent = () => {
           notMerge={true}
           lazyUpdate={true}
           option={downOptions}
+        />
+      )}
+      UPDown:
+      {!isEmpty(mergeOptions) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeOptions}
         />
       )}
       UPUP:
