@@ -454,6 +454,45 @@ router.get('/critical_data', function (req, res, next) {
   });
 });
 
+router.get('/critical_data3', function (req, res, next) {
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  const from = req.query.from;
+  const stock = req.query.stock;
+  const isFocused = req.query.isFocused;
+  const isDown = req.query.isDown === 'true';
+  const table = isDown ? '3_critical_risk_stocks' : '3_critical_stocks';
+  console.log('===', table);
+  //let sql = `select * from critical_stocks a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
+  let sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' group by a.id;`;
+  if (!isEmpty(stock) && stock !== 'undefined') {
+    if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%';`;
+    } else {
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}';`;
+    }
+  }
+  if (isFocused === 'true') {
+    sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date right join focus_da fd on a.symbol=fd.symbol where a.end_date > '${startDateStr}' and a.end_date < '${endDateStr}' and fd.datestr > '${startDateStr}' and fd.datestr < '${endDateStr}' and source = '${from}' group by a.id;`;
+  }
+  const markStr = 'xywang-';
+  if (!isEmpty(stock) && stock.substr(0, markStr.length) == markStr) {
+    let intervalMonth = 3;
+    if (stock.length > markStr.length) {
+      intervalMonth = stock.substr(markStr.length, stock.length);
+    }
+    sql = `SELECT * FROM ${table} finalcs JOIN stock_day_common_data sdcd ON finalcs.symbol=sdcd.symbol AND sdcd.datestr = finalcs.end_date WHERE finalcs.symbol IN (SELECT symbol FROM critical_stocks WHERE end_date >= '${startDateStr}' AND end_date <= '${endDateStr}') AND finalcs.symbol NOT IN (SELECT DISTINCT csa.symbol FROM critical_stocks csa, (SELECT symbol, MIN(end_date) min_end_date FROM critical_stocks WHERE end_date >= '${startDateStr}' AND end_date <= '${endDateStr}' GROUP BY symbol) csb WHERE csa.symbol=csb.symbol AND csa.end_date > date_sub(min_end_date, INTERVAL ${intervalMonth} MONTH) AND csa.end_date < '${startDateStr}') AND finalcs.end_date <= '${endDateStr}' AND finalcs.end_date >= '${startDateStr}';`;
+  }
+  if (isEmpty(stock)) {
+    sql = `SELECT * FROM ${table} finalcs JOIN stock_day_common_data sdcd ON finalcs.symbol=sdcd.symbol AND sdcd.datestr = finalcs.end_date WHERE finalcs.end_date <= '${endDateStr}' AND finalcs.end_date >= '${startDateStr}';`;
+  }
+
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/all_alarm_data_dr', function (req, res, next) {
   const datestr = req.query.date_str;
   const endDateStr = req.query.end_date_str;

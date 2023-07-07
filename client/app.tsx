@@ -10,6 +10,7 @@ import { DAPlatesCom } from './component/da_plate';
 import { TotalDataCom } from './component/data_total';
 import { DataAlarmCom } from './component/data_analysis_alarm';
 import { CriticalStocksComponent } from './component/critical_stocks';
+import { CriticalStocks3Component } from './component/critical_stocks_3';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_ALARM_100 = 'alarm100';
@@ -21,6 +22,7 @@ const MENU_DA_PLATE = 'da_plate';
 const MENU_DA_TOTAL = 'da_total';
 const MENU_DA_ALARM = 'da_alarm';
 const MENU_CRI_STOCK = 'cri_stocks';
+const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
 
 function getInitPath() {
@@ -41,6 +43,7 @@ function getInitPath() {
         MENU_DA_TOTAL,
         MENU_DA_ALARM,
         MENU_CRI_STOCK,
+        MENU_CRI_STOCK_3,
       ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
@@ -99,6 +102,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_CRI_STOCK}>
           <Link to="/cri_stocks">Critical Stocks</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_CRI_STOCK_3}>
+          <Link to="/cri_stocks3">Critical Stocks 3</Link>
+        </Menu.Item>
       </Menu>
       <Switch>
         <Route path="/my_focus" component={MyFocusListComponent}>
@@ -131,6 +137,9 @@ const App = (): JSX.Element => {
         <Route path="/cri_stocks">
           <CriticalStocksComponent />
         </Route>
+        <Route path="/cri_stocks3">
+          <CriticalStocks3Component />
+        </Route>        
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />
         </Route>
