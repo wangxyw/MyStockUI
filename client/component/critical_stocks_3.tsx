@@ -1056,14 +1056,14 @@ export const CriticalStocks3Component = () => {
           option={mergeOptions}
         />
       )}
-      UPUP:
+      UPList:
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
         dataSource={data}
       />
-      DownDown:
+      DownList:
       <Table
         loading={isLoading}
         pagination={{ defaultPageSize: 100 }}
