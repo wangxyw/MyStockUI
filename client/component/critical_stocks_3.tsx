@@ -322,7 +322,7 @@ async function getAllCriStocks(
   isDown = false
 ) {
   const stockData = await get(
-    `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+    `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
   );
   // const stockPriceByDay =
   //   stockData?.length > 0
@@ -355,7 +355,7 @@ async function getAllCriStocks(
   // }));
 }
 
-export const CriticalStocksComponent = () => {
+export const CriticalStocks3Component = () => {
   const [data, setData] = useState<any>([]);
   const [downData, setDownData] = useState<any>();
   const [startDate, setStartDate] = useState(caculateDate(today, 10));
