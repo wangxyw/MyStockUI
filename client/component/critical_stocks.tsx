@@ -366,6 +366,7 @@ export const CriticalStocksComponent = () => {
   const [givenMinPrice, setGivenMinPrice] = useState(0);
   const [givenCirculation, setGivenCirculation] = useState(20);
   const [givenMinCirculation, setGivenMinCirculation] = useState(0);
+  const [givenPreIncreaseLimitation, setGivenPreIncreaseLimitation] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
@@ -941,6 +942,22 @@ export const CriticalStocksComponent = () => {
           />
           亿
         </Space>
+        <Space
+          style={{
+            padding: '10px',
+            boxShadow: '1px 1px 3px #ccc',
+            marginLeft: '10px',
+            // background: `${hasCondition4 ? SELECT_COLOR : '#fff'}`,
+          }}
+        >
+          <span>{'前期涨幅<'}</span>
+          <InputNumber
+            min={0}
+            max={500}
+            value={givenPreIncreaseLimitation}
+            onChange={setGivenPreIncreaseLimitation}
+          />%
+        </Space>
         <Button
           onClick={() => {
             async function handleAllStockData() {
@@ -990,7 +1007,19 @@ export const CriticalStocksComponent = () => {
                       } else {
                         priceCondition = s.finalprice < givenPrice;
                       }
-                      return circulationCondition && priceCondition;
+                      let maxMinLimitCondition = false;
+                      if (givenPreIncreaseLimitation) {
+                        let maxPrice = parseFloat(s.day90_max_min?.split(',')?.[0]);
+                        let minPrice = parseFloat(s.day90_max_min?.split(',')?.[1]);
+                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
+                          maxMinLimitCondition = true
+                        } else {
+                          maxMinLimitCondition = false
+                        }
+                      } else {
+                        maxMinLimitCondition = true
+                      }
+                      return circulationCondition && priceCondition && maxMinLimitCondition;
                     })
               );
               setDownData(
@@ -1018,7 +1047,19 @@ export const CriticalStocksComponent = () => {
                       } else {
                         priceCondition = s.finalprice < givenPrice;
                       }
-                      return circulationCondition && priceCondition;
+                      let maxMinLimitCondition = false;
+                      if (givenPreIncreaseLimitation) {
+                        let maxPrice = parseFloat(s.day90_max_min?.split(',')?.[0]);
+                        let minPrice = parseFloat(s.day90_max_min?.split(',')?.[1]);
+                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
+                          maxMinLimitCondition = true
+                        } else {
+                          maxMinLimitCondition = false
+                        }
+                      } else {
+                        maxMinLimitCondition = true
+                      }
+                      return circulationCondition && priceCondition && maxMinLimitCondition;
                     })
               );
               setIsLoading(false);
