@@ -578,9 +578,9 @@ export const CriticalStocks3Component = () => {
       },
     },
     {
-      title: '90 Max Min Price',
-      dataIndex: 'day90_max_min',
-      key: 'day90_max_min',
+      title: '60 Max Min Price',
+      dataIndex: 'day60_max_min',
+      key: 'day60_max_min',
       sorter: (a: any, b: any): any => {
         const sorter = (sortBy) =>
           sortBy?.turnoverrates_str
@@ -757,17 +757,31 @@ export const CriticalStocks3Component = () => {
       dataIndex: 'mix_turnoverrates_changes',
       key: 'mix_turnoverrates_changes',
       render: (c, record) => {
-        return (
-          <>
-            <span style={{ color: 'red' }}>
-              <b>{c?.split(',')?.[0]}</b>
-            </span>
-            <br />
-            <span>{c?.split(',')?.[1]}</span>
-            <br />
-            <span>{c?.split(',')?.[2]}</span>
-          </>
-        );
+        if (record?.turnoverrates_changes == c) {
+          return (
+            <>
+              <span style={{ color: 'red' }}>
+                <b>{c?.split(',')?.[0]}</b>
+              </span>
+              <br />
+              <span>{c?.split(',')?.[1]}</span>
+              <br />
+              <span>{c?.split(',')?.[2]}</span>
+            </>
+          );
+        } else {
+          return (
+            <>
+              <span>
+                <b>{c?.split(',')?.[0]}</b>
+              </span>
+              <br />
+              <span>{c?.split(',')?.[1]}</span>
+              <br />
+              <span>{c?.split(',')?.[2]}</span>
+            </>
+          );
+        }
       },
     },
     {
@@ -1009,8 +1023,8 @@ export const CriticalStocks3Component = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day90_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day90_max_min?.split(',')?.[1]);
+                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
+                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
                         if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
                           maxMinLimitCondition = true
                         } else {
@@ -1049,8 +1063,8 @@ export const CriticalStocks3Component = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day90_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day90_max_min?.split(',')?.[1]);
+                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
+                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
                         if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
                           maxMinLimitCondition = true
                         } else {
