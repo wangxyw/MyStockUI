@@ -4,6 +4,7 @@ import {
   DatePicker,
   Input,
   InputNumber,
+  Modal,
   Select,
   Space,
   Table,
@@ -355,6 +356,48 @@ async function getAllCriStocks(
   // }));
 }
 
+async function getAllCriStocks3(
+  startDate: any = null,
+  endDate: any = 0,
+  from: any = false,
+  stock,
+  isFocused,
+  isDown = false
+) {
+  const stockData = await get(
+    `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+  );
+  // const stockPriceByDay =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           today: caculateDate(endDate, 0),
+  //         }),
+  //       })
+  //     : stockData;
+  // const stockEachDayPriceData =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           simulateDate: caculateDate(today, 0),
+  //           startDate: '2023-01-01',
+  //         }),
+  //       })
+  //     : stockData;
+  return stockData;
+  // .map((i) => ({
+  //   ...i,
+  //   todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
+  //   todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
+  //     ?.profit_chip,
+  //   // daysProfit: stockEachDayPriceData
+  //   //   ?.filter((s) => s.symbol === i.symbol)
+  //   //   ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
+  // }));
+}
+
 export const CriticalStocksComponent = () => {
   const [data, setData] = useState<any>([]);
   const [downData, setDownData] = useState<any>();
@@ -366,7 +409,8 @@ export const CriticalStocksComponent = () => {
   const [givenMinPrice, setGivenMinPrice] = useState(0);
   const [givenCirculation, setGivenCirculation] = useState(20);
   const [givenMinCirculation, setGivenMinCirculation] = useState(0);
-  const [givenPreIncreaseLimitation, setGivenPreIncreaseLimitation] = useState(0);
+  const [givenPreIncreaseLimitation, setGivenPreIncreaseLimitation] =
+    useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
@@ -374,7 +418,11 @@ export const CriticalStocksComponent = () => {
   const [downOptions, setDownOptions] = useState({});
   const [mergeOptions, setMergeOptions] = useState({});
 
-  console.log('data', data);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
+  const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
+
+  console.log('data', mergeOptions);
   const columns = [
     {
       title: 'Symbol',
@@ -387,6 +435,7 @@ export const CriticalStocksComponent = () => {
         );
       },
       render: (text, record) => {
+        const end_date = record?.end_date;
         return (
           <>
             <div>
@@ -408,6 +457,51 @@ export const CriticalStocksComponent = () => {
                   {'Show alarm'}
                 </a>
               </Tag>
+              <Button
+                onClick={async () => {
+                  setIsLoading(true);
+                  const data = await getAllCriStocks(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused
+                  );
+                  const downData = await getAllCriStocks(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused,
+                    true
+                  );
+                  const data3 = await getAllCriStocks3(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused
+                  );
+                  const downData3 = await getAllCriStocks3(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused,
+                    true
+                  );
+
+                  // setUpOptions(options(data));
+                  // setDownOptions(options(downData));
+                  setIsModalVisible(true);
+                  setMergeOptionsInModal(MergeOptions(data, downData));
+                  setMergeOptions3InModal(MergeOptions(data3, downData3));
+
+                  setIsLoading(false);
+                }}
+              >
+                Show Charts
+              </Button>
             </div>
           </>
         );
@@ -970,7 +1064,8 @@ export const CriticalStocksComponent = () => {
             max={500}
             value={givenPreIncreaseLimitation}
             onChange={setGivenPreIncreaseLimitation}
-          />%
+          />
+          %
         </Space>
         <Button
           onClick={() => {
@@ -1023,17 +1118,29 @@ export const CriticalStocksComponent = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
-                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
-                          maxMinLimitCondition = true
+                        let maxPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[0]
+                        );
+                        let minPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[1]
+                        );
+                        if (
+                          +(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(
+                            2
+                          ) < givenPreIncreaseLimitation
+                        ) {
+                          maxMinLimitCondition = true;
                         } else {
-                          maxMinLimitCondition = false
+                          maxMinLimitCondition = false;
                         }
                       } else {
-                        maxMinLimitCondition = true
+                        maxMinLimitCondition = true;
                       }
-                      return circulationCondition && priceCondition && maxMinLimitCondition;
+                      return (
+                        circulationCondition &&
+                        priceCondition &&
+                        maxMinLimitCondition
+                      );
                     })
               );
               setDownData(
@@ -1063,17 +1170,29 @@ export const CriticalStocksComponent = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
-                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
-                          maxMinLimitCondition = true
+                        let maxPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[0]
+                        );
+                        let minPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[1]
+                        );
+                        if (
+                          +(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(
+                            2
+                          ) < givenPreIncreaseLimitation
+                        ) {
+                          maxMinLimitCondition = true;
                         } else {
-                          maxMinLimitCondition = false
+                          maxMinLimitCondition = false;
                         }
                       } else {
-                        maxMinLimitCondition = true
+                        maxMinLimitCondition = true;
                       }
-                      return circulationCondition && priceCondition && maxMinLimitCondition;
+                      return (
+                        circulationCondition &&
+                        priceCondition &&
+                        maxMinLimitCondition
+                      );
                     })
               );
               setIsLoading(false);
@@ -1125,6 +1244,36 @@ export const CriticalStocksComponent = () => {
         columns={columns}
         dataSource={downData}
       />
+      <Modal
+        title="Charts"
+        visible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={[
+          <Button onClick={() => setIsModalVisible(false)} type="primary">
+            OK
+          </Button>,
+        ]}
+        width={1500}
+      >
+        5 DAYs:
+        {!isEmpty(mergeOptionsInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptionsInModal}
+          />
+        )}
+        3 DAYs
+        {!isEmpty(mergeOptions3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptions3InModal}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

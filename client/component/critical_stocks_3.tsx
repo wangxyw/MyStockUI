@@ -366,7 +366,8 @@ export const CriticalStocks3Component = () => {
   const [givenMinPrice, setGivenMinPrice] = useState(0);
   const [givenCirculation, setGivenCirculation] = useState(20);
   const [givenMinCirculation, setGivenMinCirculation] = useState(0);
-  const [givenPreIncreaseLimitation, setGivenPreIncreaseLimitation] = useState(0);
+  const [givenPreIncreaseLimitation, setGivenPreIncreaseLimitation] =
+    useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
@@ -970,7 +971,8 @@ export const CriticalStocks3Component = () => {
             max={500}
             value={givenPreIncreaseLimitation}
             onChange={setGivenPreIncreaseLimitation}
-          />%
+          />
+          %
         </Space>
         <Button
           onClick={() => {
@@ -1023,17 +1025,29 @@ export const CriticalStocks3Component = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
-                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
-                          maxMinLimitCondition = true
+                        let maxPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[0]
+                        );
+                        let minPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[1]
+                        );
+                        if (
+                          +(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(
+                            2
+                          ) < givenPreIncreaseLimitation
+                        ) {
+                          maxMinLimitCondition = true;
                         } else {
-                          maxMinLimitCondition = false
+                          maxMinLimitCondition = false;
                         }
                       } else {
-                        maxMinLimitCondition = true
+                        maxMinLimitCondition = true;
                       }
-                      return circulationCondition && priceCondition && maxMinLimitCondition;
+                      return (
+                        circulationCondition &&
+                        priceCondition &&
+                        maxMinLimitCondition
+                      );
                     })
               );
               setDownData(
@@ -1063,17 +1077,29 @@ export const CriticalStocks3Component = () => {
                       }
                       let maxMinLimitCondition = false;
                       if (givenPreIncreaseLimitation) {
-                        let maxPrice = parseFloat(s.day60_max_min?.split(',')?.[0]);
-                        let minPrice = parseFloat(s.day60_max_min?.split(',')?.[1]);
-                        if ((((maxPrice - minPrice) / minPrice) * 100)?.toFixed(2) < givenPreIncreaseLimitation) {
-                          maxMinLimitCondition = true
+                        let maxPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[0]
+                        );
+                        let minPrice = parseFloat(
+                          s.day60_max_min?.split(',')?.[1]
+                        );
+                        if (
+                          +(((maxPrice - minPrice) / minPrice) * 100)?.toFixed(
+                            2
+                          ) < givenPreIncreaseLimitation
+                        ) {
+                          maxMinLimitCondition = true;
                         } else {
-                          maxMinLimitCondition = false
+                          maxMinLimitCondition = false;
                         }
                       } else {
-                        maxMinLimitCondition = true
+                        maxMinLimitCondition = true;
                       }
-                      return circulationCondition && priceCondition && maxMinLimitCondition;
+                      return (
+                        circulationCondition &&
+                        priceCondition &&
+                        maxMinLimitCondition
+                      );
                     })
               );
               setIsLoading(false);
