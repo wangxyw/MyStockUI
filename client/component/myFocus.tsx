@@ -93,7 +93,7 @@ export const caculateMinPrice = (priceByDayData) => {
 export const caculatePriceData = (
   stockData,
   stockPriceByDay,
-  timeWindow: any = 60,
+  timeWindow: any = 120,
   simulateDate: any = today
 ) => {
   const yesterday = caculateDate(simulateDate ?? today, 1);
