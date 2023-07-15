@@ -290,7 +290,7 @@ const MergeOptions = (data, downData) => {
 
           return colorList;
         },
-        symbolSize: 15,
+        symbolSize: 10,
         itemStyle: {
           normal: {
             color: '#d50937',
