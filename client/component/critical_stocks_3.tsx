@@ -144,6 +144,7 @@ const MergeOptions = (data, downData) => {
       .split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     datestr: i.datestr,
+    haveLimit: i?.have_limit,
   }));
 
   const minT = orderedData?.map((i) => ({
@@ -151,12 +152,14 @@ const MergeOptions = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     datestr: i.datestr,
+    haveLimit: i?.have_limit,
   }));
   const maxDownT = orderedDownData?.map((i) => ({
     value: i?.turnoverrates_str
       .split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     datestr: i.datestr,
+    haveLimit: i?.have_limit,
   }));
 
   const minDownT = orderedDownData?.map((i) => ({
@@ -164,6 +167,7 @@ const MergeOptions = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     datestr: i.datestr,
+    haveLimit: i?.have_limit,
   }));
 
   const maxTValues = allData?.map((i) =>
@@ -171,9 +175,25 @@ const MergeOptions = (data, downData) => {
       ? maxT?.find((m) => m.datestr === i).value
       : '-'
   );
+  const maxTValuesMap = allData?.map((i) =>
+    maxT?.find((m) => m.datestr === i)
+      ? {
+          value: maxT?.find((m) => m.datestr === i).value,
+          haveLimit: maxT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
   const minTValues = allData?.map((i) =>
     minT?.find((m) => m.datestr === i)
       ? minT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minTValuesMap = allData?.map((i) =>
+    minT?.find((m) => m.datestr === i)
+      ? {
+          value: minT?.find((m) => m.datestr === i).value,
+          haveLimit: minT?.find((m) => m.datestr === i).haveLimit,
+        }
       : '-'
   );
   const maxDownValues = allData?.map((i) =>
@@ -181,9 +201,25 @@ const MergeOptions = (data, downData) => {
       ? maxDownT?.find((m) => m.datestr === i).value
       : '-'
   );
+  const maxDownValuesMap = allData?.map((i) =>
+    maxDownT?.find((m) => m.datestr === i)
+      ? {
+          value: maxDownT?.find((m) => m.datestr === i).value,
+          haveLimit: maxDownT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
   const minDownValues = allData?.map((i) =>
     minDownT?.find((m) => m.datestr === i)
       ? minDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minDownValuesMap = allData?.map((i) =>
+    minDownT?.find((m) => m.datestr === i)
+      ? {
+          value: minDownT?.find((m) => m.datestr === i).value,
+          haveLimit: minDownT?.find((m) => m.datestr === i).haveLimit,
+        }
       : '-'
   );
 
@@ -240,8 +276,21 @@ const MergeOptions = (data, downData) => {
         name: 'MaxOverRate',
         type: 'line',
         data: maxTValues,
-        symbol: 'diamond',
-        symbolSize: 10,
+        symbol: (v, params) => {
+          var colorList;
+          if (maxTValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
+        symbolSize: 15,
         itemStyle: {
           normal: {
             color: '#d50937',
@@ -254,9 +303,21 @@ const MergeOptions = (data, downData) => {
       {
         name: 'MinOverRate',
         type: 'line',
-        symbol: 'diamond',
         symbolSize: 10,
+        symbol: (v, params) => {
+          var colorList;
+          if (minTValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
 
+          return colorList;
+        },
         itemStyle: {
           normal: {
             color: '#e07b7b',
@@ -280,7 +341,20 @@ const MergeOptions = (data, downData) => {
       {
         name: 'DownMaxOverRate',
         type: 'line',
-        symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (maxDownValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
         symbolSize: 10,
 
         data: maxDownValues,
@@ -293,7 +367,20 @@ const MergeOptions = (data, downData) => {
       {
         name: 'DownMinOverRate',
         type: 'line',
-        symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'pin';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'circle';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
         symbolSize: 10,
 
         data: minDownValues,
