@@ -10,7 +10,7 @@ import {
   Tag,
 } from 'antd';
 import ReactEcharts from 'echarts-for-react';
-
+import img from './mark.jpg';
 import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
 import { caculateDate, caculateDaysTwoDate } from './alarm';
@@ -372,9 +372,9 @@ const MergeOptions = (data, downData) => {
           if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
             colorList = 'arrow';
           } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'pin';
-          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
             colorList = 'circle';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
           } else {
             colorList = 'diamond';
           }
@@ -1216,6 +1216,7 @@ export const CriticalStocks3Component = () => {
         />
       )}
       UPDown:
+      <img src={img} style={{ width: '200px' }} />
       {!isEmpty(mergeOptions) && (
         <ReactEcharts
           style={{ height: 250, width: 1450 }}

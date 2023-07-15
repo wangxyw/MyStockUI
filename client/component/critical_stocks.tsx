@@ -394,9 +394,9 @@ const MergeOptions = (data, downData) => {
           if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
             colorList = 'arrow';
           } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'pin';
-          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
             colorList = 'circle';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
           } else {
             colorList = 'diamond';
           }
