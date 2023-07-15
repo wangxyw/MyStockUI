@@ -11,7 +11,7 @@ import {
   Tag,
 } from 'antd';
 import ReactEcharts from 'echarts-for-react';
-
+import img from './mark.jpg';
 import React, { useEffect, useState } from 'react';
 import { get, post } from '../lib';
 import { caculateDate, caculateDaysTwoDate } from './alarm';
@@ -1330,6 +1330,7 @@ export const CriticalStocksComponent = () => {
         />
       )}
       UPDown:
+      <img src={img} style={{ width: '200px' }} />
       {!isEmpty(mergeOptions) && (
         <ReactEcharts
           style={{ height: 250, width: 1450 }}
@@ -1364,6 +1365,7 @@ export const CriticalStocksComponent = () => {
         width={1500}
       >
         5 DAYs:
+        <img src={img} style={{ width: '200px' }} />
         {!isEmpty(mergeOptionsInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
