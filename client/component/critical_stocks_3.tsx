@@ -8,6 +8,7 @@ import {
   Space,
   Table,
   Tag,
+  Modal,
 } from 'antd';
 import ReactEcharts from 'echarts-for-react';
 import img from './mark.jpg';
@@ -442,6 +443,48 @@ async function getAllCriStocks(
   // }));
 }
 
+async function getAllCriStocks3(
+  startDate: any = null,
+  endDate: any = 0,
+  from: any = false,
+  stock,
+  isFocused,
+  isDown = false
+) {
+  const stockData = await get(
+    `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+  );
+  // const stockPriceByDay =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           today: caculateDate(endDate, 0),
+  //         }),
+  //       })
+  //     : stockData;
+  // const stockEachDayPriceData =
+  //   stockData?.length > 0
+  //     ? await post(`/api/get_price_from_common_data`, {
+  //         body: JSON.stringify({
+  //           stocks: stockData.map((i) => `'${i.symbol}'`).join(','),
+  //           simulateDate: caculateDate(today, 0),
+  //           startDate: '2023-01-01',
+  //         }),
+  //       })
+  //     : stockData;
+  return stockData;
+  // .map((i) => ({
+  //   ...i,
+  //   todayPrice: stockPriceByDay?.find((s) => s.symbol === i.symbol)?.finalprice,
+  //   todayProfit: stockPriceByDay?.find((s) => s.symbol === i.symbol)
+  //     ?.profit_chip,
+  //   // daysProfit: stockEachDayPriceData
+  //   //   ?.filter((s) => s.symbol === i.symbol)
+  //   //   ?.map((e) => ({ datestr: e.datestr, profit: e.profit_chip })),
+  // }));
+}
+
 export const CriticalStocks3Component = () => {
   const [data, setData] = useState<any>([]);
   const [downData, setDownData] = useState<any>();
@@ -462,7 +505,11 @@ export const CriticalStocks3Component = () => {
   const [downOptions, setDownOptions] = useState({});
   const [mergeOptions, setMergeOptions] = useState({});
 
-  console.log('data', data);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
+  const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
+
+  console.log('data', mergeOptions);
   const columns = [
     {
       title: 'Symbol',
@@ -475,6 +522,7 @@ export const CriticalStocks3Component = () => {
         );
       },
       render: (text, record) => {
+        const end_date = record?.end_date;
         return (
           <>
             <div>
@@ -496,6 +544,51 @@ export const CriticalStocks3Component = () => {
                   {'Show alarm'}
                 </a>
               </Tag>
+              <Button
+                onClick={async () => {
+                  setIsLoading(true);
+                  const data = await getAllCriStocks(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused
+                  );
+                  const downData = await getAllCriStocks(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused,
+                    true
+                  );
+                  const data3 = await getAllCriStocks3(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused
+                  );
+                  const downData3 = await getAllCriStocks3(
+                    end_date,
+                    end_date,
+                    record?.source,
+                    text,
+                    isFocused,
+                    true
+                  );
+
+                  // setUpOptions(options(data));
+                  // setDownOptions(options(downData));
+                  setIsModalVisible(true);
+                  setMergeOptionsInModal(MergeOptions(data, downData));
+                  setMergeOptions3InModal(MergeOptions(data3, downData3));
+
+                  setIsLoading(false);
+                }}
+              >
+                Show Charts
+              </Button>
             </div>
           </>
         );
@@ -1239,6 +1332,37 @@ export const CriticalStocks3Component = () => {
         columns={columns}
         dataSource={downData}
       />
+      <Modal
+        title="Charts"
+        visible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={[
+          <Button onClick={() => setIsModalVisible(false)} type="primary">
+            OK
+          </Button>,
+        ]}
+        width={1500}
+      >
+        5 DAYs:
+        <img src={img} style={{ width: '200px' }} />
+        {!isEmpty(mergeOptionsInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptionsInModal}
+          />
+        )}
+        3 DAYs
+        {!isEmpty(mergeOptions3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptions3InModal}
+          />
+        )}
+      </Modal>
     </div>
   );
 };
