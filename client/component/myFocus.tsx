@@ -5,6 +5,7 @@ import { get, post } from '../lib';
 import img from './mark.jpg';
 import { uniqBy, isEmpty, orderBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
+import moment from 'moment';
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
@@ -733,6 +734,15 @@ export const MyFocusListComponent = () => {
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
 
+  const curDate = new Date();
+  const year = curDate.getFullYear();
+  const lastYear = curDate.getFullYear() - 1;
+  const month = curDate.getMonth() + 1;
+  const day = curDate.getDate();
+  const dateFormat = 'YYYY-MM-DD';
+  const endDate = moment(`${year}-${month}-${day}`).format(dateFormat);
+  const startDate = moment(`${lastYear}-${month}-${day}`).format(dateFormat);
+
   const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
       body: JSON.stringify({
@@ -817,15 +827,15 @@ export const MyFocusListComponent = () => {
                     true
                   );
                   const data3 = await getAllCriStocks3(
-                    end_date,
-                    end_date,
+                    startDate,
+                    endDate,
                     false,
                     text,
                     false
                   );
                   const downData3 = await getAllCriStocks3(
-                    end_date,
-                    end_date,
+                    startDate,
+                    endDate,
                     false,
                     text,
                     false,
