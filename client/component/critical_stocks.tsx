@@ -135,16 +135,17 @@ const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
-  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr');
+  const allDataDate = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
     (i) => i.datestr
   );
 
-  const maxProfitChips = orderBy([...data, ...downData], 'datestr')?.map((i) =>
+  const maxProfitChips = allData?.map((i) =>
     i?.profit_chips_str
       .split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
   );
-  const minProfitChips = orderBy([...data, ...downData], 'datestr')?.map((i) =>
+  const minProfitChips = allData?.map((i) =>
     i?.profit_chips_str
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
@@ -181,7 +182,7 @@ const MergeProfitChips = (data, downData) => {
     },
     xAxis: {
       type: 'category',
-      data: allData,
+      data: allDataDate,
       axisLabel: { show: true, interval: 0, rotate: 45 },
     },
     yAxis: {
