@@ -1387,7 +1387,7 @@ export const CriticalStocks3Component = () => {
           option={mergeProfitChips}
         />
       )}
-      UPUP:
+{/*      UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
           style={{ height: 250, width: 1450 }}
@@ -1404,7 +1404,7 @@ export const CriticalStocks3Component = () => {
           lazyUpdate={true}
           option={downOptions}
         />
-      )}
+      )}*/}
       UPList:
       <Table
         loading={isLoading}
