@@ -131,6 +131,80 @@ const options = (data) => {
   };
 };
 
+const MergeProfitChips = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const maxProfitChips = orderBy([...data, ...downData], 'datestr')?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const minProfitChips = orderBy([...data, ...downData], 'datestr')?.map((i) =>
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['MaxProfitChips', 'MinProfitChips'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allData,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxProfitChips',
+        type: 'line',
+        data: maxProfitChips,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinProfitChips',
+        type: 'line',
+        data: minProfitChips,
+      },
+    ],
+  };
+};
+
 const MergeOptions = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
@@ -525,12 +599,15 @@ export const CriticalStocksComponent = () => {
   const [upOptions, setUpOptions] = useState({});
   const [downOptions, setDownOptions] = useState({});
   const [mergeOptions, setMergeOptions] = useState({});
+  const [mergeProfitChips, setMergeProfitChips] = useState({});
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
+  const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
 
   console.log('data', mergeOptions);
+  console.log('mergeProfitChips', mergeProfitChips);
   const columns = [
     {
       title: 'Symbol',
@@ -604,7 +681,7 @@ export const CriticalStocksComponent = () => {
                   setIsModalVisible(true);
                   setMergeOptionsInModal(MergeOptions(data, downData));
                   setMergeOptions3InModal(MergeOptions(data3, downData3));
-
+                  setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setIsLoading(false);
                 }}
               >
@@ -1198,6 +1275,7 @@ export const CriticalStocksComponent = () => {
                 setUpOptions(options(data));
                 setDownOptions(options(downData));
                 setMergeOptions(MergeOptions(data, downData));
+                setMergeProfitChips(MergeProfitChips(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1311,6 +1389,25 @@ export const CriticalStocksComponent = () => {
           Search
         </Button>
       </div>
+      UPDown:
+      <img src={img} style={{ width: '200px' }} />
+      {!isEmpty(mergeOptions) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeOptions}
+        />
+      )}
+      UPDownProfitChips:
+      {!isEmpty(mergeProfitChips) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeProfitChips}
+        />
+      )}
       UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
@@ -1327,16 +1424,6 @@ export const CriticalStocksComponent = () => {
           notMerge={true}
           lazyUpdate={true}
           option={downOptions}
-        />
-      )}
-      UPDown:
-      <img src={img} style={{ width: '200px' }} />
-      {!isEmpty(mergeOptions) && (
-        <ReactEcharts
-          style={{ height: 250, width: 1450 }}
-          notMerge={true}
-          lazyUpdate={true}
-          option={mergeOptions}
         />
       )}
       UPList:
@@ -1381,6 +1468,15 @@ export const CriticalStocksComponent = () => {
             notMerge={true}
             lazyUpdate={true}
             option={mergeOptions3InModal}
+          />
+        )}
+        3 DAYs ProfitChips::
+        {!isEmpty(mergeProfitChips3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeProfitChips3InModal}
           />
         )}
       </Modal>
