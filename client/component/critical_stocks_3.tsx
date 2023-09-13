@@ -150,6 +150,14 @@ const MergeProfitChips = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
+  const dProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) - 
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
 
   return {
     title: {
@@ -157,7 +165,7 @@ const MergeProfitChips = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['MaxProfitChips', 'MinProfitChips'],
+      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
     },
     tooltip: {
       trigger: 'axis',
@@ -201,6 +209,11 @@ const MergeProfitChips = (data, downData) => {
         name: 'MinProfitChips',
         type: 'line',
         data: minProfitChips,
+      },
+      {
+        name: 'DProfitChips',
+        type: 'line',
+        data: dProfitChips,
       },
     ],
   };
