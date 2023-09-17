@@ -156,9 +156,9 @@ export const DataAlarmCom = (props) => {
   const [showDateArray, setShowDateArray] = useState<any>([]);
   const [selectDateTab, setSelectDateTab] = useState<any>();
   const [stockData, setStockData] = useState<any>();
-  const [selectConsAllDays, setSelectConsAllDays] = useState('5');
+  const [selectConsAllDays, setSelectConsAllDays] = useState('3');
   const [selectConsUpDown, setSelectConsUpDown] = useState('up');
-  const [selectConsDays, setSelectConsDays] = useState(5);
+  const [selectConsDays, setSelectConsDays] = useState(3);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
   const curDate = new Date();
   const year = curDate.getFullYear();
@@ -174,10 +174,10 @@ export const DataAlarmCom = (props) => {
   const [hasCondition6, setHasCondition6] = useState(false);
   const [hasCondition4, setHasCondition4] = useState(false);
   const [hasCondition5, setHasCondition5] = useState(false);
-  const [givenPrice, setGivenPrice] = useState(10);
+  const [givenPrice, setGivenPrice] = useState(50);
   const [givenMinPrice, setGivenMinPrice] = useState(10);
-  const [givenCirculation, setGivenCirculation] = useState(10);
-  const [givenMinCirculation, setGivenMinCirculation] = useState(0);
+  const [givenCirculation, setGivenCirculation] = useState(100);
+  const [givenMinCirculation, setGivenMinCirculation] = useState(10);
   const [selectPriceMargin, setSelectPriceMargin] = useState(4);
   const [selectMinPriceMargin, setSelectMinPriceMargin] = useState(10);
   const [selectMinPriceDays, setSelectMinPriceDays] = useState(30);

@@ -266,7 +266,7 @@ const weighingOptions = (data) => {
 };
 
 export const DAPlatesCom = () => {
-  const [selectDays, setSelectDays] = useState('20');
+  const [selectDays, setSelectDays] = useState('5');
   const [selectConsAllDays, setSelectConsAllDays] = useState('5');
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -296,7 +296,7 @@ export const DAPlatesCom = () => {
   const [curStockDate, setCurStockDate] = useState<any>('');
   const [curPlateByDate, setCurPlateByDate] = useState<any>({});
   const [weighingOption, setWeighingOption] = useState<any>({});
-  const [selectHangye, setSelectHangye] = useState<any>('sw1_hy');
+  const [selectHangye, setSelectHangye] = useState<any>('sw3_hy');
   const [plateCount, setPlateCount] = useState<any>([]);
   const [focusStock, setFocusStock] = useState<any>([]);
 
