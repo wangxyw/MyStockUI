@@ -785,21 +785,12 @@ export const CriticalStocksComponent = () => {
         );
       },
     },
-    // {
-    //   title: 'To Date Profit Chip',
-    //   dataIndex: 'todayProfit',
-    //   key: 'todayProfit',
-    //   sorter: (a: any, b: any): any => {
-    //     return Number(a.todayProfit) - Number(b.todayProfit);
-    //   },
-    //   render: (c, record) => {
-    //     return (
-    //       <>
-    //         <span>{c}</span>
-    //       </>
-    //     );
-    //   },
-    // },
+    {
+      title: 'Latest D-value of Profit Chips',
+      dataIndex: 'latest_dvalue_profit_chips',
+      key: 'latest_dvalue_profit_chips',
+      sorter: (a, b) => a.latest_dvalue_profit_chips - b.latest_dvalue_profit_chips,
+    },
     {
       title: 'Max Profit - To Date Profit Chip',
       dataIndex: 'latest_profit_chips',
@@ -1045,56 +1036,56 @@ export const CriticalStocksComponent = () => {
     //     );
     //   },
     // },
-    {
-      title: 'MixMaxTORChange',
-      dataIndex: 'mix_turnoverrates_changes',
-      key: 'mix_turnoverrates_changes',
-      render: (c, record) => {
-        if (record?.turnoverrates_changes == c) {
-          return (
-            <>
-              <span style={{ color: 'red' }}>
-                <b>{c?.split(',')?.[0]}</b>
-              </span>
-              <br />
-              <span>{c?.split(',')?.[1]}</span>
-              <br />
-              <span>{c?.split(',')?.[2]}</span>
-            </>
-          );
-        } else {
-          return (
-            <>
-              <span>
-                <b>{c?.split(',')?.[0]}</b>
-              </span>
-              <br />
-              <span>{c?.split(',')?.[1]}</span>
-              <br />
-              <span>{c?.split(',')?.[2]}</span>
-            </>
-          );
-        }
-      },
-    },
-    {
-      title: 'MaxTORChange',
-      dataIndex: 'turnoverrates_changes',
-      key: 'turnoverrates_changes',
-      render: (c, record) => {
-        return (
-          <>
-            <span style={{ color: 'red' }}>
-              <b>{c?.split(',')?.[0]}</b>
-            </span>
-            <br />
-            <span>{c?.split(',')?.[1]}</span>
-            <br />
-            <span>{c?.split(',')?.[2]}</span>
-          </>
-        );
-      },
-    },
+    // {
+    //   title: 'MixMaxTORChange',
+    //   dataIndex: 'mix_turnoverrates_changes',
+    //   key: 'mix_turnoverrates_changes',
+    //   render: (c, record) => {
+    //     if (record?.turnoverrates_changes == c) {
+    //       return (
+    //         <>
+    //           <span style={{ color: 'red' }}>
+    //             <b>{c?.split(',')?.[0]}</b>
+    //           </span>
+    //           <br />
+    //           <span>{c?.split(',')?.[1]}</span>
+    //           <br />
+    //           <span>{c?.split(',')?.[2]}</span>
+    //         </>
+    //       );
+    //     } else {
+    //       return (
+    //         <>
+    //           <span>
+    //             <b>{c?.split(',')?.[0]}</b>
+    //           </span>
+    //           <br />
+    //           <span>{c?.split(',')?.[1]}</span>
+    //           <br />
+    //           <span>{c?.split(',')?.[2]}</span>
+    //         </>
+    //       );
+    //     }
+    //   },
+    // },
+    // {
+    //   title: 'MaxTORChange',
+    //   dataIndex: 'turnoverrates_changes',
+    //   key: 'turnoverrates_changes',
+    //   render: (c, record) => {
+    //     return (
+    //       <>
+    //         <span style={{ color: 'red' }}>
+    //           <b>{c?.split(',')?.[0]}</b>
+    //         </span>
+    //         <br />
+    //         <span>{c?.split(',')?.[1]}</span>
+    //         <br />
+    //         <span>{c?.split(',')?.[2]}</span>
+    //       </>
+    //     );
+    //   },
+    // },
     // {
     //   title: 'MarketValue',
     //   dataIndex: 'marketvalue',
@@ -1114,7 +1105,7 @@ export const CriticalStocksComponent = () => {
     //       </>
     //     );
     //   },
-    // },
+    // }, 
     {
       title: 'Source',
       dataIndex: 'source',
