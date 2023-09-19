@@ -316,6 +316,94 @@ const MergeOptions = (data, downData) => {
   };
 };
 
+const MergeProfitChips = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr');
+  const allDataDate = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const maxProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const minProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+  const dProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) - 
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxProfitChips',
+        type: 'line',
+        data: maxProfitChips,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinProfitChips',
+        type: 'line',
+        data: minProfitChips,
+      },
+      {
+        name: 'DProfitChips',
+        type: 'line',
+        data: dProfitChips,
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -733,6 +821,7 @@ export const MyFocusListComponent = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
+  const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
 
   const curDate = new Date();
   const year = curDate.getFullYear();
@@ -845,7 +934,7 @@ export const MyFocusListComponent = () => {
                   setIsModalVisible(true);
                   setMergeOptionsInModal(MergeOptions(data, downData));
                   setMergeOptions3InModal(MergeOptions(data3, downData3));
-
+                  setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setIsLoading(false);
                 }}
             >
@@ -1227,6 +1316,15 @@ export const MyFocusListComponent = () => {
             option={mergeOptions3InModal}
           />
         )}
+        3 DAYs ProfitChips:
+        {!isEmpty(mergeProfitChips3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeProfitChips3InModal}
+          />
+        )} 
       </Modal>
     </div>
   );
