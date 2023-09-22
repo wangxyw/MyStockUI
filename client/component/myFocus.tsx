@@ -822,7 +822,7 @@ export const MyFocusListComponent = () => {
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
-
+  const [curText, setCurText] = useState('');
   const curDate = new Date();
   const year = curDate.getFullYear();
   const lastYear = curDate.getFullYear() - 1;
@@ -936,6 +936,7 @@ export const MyFocusListComponent = () => {
                   setMergeOptions3InModal(MergeOptions(data3, downData3));
                   setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setIsLoading(false);
+                  setCurText(`${text} - ${record?.name}`)
                 }}
             >
               Show Charts
@@ -1287,7 +1288,7 @@ export const MyFocusListComponent = () => {
         components={components}
       />
       <Modal
-        title="Charts"
+        title={`Charts: ${curText}`}
         visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
