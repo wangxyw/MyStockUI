@@ -223,7 +223,7 @@ const MergeOptions = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
-  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
     (i) => i.datestr
   );
 
