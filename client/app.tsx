@@ -103,7 +103,7 @@ const App = (): JSX.Element => {
           <Link to="/cri_stocks">Critical Stocks</Link>
         </Menu.Item>
         <Menu.Item key={MENU_CRI_STOCK_3}>
-          <Link to="/cri_stocks3">Critical Stocks 3</Link>
+          <Link to="/cri_stocks_3">Critical Stocks 3</Link>
         </Menu.Item>
       </Menu>
       <Switch>
@@ -137,7 +137,7 @@ const App = (): JSX.Element => {
         <Route path="/cri_stocks">
           <CriticalStocksComponent />
         </Route>
-        <Route path="/cri_stocks3">
+        <Route path="/cri_stocks_3">
           <CriticalStocks3Component />
         </Route>        
         <Route path="/" component={AlarmComponent}>
