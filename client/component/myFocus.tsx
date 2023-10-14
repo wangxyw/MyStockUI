@@ -959,20 +959,20 @@ export const MyFocusListComponent = () => {
         );
       },
     },
-    {
-      title: 'Predict',
-      dataIndex: 'predict',
-      key: 'predict',
-      sorter: (a: any, b: any): any => a.predict - b.predict,
-      render: (txt: any): any => {
-        if (txt === 'Up') {
-          return '看涨';
-        }
-        if (txt === 'Down') {
-          return '看跌';
-        }
-      },
-    },
+    // {
+    //   title: 'Predict',
+    //   dataIndex: 'predict',
+    //   key: 'predict',
+    //   sorter: (a: any, b: any): any => a.predict - b.predict,
+    //   render: (txt: any): any => {
+    //     if (txt === 'Up') {
+    //       return '看涨';
+    //     }
+    //     if (txt === 'Down') {
+    //       return '看跌';
+    //     }
+    //   },
+    // },
     {
       title: 'Status',
       dataIndex: 'focus_status',
