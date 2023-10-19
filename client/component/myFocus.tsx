@@ -1035,8 +1035,17 @@ export const MyFocusListComponent = () => {
       key: 'comments',
       editable: true,
       render: (c) => {
-        const valueMap= JSON.parse(c.split("|")?.[1]);
-        const prefix = c.split("|")?.[0]
+        const cparts = c.split("|")
+        const prefix = cparts?.[0]
+        if (!cparts?.[1]?.trim()) {
+          return (
+            <div>
+              <p>{c}</p>
+            </div>)
+        }
+        console.log(cparts?.[1])
+        const valueMap = JSON.parse(cparts?.[1]);
+
         return (
           <div>
             <p>{prefix}</p>
