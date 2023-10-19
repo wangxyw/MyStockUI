@@ -1034,6 +1034,18 @@ export const MyFocusListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
+      render: (c) => {
+        const valueMap= JSON.parse(c.split("|")?.[1]);
+        const prefix = c.split("|")?.[0]
+        return (
+          <div>
+            <p>{prefix}</p>
+            <p>Before</p>
+            {Object.keys(valueMap?.before).map(i=>(<p>{i}:   {valueMap?.before?.[i]}</p>))}
+            <p>After</p>
+            {Object.keys(valueMap?.after).map(i=>(<p>{i}:    {valueMap?.after?.[i]}</p>))}
+          </div>)
+      }
     },
     {
       title: 'Date',
