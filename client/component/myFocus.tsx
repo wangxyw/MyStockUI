@@ -1050,9 +1050,9 @@ export const MyFocusListComponent = () => {
           <div>
             <p>{prefix}</p>
             <p>Before</p>
-            {Object.keys(valueMap?.before).map(i=>(<p>{i}:   {valueMap?.before?.[i]}</p>))}
+            {Object.keys(valueMap?.before).map(i=>(<p>{valueMap?.before?.[i]}({i})</p>))}
             <p>After</p>
-            {Object.keys(valueMap?.after).map(i=>(<p>{i}:    {valueMap?.after?.[i]}</p>))}
+            {Object.keys(valueMap?.after).map(i=>(<p>{valueMap?.after?.[i]}({i})</p>))}
           </div>)
       }
     },
