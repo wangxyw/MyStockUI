@@ -1049,7 +1049,13 @@ export const MyFocusListComponent = () => {
           <div>
             <p>{prefix}</p>
             <p>Before</p>
-            {Object.keys(valueMap?.before).map(i=>(<p>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})</p>))}
+            {Object.keys(valueMap?.before).map((i) => {
+                if (i === '7-days' || i === '15-days') {
+                  return (<p>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})</p>);
+                } else {
+                  return (<p><b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})</p>);
+                }
+              })}
             <p>After</p>
             {Object.keys(valueMap?.after).map(i=>(<p>{valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})</p>))}
           </div>)
