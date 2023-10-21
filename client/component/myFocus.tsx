@@ -1043,16 +1043,15 @@ export const MyFocusListComponent = () => {
               <p>{c}</p>
             </div>)
         }
-        console.log(cparts?.[1])
         const valueMap = JSON.parse(cparts?.[1]);
 
         return (
           <div>
             <p>{prefix}</p>
             <p>Before</p>
-            {Object.keys(valueMap?.before).map(i=>(<p>{valueMap?.before?.[i]}({i})</p>))}
+            {Object.keys(valueMap?.before).map(i=>(<p>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})</p>))}
             <p>After</p>
-            {Object.keys(valueMap?.after).map(i=>(<p>{valueMap?.after?.[i]}({i})</p>))}
+            {Object.keys(valueMap?.after).map(i=>(<p>{valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})</p>))}
           </div>)
       }
     },
