@@ -1,5 +1,21 @@
-import { Table, Form, Input, Popconfirm, Tag, Dropdown, Menu, Button, Modal } from 'antd';
-import React, { useEffect, useState, useRef, useContext } from 'react';
+import {
+  Table,
+  Form,
+  Input,
+  Popconfirm,
+  Tag,
+  Dropdown,
+  Menu,
+  Button,
+  Modal,
+} from 'antd';
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useContext,
+  useCallback,
+} from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
 import img from './mark.jpg';
@@ -320,10 +336,14 @@ const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
-  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
-  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
-    (i) => i.datestr
+  const allData = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
   );
+  const allDataDate = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  )?.map((i) => i.datestr);
 
   const maxProfitChips = allData?.map((i) =>
     i?.profit_chips_str
@@ -335,13 +355,14 @@ const MergeProfitChips = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
-  const dProfitChips = allData?.map((i) =>
-    i?.profit_chips_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) - 
-    i?.profit_chips_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  const dProfitChips = allData?.map(
+    (i) =>
+      i?.profit_chips_str
+        .split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
+      i?.profit_chips_str
+        ?.split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
 
   return {
@@ -377,6 +398,9 @@ const MergeProfitChips = (data, downData) => {
       type: 'category',
       data: allDataDate,
       axisLabel: { show: true, interval: 0, rotate: 45 },
+      onclick: (e) => {
+        console.log(e);
+      },
     },
     yAxis: {
       type: 'value',
@@ -823,6 +847,8 @@ export const MyFocusListComponent = () => {
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [curText, setCurText] = useState('');
+  const [curSymbol, setCurSymbol] = useState('');
+
   const curDate = new Date();
   const year = curDate.getFullYear();
   const lastYear = curDate.getFullYear() - 1;
@@ -832,6 +858,13 @@ export const MyFocusListComponent = () => {
   const endDate = moment(`${year}-${month}-${day}`).format(dateFormat);
   const startDate = moment(`${lastYear}-${month}-${day}`).format(dateFormat);
 
+  const mainChartRef = useRef<any>();
+  const handleClick = useCallback(() => {
+    const mainChartInstance = mainChartRef?.current?.getEchartsInstance();
+    mainChartInstance.on('click', (x) => {
+      console.log(x);
+    });
+  }, []);
   const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
       body: JSON.stringify({
@@ -898,46 +931,47 @@ export const MyFocusListComponent = () => {
             </Tag>
             <br />
             <Button
-                onClick={async () => {
-                  setIsLoading(true);
-                  const data = await getAllCriStocks(
-                    end_date,
-                    end_date,
-                    false,
-                    text,
-                    false
-                  );
-                  const downData = await getAllCriStocks(
-                    end_date,
-                    end_date,
-                    false,
-                    text,
-                    false,
-                    true
-                  );
-                  const data3 = await getAllCriStocks3(
-                    startDate,
-                    endDate,
-                    false,
-                    text,
-                    false
-                  );
-                  const downData3 = await getAllCriStocks3(
-                    startDate,
-                    endDate,
-                    false,
-                    text,
-                    false,
-                    true
-                  );
+              onClick={async () => {
+                setIsLoading(true);
+                const data = await getAllCriStocks(
+                  end_date,
+                  end_date,
+                  false,
+                  text,
+                  false
+                );
+                const downData = await getAllCriStocks(
+                  end_date,
+                  end_date,
+                  false,
+                  text,
+                  false,
+                  true
+                );
+                const data3 = await getAllCriStocks3(
+                  startDate,
+                  endDate,
+                  false,
+                  text,
+                  false
+                );
+                const downData3 = await getAllCriStocks3(
+                  startDate,
+                  endDate,
+                  false,
+                  text,
+                  false,
+                  true
+                );
 
-                  setIsModalVisible(true);
-                  setMergeOptionsInModal(MergeOptions(data, downData));
-                  setMergeOptions3InModal(MergeOptions(data3, downData3));
-                  setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
-                  setIsLoading(false);
-                  setCurText(`${text} - ${record?.name}`)
-                }}
+                setIsModalVisible(true);
+                setMergeOptionsInModal(MergeOptions(data, downData));
+                setMergeOptions3InModal(MergeOptions(data3, downData3));
+                setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
+                setIsLoading(false);
+                setCurText(`${text} - ${record?.name}`);
+                setCurSymbol(record?.symbol);
+              }}
             >
               Show Charts
             </Button>
@@ -1035,31 +1069,44 @@ export const MyFocusListComponent = () => {
       key: 'comments',
       editable: true,
       render: (c) => {
-        const cparts = c.split("|")
-        const prefix = cparts?.[0]
+        const cparts = c.split('|');
+        const prefix = cparts?.[0];
         if (!cparts?.[1]?.trim()) {
           return (
             <div>
               <p>{c}</p>
-            </div>)
+            </div>
+          );
         }
         const valueMap = JSON.parse(cparts?.[1]);
-
         return (
           <div>
             <p>{prefix}</p>
             <p>Before</p>
             {Object.keys(valueMap?.before).map((i) => {
-                if (i === '7-days' || i === '15-days') {
-                  return (<p>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})</p>);
-                } else {
-                  return (<p><b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})</p>);
-                }
-              })}
+              if (i === '7-days' || i === '15-days') {
+                return (
+                  <p>
+                    {valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+                  </p>
+                );
+              } else {
+                return (
+                  <p>
+                    <b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
+                  </p>
+                );
+              }
+            })}
             <p>After</p>
-            {Object.keys(valueMap?.after).map(i=>(<p>{valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})</p>))}
-          </div>)
-      }
+            {Object.keys(valueMap?.after).map((i) => (
+              <p>
+                {valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
+              </p>
+            ))}
+          </div>
+        );
+      },
     },
     {
       title: 'Date',
@@ -1217,7 +1264,7 @@ export const MyFocusListComponent = () => {
     },
   ];
   const [selectStatus, setSelectStatus] = useState<any>(null);
-
+  const [curAnaMap, setAnaMap] = useState();
   useEffect(() => {
     async function handleAllStockData() {
       const data = await getAllFocusedStocks();
@@ -1350,8 +1397,39 @@ export const MyFocusListComponent = () => {
             notMerge={true}
             lazyUpdate={true}
             option={mergeProfitChips3InModal}
+            ref={mainChartRef}
+            onEvents={{
+              click: async (info) => {
+                const res = await post(`/api/get_price_from_common_data`, {
+                  body: JSON.stringify({
+                    stocks: [`'${curSymbol}'`],
+                    today: info.name,
+                  }),
+                });
+                console.log(res, res?.[0].turnoverrates_analysis);
+                setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
+                console.log(
+                  info.dataIndex, // 当前点击的第几个柱子
+                  info.seriesIndex, // 当前点击的第几个数据源
+                  info.value, // 当前柱子Y轴的数据
+                  info.name, // 当前柱子X轴的名字
+                  info.seriesName, // 当前数据源的名字
+                  info.seriesType, // 当前数据的类型
+                  info.color // 当前柱子的颜色
+                );
+              },
+            }}
           />
-        )} 
+        )}
+        {!isEmpty(curAnaMap) && (
+          <div>
+            <p>before:{JSON.stringify(curAnaMap?.before)}</p>
+            <p>
+              after:
+              {JSON.stringify(curAnaMap?.after)}
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   );
