@@ -1422,12 +1422,33 @@ export const MyFocusListComponent = () => {
           />
         )}
         {!isEmpty(curAnaMap) && (
-          <div>
-            <p>before:{JSON.stringify(curAnaMap?.before)}</p>
-            <p>
-              after:
-              {JSON.stringify(curAnaMap?.after)}
-            </p>
+          <div class="table">
+            <div class="col">
+              <p>Before</p>
+              {Object.keys(curAnaMap?.before).map((i) => {
+                if (i === '7-days' || i === '15-days') {
+                  return (
+                    <p>
+                      {curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+                    </p>
+                  );
+                } else {
+                  return (
+                    <p>
+                      <b>{curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
+                    </p>
+                  );
+                }
+              })}
+            </div>
+            <div class="col">
+              <p>After</p>
+              {Object.keys(curAnaMap?.after).map((i) => (
+                <p>
+                  {curAnaMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
+                </p>
+              ))}
+            </div>
           </div>
         )}
       </Modal>
