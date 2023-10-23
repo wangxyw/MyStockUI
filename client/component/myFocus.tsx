@@ -30,7 +30,7 @@ import {
 import { caculateAfterDate, caculateDate, today } from './alarm';
 export const focusStatusMap = {
   '1': {
-    name: '测试中',
+    name: '下跌中',
     color: 'blue',
   },
   '2': {
