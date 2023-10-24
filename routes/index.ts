@@ -428,9 +428,9 @@ router.get('/critical_data', function (req, res, next) {
   let sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' group by a.symbol;`;
   if (!isEmpty(stock) && stock !== 'undefined') {
     if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%';`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
     } else {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}';`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
     }
   }
   if (isFocused === 'true') {
@@ -467,9 +467,9 @@ router.get('/critical_data3', function (req, res, next) {
   let sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' group by a.symbol;`;
   if (!isEmpty(stock) && stock !== 'undefined') {
     if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%';`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
     } else {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}';`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
     }
   }
   if (isFocused === 'true') {
