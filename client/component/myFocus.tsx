@@ -1058,12 +1058,6 @@ export const MyFocusListComponent = () => {
       key: 'finalprice',
     },
     {
-      title: 'Turnover Rate',
-      dataIndex: 'turnoverrate',
-      key: 'turnoverrate',
-      sorter: (a, b) => a.turnoverrate - b.turnoverrate,
-    },
-    {
       title: 'Comments',
       dataIndex: 'comments',
       key: 'comments',
@@ -1117,6 +1111,25 @@ export const MyFocusListComponent = () => {
         return (
           Number(a.datestr.replaceAll('-', '')) -
           Number(b.datestr.replaceAll('-', ''))
+        );
+      },
+    },
+    {
+      title: 'updated_at',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      render:(c) => {
+        const value = c.split('T')?.[0]
+        return (
+            <p>{value}</p>
+        );        
+      },
+      sorter: (a: any, b: any): any => {
+        console.log(a.updated_at.split('T')?.[0])
+        var t1 = a.updated_at.split('T')?.[0].replaceAll('-', '');
+        var t2 = b.updated_at.split('T')?.[0].replaceAll('-', '')
+        return (
+          Number(t1) - Number(t2)
         );
       },
     },
