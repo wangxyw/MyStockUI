@@ -1115,9 +1115,9 @@ export const MyFocusListComponent = () => {
       },
     },
     {
-      title: 'updated_at',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
+      title: 'last_updated_at',
+      dataIndex: 'last_updated_at',
+      key: 'last_updated_at',
       render:(c) => {
         const value = c.split('T')?.[0]
         return (
