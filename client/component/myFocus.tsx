@@ -1106,7 +1106,7 @@ export const MyFocusListComponent = () => {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
-      defaultSortOrder: 'descend',
+      // defaultSortOrder: 'descend',
       sorter: (a: any, b: any): any => {
         return (
           Number(a.datestr.replaceAll('-', '')) -
@@ -1125,9 +1125,8 @@ export const MyFocusListComponent = () => {
         );        
       },
       sorter: (a: any, b: any): any => {
-        console.log(a.updated_at.split('T')?.[0])
-        var t1 = a.updated_at.split('T')?.[0].replaceAll('-', '');
-        var t2 = b.updated_at.split('T')?.[0].replaceAll('-', '')
+        var t1 = a.last_updated_at.split('T')?.[0].replaceAll('-', '');
+        var t2 = b.last_updated_at.split('T')?.[0].replaceAll('-', '')
         return (
           Number(t1) - Number(t2)
         );

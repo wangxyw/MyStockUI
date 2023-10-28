@@ -285,7 +285,7 @@ router.get('/get_stock_plate', (req, res, next) => {
 });
 
 router.get('/all_focus_stock', function (req, res, next) {
-  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks a join stock_day_common_data b on a.symbol = b.symbol where a.datestr=b.datestr;`;
+  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     //res.json(rows);
