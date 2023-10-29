@@ -140,6 +140,19 @@ router.post('/delete_focus', function (req, res, next) {
   });
 });
 
+router.post('/delete_expire_focus', function (req, res, next) {
+  const symbol = req.body.symbol;
+  const datestr = req.body.datestr;
+  const sql = `DELETE from focus_stocks_expire where symbol= '${symbol}' and datestr= '${datestr}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) {
+      res.json(err);
+    } else {
+      res.json(rows);
+    }
+  });
+});
+
 router.post('/delete_da_focus', function (req, res, next) {
   const symbol = req.body.symbol;
   const datestr = req.body.datestr;
@@ -307,6 +320,29 @@ router.get('/all_focus_stock', function (req, res, next) {
   });
 });
 
+router.get('/all_expire_focus_stock', function (req, res, next) {
+  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks_expire a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    //res.json(rows);
+    let batchSql = '';
+    rows?.forEach(
+      (i) =>
+        (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
+    );
+    pool.query(batchSql, function (newerr, newrows, newfields) {
+      if (err) throw err;
+      //...newrows.forEach(i => {})
+      const newResult = rows?.map((item, key) => ({
+        ...item,
+        //recentTen: newrows?.flat()?.filter((i) => i.symbol === item.symbol),
+        recentTen: newrows[key],
+      }));
+      res.json(newResult);
+    });
+  });
+});
+
 router.get('/all_da_focus', function (req, res, next) {
   let sql = `SELECT a.*, b.*, c.viewed, c.datestr as viewedDate FROM focus_da a join stock_day_common_data b on a.symbol = b.symbol left join viewd_stocks c on a.symbol = c.symbol where a.datestr=b.datestr and a.deleted != '1';`;
   const simulateDate = req.query.simulateDate;
@@ -428,9 +464,9 @@ router.get('/critical_data', function (req, res, next) {
   let sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' group by a.symbol;`;
   if (!isEmpty(stock) && stock !== 'undefined') {
     if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date, days, a.id ASC;`;
     } else {
-      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' GROUP BY end_date ORDER BY end_date DESC, days DESC, a.id ASC;`;
+      sql = `select * from ${table} a join stock_day_common_data b on a.symbol=b.symbol and b.datestr = a.end_date where a.symbol LIKE '%${stock}%' and a.end_date >= '${startDateStr}' and a.end_date <= '${endDateStr}' GROUP BY end_date ORDER BY end_date, days, a.id ASC;`;
     }
   }
   if (isFocused === 'true') {

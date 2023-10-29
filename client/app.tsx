@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu } from 'antd';
 import { AlarmComponent } from './component/new_alarm';
 import { MyFocusListComponent } from './component/myFocus';
+import { MyFocusExpireListComponent } from './component/myFocusExpire';
 import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 import { PlateComponent } from './component/focus_plate';
 import { DataAnalysisCom } from './component/data_analysis';
@@ -13,6 +14,7 @@ import { CriticalStocksComponent } from './component/critical_stocks';
 import { CriticalStocks3Component } from './component/critical_stocks_3';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
+const MENU_FOCUSED_EXPIRE = 'expire_my_focus';
 const MENU_ALARM_100 = 'alarm100';
 const MENU_PLATE = 'plate';
 const MENU_DATA_ANA = 'data_analysis';
@@ -33,6 +35,7 @@ function getInitPath() {
       [
         MENU_ALARM,
         MENU_FOCUSED,
+        MENU_FOCUSED_EXPIRE,
         MENU_ALARM_100,
         MENU_DATA_ANA,
         MENU_PLATE,
@@ -78,6 +81,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_FOCUSED}>
           <Link to="/my_focus">My Focus</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_FOCUSED_EXPIRE}>
+          <Link to="/expire_my_focus">My Focus Expire</Link>
+        </Menu.Item>
         <Menu.Item key={MENU_DATA_ANA}>
           <Link to="/data_analysis">Data Analysis</Link>
         </Menu.Item>
@@ -109,6 +115,9 @@ const App = (): JSX.Element => {
       <Switch>
         <Route path="/my_focus" component={MyFocusListComponent}>
           <MyFocusListComponent />
+        </Route>
+        <Route path="/expire_my_focus" component={MyFocusExpireListComponent}>
+          <MyFocusExpireListComponent />
         </Route>
         <Route path="/data_analysis" component={DataAnalysisCom}>
           <DataAnalysisCom />
