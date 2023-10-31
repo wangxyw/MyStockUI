@@ -763,43 +763,43 @@ export const CriticalStocks3Component = () => {
         );
       },
     },
-    {
-      title: 'Latest D-value of Profit Chips',
-      dataIndex: 'latest_dvalue_profit_chips',
-      key: 'latest_dvalue_profit_chips',
-      sorter: (a, b) => a.latest_dvalue_profit_chips - b.latest_dvalue_profit_chips,
-    },    
-    {
-      title: 'Max Profit - To Date Profit Chip',
-      dataIndex: 'latest_profit_chips',
-      key: 'latest_profit_chips',
-      sorter: (a: any, b: any): any => {
-        const sorter = (sortBy) =>
-          (
-            sortBy?.profit_chips_str
-              ?.split('|')
-              .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f)) -
-            sortBy.latest_profit_chips
-          ).toFixed(2);
-        return Number(sorter(a)) - Number(sorter(b));
-      },
-      render: (c, record) => {
-        return (
-          <>
-            <div>
-              <span>
-                {(
-                  record?.profit_chips_str
-                    ?.split('|')
-                    .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
-                  c
-                ).toFixed(2)}{' '}
-              </span>
-            </div>
-          </>
-        );
-      },
-    },
+    // {
+    //   title: 'Latest D-value of Profit Chips',
+    //   dataIndex: 'latest_dvalue_profit_chips',
+    //   key: 'latest_dvalue_profit_chips',
+    //   sorter: (a, b) => a.latest_dvalue_profit_chips - b.latest_dvalue_profit_chips,
+    // },    
+    // {
+    //   title: 'Max Profit - To Date Profit Chip',
+    //   dataIndex: 'latest_profit_chips',
+    //   key: 'latest_profit_chips',
+    //   sorter: (a: any, b: any): any => {
+    //     const sorter = (sortBy) =>
+    //       (
+    //         sortBy?.profit_chips_str
+    //           ?.split('|')
+    //           .reduce((e, f) => (parseFloat(e) > parseFloat(f) ? e : f)) -
+    //         sortBy.latest_profit_chips
+    //       ).toFixed(2);
+    //     return Number(sorter(a)) - Number(sorter(b));
+    //   },
+    //   render: (c, record) => {
+    //     return (
+    //       <>
+    //         <div>
+    //           <span>
+    //             {(
+    //               record?.profit_chips_str
+    //                 ?.split('|')
+    //                 .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
+    //               c
+    //             ).toFixed(2)}{' '}
+    //           </span>
+    //         </div>
+    //       </>
+    //     );
+    //   },
+    // },
     {
       title: 'Max TurnOverRate',
       dataIndex: 'turnoverrates_str',
