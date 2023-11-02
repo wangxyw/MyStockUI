@@ -967,6 +967,11 @@ export const MyFocusExpireListComponent = () => {
       },
     },
     {
+      title: 'Continuance BYG',
+      dataIndex: 'continuance_BYG',
+      key: 'continuance_BYG',
+    },
+    {
       title: 'Comments',
       dataIndex: 'comments',
       key: 'comments',

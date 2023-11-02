@@ -1046,29 +1046,34 @@ export const MyFocusListComponent = () => {
       sorter: (a, b) =>
         parseInt(a.focus_status || 0, 10) - parseInt(b.focus_status || 0, 10),
     },
+    // {
+    //   title: 'Current Price',
+    //   dataIndex: 'todayPrice',
+    //   key: 'todayPrice',
+    //   render: (c, record) => {
+    //     const isUp = c - record.finalprice > 0;
+    //     const arrow = !isUp ? (
+    //       <ArrowDownOutlined style={{ color: 'green' }} />
+    //     ) : (
+    //       <ArrowUpOutlined style={{ color: 'red' }} />
+    //     );
+    //     return (
+    //       <>
+    //         <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
+    //         {arrow}
+    //       </>
+    //     );
+    //   },
+    // },
+    // {
+    //   title: 'Final Price',
+    //   dataIndex: 'finalprice',
+    //   key: 'finalprice',
+    // },
     {
-      title: 'Current Price',
-      dataIndex: 'todayPrice',
-      key: 'todayPrice',
-      render: (c, record) => {
-        const isUp = c - record.finalprice > 0;
-        const arrow = !isUp ? (
-          <ArrowDownOutlined style={{ color: 'green' }} />
-        ) : (
-          <ArrowUpOutlined style={{ color: 'red' }} />
-        );
-        return (
-          <>
-            <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
-            {arrow}
-          </>
-        );
-      },
-    },
-    {
-      title: 'Final Price',
-      dataIndex: 'finalprice',
-      key: 'finalprice',
+      title: 'Continuance BYG',
+      dataIndex: 'continuance_BYG',
+      key: 'continuance_BYG',
     },
     {
       title: 'Comments',
