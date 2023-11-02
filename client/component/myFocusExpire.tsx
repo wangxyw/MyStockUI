@@ -810,26 +810,39 @@ const EditableCell: React.FC<EditableCellProps> = ({
 async function getAllFocusedExpireStocks() {
   const stockData = await get('/api/all_expire_focus_stock');
   const symbols = stockData.map((d) => d.symbol);
-  const realtimeData = await post(`/api/qt_realtime`, {
-    body: JSON.stringify({ q: symbols.join(',') }),
-  });
+  // const realtimeData = await post(`/api/qt_realtime`, {
+  //   body: JSON.stringify({ q: symbols.join(',') }),
+  // });
 
-  const stockPriceByDay = await get(
-    `/api/get_focus_stock_price?stocks=${symbols
-      .map((i) => `'${i}'`)
-      .join(',')}`
-  );
+  // const stockPriceByDay = await post(
+  //   `/api/get_price_from_common_data`, {body: JSON.stringify({stocks: symbols
+  //     .map((i) => `'${i}'`)
+  //     .join(',')})}
+  // );
+  // //caculate stock price
+  // const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
+
+  // return stockPriceData.map((s) => {
+  //   const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
+
+  //   return {
+  //     ...s,
+  //     currentPrice,
+  //   };
+  // });
+  const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
+    body: JSON.stringify({
+      stocks: symbols.map((i) => `'${i}'`).join(',')
+    }),
+  });
   //caculate stock price
-  const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
+  const stockPriceData = caculatePriceData(
+    stockData,
+    stockPriceByDay,
+    '不限'
+  );
 
-  return stockPriceData.map((s) => {
-    const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
-
-    return {
-      ...s,
-      currentPrice,
-    };
-  });
+  return stockPriceData;
 }
 
 export const MyFocusExpireListComponent = () => {
@@ -1107,18 +1120,6 @@ export const MyFocusExpireListComponent = () => {
   useEffect(() => {
     async function handleAllStockData() {
       const data = await getAllFocusedExpireStocks();
-      const rateByCur = data?.filter(
-        (i) =>
-          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
-          (i.currentPrice < i.finalprice && i.predict === 'Down')
-      ).length;
-      const rateByMax = data?.filter(
-        (i) =>
-          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
-          (i.maxPriceDiff === 0 && i.predict === 'Down')
-      )?.length;
-      setRateByCur(`${rateByCur}/${data.length}` as any);
-      setRateByMax(`${rateByMax}/${data.length}` as any);
       setData(
         selectStatus
           ? data.filter(
