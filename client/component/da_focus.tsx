@@ -17,11 +17,11 @@ import Icon, {
 } from '@ant-design/icons';
 
 import { CheckCircleTwoTone } from '@ant-design/icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { get, post } from '../lib';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { caculateAfterDate, caculateDate, validateCons } from './alarm';
-import { groupBy, orderBy, cloneDeep } from 'lodash';
+import { groupBy, orderBy, cloneDeep, isEmpty, uniqBy } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import {
   caculateMaxPrice,
@@ -33,6 +33,7 @@ import { getBeforeOneDate, validateStock } from './new_alarm';
 import './alarm.css';
 import DATA from './date.json';
 import { pullWorkDaysArray, pullWorkDaysArrayAfter } from './data_analysis';
+import img from './mark.jpg';
 
 const curDate = new Date();
 const year = curDate.getFullYear();
@@ -41,6 +42,416 @@ const day = curDate.getDate();
 const dateFormat = 'YYYY-MM-DD';
 const today = moment(`${year}-${month}-${day}`).format(dateFormat);
 const workDays = DATA.workday;
+
+const MergeOptions = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const xAxis = orderedData?.map((i) => i.datestr);
+  const maxT = orderedData?.map((i) => ({
+    value: i?.turnoverrates_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+
+  const minT = orderedData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+  const maxDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+
+  const minDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+
+  const maxTValues = allData?.map((i) =>
+    maxT?.find((m) => m.datestr === i)
+      ? maxT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const maxTValuesMap = allData?.map((i) =>
+    maxT?.find((m) => m.datestr === i)
+      ? {
+          value: maxT?.find((m) => m.datestr === i).value,
+          haveLimit: maxT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+
+  const minTValues = allData?.map((i) =>
+    minT?.find((m) => m.datestr === i)
+      ? minT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minTValuesMap = allData?.map((i) =>
+    minT?.find((m) => m.datestr === i)
+      ? {
+          value: minT?.find((m) => m.datestr === i).value,
+          haveLimit: minT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+
+  const maxDownValues = allData?.map((i) =>
+    maxDownT?.find((m) => m.datestr === i)
+      ? maxDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const maxDownValuesMap = allData?.map((i) =>
+    maxDownT?.find((m) => m.datestr === i)
+      ? {
+          value: maxDownT?.find((m) => m.datestr === i).value,
+          haveLimit: maxDownT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+  const minDownValues = allData?.map((i) =>
+    minDownT?.find((m) => m.datestr === i)
+      ? minDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const minDownValuesMap = allData?.map((i) =>
+    minDownT?.find((m) => m.datestr === i)
+      ? {
+          value: minDownT?.find((m) => m.datestr === i).value,
+          haveLimit: minDownT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: [
+        'MaxOverRate',
+        'MinOverRate',
+        'DownMaxOverRate',
+        'DownMinOverRate',
+      ],
+    },
+    // grid: [{
+    //     left: '10%',
+    //     right: '1%',
+    //     top: '1%',
+    //     height: '70%'
+    // }],
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allData,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxOverRate',
+        type: 'line',
+        data: maxTValues,
+        symbol: (v, params) => {
+          var colorList;
+          if (maxTValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
+        symbolSize: 10,
+        itemStyle: {
+          normal: {
+            color: '#d50937',
+            // color: function (params) {
+            //   console.log('======', maxTValues, maxTValuesMap, params);
+            //   var colorList;
+            //   if (maxTValuesMap[params.dataIndex]?.haveLimit == '1') {
+            //     colorList = '#3c0202';
+            //   } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            //     colorList = '#023c1f';
+            //   } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '2') {
+            //     colorList = '#3f09d5';
+            //   } else {
+            //     colorList = '#d50937';
+            //   }
+            //   console.log('colorList', colorList);
+            //   return colorList;
+            // },
+          },
+        },
+
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinOverRate',
+        type: 'line',
+        // symbol: 'diamond',
+        symbolSize: 10,
+        symbol: (v, params) => {
+          var colorList;
+          if (minTValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
+        itemStyle: {
+          normal: {
+            color: '#e07b7b',
+          },
+        },
+        data: minTValues,
+        // itemStyle: {
+        //   normal: {
+        //     color: function (params) {
+        //       var colorList;
+        //       if (statusArr[params.dataIndex] == 'up') {
+        //         colorList = '#ef232a';
+        //       } else if (statusArr[params.dataIndex] == 'down') {
+        //         colorList = '#14b143';
+        //       }
+        //       return colorList;
+        //     },
+        //   },
+        // },
+      },
+      {
+        name: 'DownMaxOverRate',
+        type: 'line',
+        // symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (maxDownValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
+        symbolSize: 10,
+
+        data: maxDownValues,
+        itemStyle: {
+          normal: {
+            color: '#338e06',
+          },
+        },
+      },
+      {
+        name: 'DownMinOverRate',
+        type: 'line',
+        // symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+
+          return colorList;
+        },
+        symbolSize: 10,
+
+        data: minDownValues,
+        itemStyle: {
+          normal: {
+            color: '#8bac7b',
+          },
+        },
+      },
+    ],
+  };
+};
+
+const MergeProfitChips = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  );
+  const allDataDate = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  )?.map((i) => i.datestr);
+
+  const maxProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const minProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+  const dProfitChips = allData?.map(
+    (i) =>
+      i?.profit_chips_str
+        .split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
+      i?.profit_chips_str
+        ?.split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+      onclick: (e) => {
+        console.log(e);
+      },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxProfitChips',
+        type: 'line',
+        data: maxProfitChips,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'MinProfitChips',
+        type: 'line',
+        data: minProfitChips,
+      },
+      {
+        name: 'DProfitChips',
+        type: 'line',
+        data: dProfitChips,
+      },
+    ],
+  };
+};
+
+async function getAllCriStocks(
+  startDate: any = null,
+  endDate: any = 0,
+  from: any = false,
+  stock,
+  isFocused,
+  isDown = false
+) {
+  const stockData = await get(
+    `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+  );
+  return stockData;
+}
+
+async function getAllCriStocks3(
+  startDate: any = null,
+  endDate: any = 0,
+  from: any = false,
+  stock,
+  isFocused,
+  isDown = false
+) {
+  const stockData = await get(
+    `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+  );
+  return stockData;
+}
+
 async function getAllFocusedStocks(
   simulateDate: any = null,
   toToday: any = 0,
@@ -159,6 +570,21 @@ export const DAFocusListComponent = () => {
   const [oneStockDate, setOneStockDate] = useState(today);
   const [from100, setFrom100] = useState('400s');
   const [selectType1Price, setType1Price] = useState(20);
+
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
+  const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
+  const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
+  const [curText, setCurText] = useState('');
+  const [curSymbol, setCurSymbol] = useState('');
+  const [curAnaMap, setAnaMap] = useState();
+  const mainChartRef = useRef<any>();
+  const handleClick = useCallback(() => {
+    const mainChartInstance = mainChartRef?.current?.getEchartsInstance();
+    mainChartInstance.on('click', (x) => {
+      console.log(x);
+    });
+  }, []);
 
   const runOneAnalysis = () => {
     let days =
@@ -358,6 +784,7 @@ export const DAFocusListComponent = () => {
         );
       },
       render: (text, record) => {
+        const end_date = record?.datestr;
         return (
           <>
             <div>
@@ -386,6 +813,51 @@ export const DAFocusListComponent = () => {
             <div>
               流通股本: {(record.marketvalue / record.finalprice).toFixed(3)}
             </div>
+            <Button
+              onClick={async () => {
+                setIsLoading(true);
+                const data = await getAllCriStocks(
+                  end_date,
+                  end_date,
+                  false,
+                  text,
+                  false
+                );
+                const downData = await getAllCriStocks(
+                  end_date,
+                  end_date,
+                  false,
+                  text,
+                  false,
+                  true
+                );
+                const data3 = await getAllCriStocks3(
+                  startDate,
+                  endDate,
+                  false,
+                  text,
+                  false
+                );
+                const downData3 = await getAllCriStocks3(
+                  startDate,
+                  endDate,
+                  false,
+                  text,
+                  false,
+                  true
+                );
+
+                setIsModalVisible(true);
+                setMergeOptionsInModal(MergeOptions(data, downData));
+                setMergeOptions3InModal(MergeOptions(data3, downData3));
+                setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
+                setIsLoading(false);
+                setCurText(`${text} - ${record?.name}`);
+                setCurSymbol(record?.symbol);
+              }}
+            >
+              Show Charts
+            </Button>
           </>
         );
       },
@@ -1782,6 +2254,98 @@ export const DAFocusListComponent = () => {
           lazyUpdate={true}
           option={oneStockAfterChartOption}
         />
+      </Modal>
+      <Modal
+        title={`Charts: ${curText}`}
+        visible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={[
+          <Button onClick={() => setIsModalVisible(false)} type="primary">
+            OK
+          </Button>,
+        ]}
+        width={1500}
+      >
+        5 DAYs:
+        <img src={img} style={{ width: '200px' }} />
+        {!isEmpty(mergeOptionsInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptionsInModal}
+          />
+        )}
+        3 DAYs
+        {!isEmpty(mergeOptions3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeOptions3InModal}
+          />
+        )}
+        3 DAYs ProfitChips:
+        {!isEmpty(mergeProfitChips3InModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeProfitChips3InModal}
+            ref={mainChartRef}
+            onEvents={{
+              click: async (info) => {
+                const res = await post(`/api/get_price_from_common_data`, {
+                  body: JSON.stringify({
+                    stocks: [`'${curSymbol}'`],
+                    today: info.name,
+                  }),
+                });
+                console.log(res, res?.[0].turnoverrates_analysis);
+                setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
+                console.log(
+                  info.dataIndex, // 当前点击的第几个柱子
+                  info.seriesIndex, // 当前点击的第几个数据源
+                  info.value, // 当前柱子Y轴的数据
+                  info.name, // 当前柱子X轴的名字
+                  info.seriesName, // 当前数据源的名字
+                  info.seriesType, // 当前数据的类型
+                  info.color // 当前柱子的颜色
+                );
+              },
+            }}
+          />
+        )}
+        {!isEmpty(curAnaMap) && (
+          <div class="table">
+            <div class="col">
+              <p>Before</p>
+              {Object.keys(curAnaMap?.before).map((i) => {
+                if (i === '7-days' || i === '15-days') {
+                  return (
+                    <p>
+                      {curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+                    </p>
+                  );
+                } else {
+                  return (
+                    <p>
+                      <b>{curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
+                    </p>
+                  );
+                }
+              })}
+            </div>
+            <div class="col">
+              <p>After</p>
+              {Object.keys(curAnaMap?.after).map((i) => (
+                <p>
+                  {curAnaMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
