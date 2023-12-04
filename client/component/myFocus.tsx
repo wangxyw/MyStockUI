@@ -1272,18 +1272,18 @@ export const MyFocusListComponent = () => {
                 datestr: record?.datestr,
               }),
             }).then(() => {
-              async function handleAllStockData() {
-                const data = await getAllFocusedStocks();
-                setData(
-                  selectStatus
-                    ? data.filter(
-                        (i) =>
-                          i.focus_status ===
-                          (selectStatus === '0' ? null : selectStatus)
-                      )
-                    : data
-                );
-              }
+              // async function handleAllStockData() {
+              //   const data = await getAllFocusedStocks();
+              //   setData(
+              //     selectStatus
+              //       ? data.filter(
+              //           (i) =>
+              //             i.focus_status ===
+              //             (selectStatus === '0' ? null : selectStatus)
+              //         )
+              //       : data
+              //   );
+              // }
               handleAllStockData();
             })
           }
