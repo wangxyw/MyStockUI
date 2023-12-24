@@ -131,6 +131,69 @@ const options = (data) => {
   };
 };
 
+const MergeQuantityRelativeRatios = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const quantityRelativeRatios = allData?.map((i) =>
+    i?.quantity_relative_ratio
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['QuantityRelativeRatios'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'QuantityRelativeRatios',
+        type: 'line',
+        data: quantityRelativeRatios,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
@@ -598,6 +661,7 @@ export const CriticalStocks3Component = () => {
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
+  const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -674,6 +738,7 @@ export const CriticalStocks3Component = () => {
                   setMergeOptionsInModal(MergeOptions(data, downData));
                   setMergeOptions3InModal(MergeOptions(data3, downData3));
                   setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
+                  setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                   setIsLoading(false);
                 }}
               >
@@ -1259,6 +1324,7 @@ export const CriticalStocks3Component = () => {
                 setDownOptions(options(downData));
                 setMergeOptions(MergeOptions(data, downData));
                 setMergeProfitChips(MergeProfitChips(data, downData));
+                setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1391,6 +1457,15 @@ export const CriticalStocks3Component = () => {
           option={mergeProfitChips}
         />
       )}
+      QuantityRelativeRatios:
+      {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeQuantityRelativeRatiosInModal}
+        />
+      )} 
 {/*      UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
@@ -1461,7 +1536,16 @@ export const CriticalStocks3Component = () => {
             lazyUpdate={true}
             option={mergeProfitChips3InModal}
           />
-        )}        
+        )}
+        3 DAYs QuantityRelativeRatios:
+        {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeQuantityRelativeRatiosInModal}
+          />
+        )}      
       </Modal>
     </div>
   );

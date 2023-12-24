@@ -332,6 +332,69 @@ const MergeOptions = (data, downData) => {
   };
 };
 
+const MergeQuantityRelativeRatios = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const quantityRelativeRatios = allData?.map((i) =>
+    i?.quantity_relative_ratio
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['QuantityRelativeRatios'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'QuantityRelativeRatios',
+        type: 'line',
+        data: quantityRelativeRatios,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
@@ -859,6 +922,7 @@ export const MyFocusListComponent = () => {
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
+  const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -981,6 +1045,7 @@ export const MyFocusListComponent = () => {
                 setMergeOptionsInModal(MergeOptions(data, downData));
                 setMergeOptions3InModal(MergeOptions(data3, downData3));
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
+                setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1436,21 +1501,30 @@ export const MyFocusListComponent = () => {
                     today: info.name,
                   }),
                 });
-                console.log(res, res?.[0].turnoverrates_analysis);
+                // console.log(res, res?.[0].turnoverrates_analysis);
                 setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-                console.log(
-                  info.dataIndex, // 当前点击的第几个柱子
-                  info.seriesIndex, // 当前点击的第几个数据源
-                  info.value, // 当前柱子Y轴的数据
-                  info.name, // 当前柱子X轴的名字
-                  info.seriesName, // 当前数据源的名字
-                  info.seriesType, // 当前数据的类型
-                  info.color // 当前柱子的颜色
-                );
+                // console.log(
+                //   info.dataIndex, // 当前点击的第几个柱子
+                //   info.seriesIndex, // 当前点击的第几个数据源
+                //   info.value, // 当前柱子Y轴的数据
+                //   info.name, // 当前柱子X轴的名字
+                //   info.seriesName, // 当前数据源的名字
+                //   info.seriesType, // 当前数据的类型
+                //   info.color // 当前柱子的颜色
+                // );
               },
             }}
           />
         )}
+        3 DAYs QuantityRelativeRatios:
+        {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeQuantityRelativeRatiosInModal}
+          />
+        )}        
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">
