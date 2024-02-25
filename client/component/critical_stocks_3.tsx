@@ -21,6 +21,14 @@ import DATA from './date.json';
 import { uniqBy, isEmpty, orderBy } from 'lodash';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 
+function average(arr) {
+  let sum = 0;
+  for (let i = 0; i < arr.length; i++) {
+    sum += parseFloat(arr[i]);
+  }
+  return sum / arr.length;
+}
+
 const options = (data) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const xAxis = orderedData?.map((i) => i.datestr);
@@ -292,32 +300,44 @@ const MergeOptions = (data, downData) => {
 
   const xAxis = orderedData?.map((i) => i.datestr);
   const maxT = orderedData?.map((i) => ({
+    // value: i?.turnoverrates_str
+    //   .split('|')
+    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
 
   const minT = orderedData?.map((i) => ({
+    // value: i?.turnoverrates_str
+    //   ?.split('|')
+    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
   const maxDownT = orderedDownData?.map((i) => ({
+    // value: i?.turnoverrates_str
+    //   .split('|')
+    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
 
   const minDownT = orderedDownData?.map((i) => ({
+    // value: i?.turnoverrates_str
+    //   ?.split('|')
+    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));

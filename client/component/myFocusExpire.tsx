@@ -56,36 +56,65 @@ const MergeOptions = (data, downData) => {
   );
 
   const xAxis = orderedData?.map((i) => i.datestr);
+  // const maxT = orderedData?.map((i) => ({
+  //   value: i?.turnoverrates_str
+  //     .split('|')
+  //     .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+  //   datestr: i.datestr,
+  //   haveLimit: i?.have_limit,
+  // }));
   const maxT = orderedData?.map((i) => ({
     value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+    datestr: i?.datestr,
     haveLimit: i?.have_limit,
   }));
 
+  // const minT = orderedData?.map((i) => ({
+  //   value: i?.turnoverrates_str
+  //     ?.split('|')
+  //     .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+  //   datestr: i.datestr,
+  //   haveLimit: i?.have_limit,
+  // }));
   const minT = orderedData?.map((i) => ({
     value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-  const maxDownT = orderedDownData?.map((i) => ({
-    value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+    datestr: i?.datestr,
     haveLimit: i?.have_limit,
   }));
 
-  const minDownT = orderedDownData?.map((i) => ({
+  // const maxDownT = orderedDownData?.map((i) => ({
+  //   value: i?.turnoverrates_str
+  //     .split('|')
+  //     .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+  //   datestr: i.datestr,
+  //   haveLimit: i?.have_limit,
+  // }));
+  const maxDownT = orderedDownData?.map((i) => ({
     value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
-    datestr: i.datestr,
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+    datestr: i?.datestr,
     haveLimit: i?.have_limit,
   }));
+
+  // const minDownT = orderedDownData?.map((i) => ({
+  //   value: i?.turnoverrates_str
+  //     ?.split('|')
+  //     .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+  //   datestr: i.datestr,
+  //   haveLimit: i?.have_limit,
+  // }));
+  const minDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+        ?.split('|')
+        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+    datestr: i?.datestr,
+    haveLimit: i?.have_limit,
+  }));   
 
   const maxTValues = allData?.map((i) =>
     maxT?.find((m) => m.datestr === i)
