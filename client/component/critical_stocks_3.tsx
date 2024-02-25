@@ -300,44 +300,49 @@ const MergeOptions = (data, downData) => {
 
   const xAxis = orderedData?.map((i) => i.datestr);
   const maxT = orderedData?.map((i) => ({
-    // value: i?.turnoverrates_str
-    //   .split('|')
-    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     value: i?.turnoverrates_str
-        ?.split('|')
-        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
 
   const minT = orderedData?.map((i) => ({
-    // value: i?.turnoverrates_str
-    //   ?.split('|')
-    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     value: i?.turnoverrates_str
-        ?.split('|')
-        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
+
   const maxDownT = orderedDownData?.map((i) => ({
-    // value: i?.turnoverrates_str
-    //   .split('|')
-    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     value: i?.turnoverrates_str
-        ?.split('|')
-        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
 
   const minDownT = orderedDownData?.map((i) => ({
-    // value: i?.turnoverrates_str
-    //   ?.split('|')
-    //   .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
     value: i?.turnoverrates_str
-        ?.split('|')
-        ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+
+  const avgT = orderedData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
+    datestr: i.datestr,
+    haveLimit: i?.have_limit,
+  }));
+
+  const avgDownT = orderedDownData?.map((i) => ({
+    value: i?.turnoverrates_str
+      ?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
     haveLimit: i?.have_limit,
   }));
@@ -368,6 +373,7 @@ const MergeOptions = (data, downData) => {
         }
       : '-'
   );
+
   const maxDownValues = allData?.map((i) =>
     maxDownT?.find((m) => m.datestr === i)
       ? maxDownT?.find((m) => m.datestr === i).value
@@ -381,6 +387,7 @@ const MergeOptions = (data, downData) => {
         }
       : '-'
   );
+
   const minDownValues = allData?.map((i) =>
     minDownT?.find((m) => m.datestr === i)
       ? minDownT?.find((m) => m.datestr === i).value
@@ -391,6 +398,34 @@ const MergeOptions = (data, downData) => {
       ? {
           value: minDownT?.find((m) => m.datestr === i).value,
           haveLimit: minDownT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+
+  const avgValues = allData?.map((i) =>
+    avgT?.find((m) => m.datestr === i)
+      ? avgT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const avgValuesMap = allData?.map((i) =>
+    avgT?.find((m) => m.datestr === i)
+      ? {
+          value: avgT?.find((m) => m.datestr === i).value,
+          haveLimit: avgT?.find((m) => m.datestr === i).haveLimit,
+        }
+      : '-'
+  );
+
+  const avgDownValues = allData?.map((i) =>
+    avgDownT?.find((m) => m.datestr === i)
+      ? avgDownT?.find((m) => m.datestr === i).value
+      : '-'
+  );
+  const avgDownValuesMap = allData?.map((i) =>
+    avgDownT?.find((m) => m.datestr === i)
+      ? {
+          value: avgDownT?.find((m) => m.datestr === i).value,
+          haveLimit: avgDownT?.find((m) => m.datestr === i).haveLimit,
         }
       : '-'
   );
@@ -406,14 +441,18 @@ const MergeOptions = (data, downData) => {
         'MinOverRate',
         'DownMaxOverRate',
         'DownMinOverRate',
+        'AVGOverRate',
+        'AVGDownOverRate',
       ],
+      selected:{
+        'MaxOverRate': false,
+        'MinOverRate': false,
+        'DownMaxOverRate': false,
+        'DownMinOverRate': false,
+        'AVGOverRate': true,
+        'AVGDownOverRate': true,
+      },
     },
-    // grid: [{
-    //     left: '10%',
-    //     right: '1%',
-    //     top: '1%',
-    //     height: '70%'
-    // }],
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -459,13 +498,12 @@ const MergeOptions = (data, downData) => {
           } else {
             colorList = 'diamond';
           }
-
           return colorList;
         },
         symbolSize: 10,
         itemStyle: {
           normal: {
-            color: '#d50937',
+            color: '#FF0000',
           },
         },
         label: {
@@ -475,6 +513,7 @@ const MergeOptions = (data, downData) => {
       {
         name: 'MinOverRate',
         type: 'line',
+        // symbol: 'diamond',
         symbolSize: 10,
         symbol: (v, params) => {
           var colorList;
@@ -487,32 +526,19 @@ const MergeOptions = (data, downData) => {
           } else {
             colorList = 'diamond';
           }
-
           return colorList;
         },
         itemStyle: {
           normal: {
-            color: '#e07b7b',
+            color: '#FFC0CB',
           },
         },
         data: minTValues,
-        // itemStyle: {
-        //   normal: {
-        //     color: function (params) {
-        //       var colorList;
-        //       if (statusArr[params.dataIndex] == 'up') {
-        //         colorList = '#ef232a';
-        //       } else if (statusArr[params.dataIndex] == 'down') {
-        //         colorList = '#14b143';
-        //       }
-        //       return colorList;
-        //     },
-        //   },
-        // },
       },
       {
         name: 'DownMaxOverRate',
         type: 'line',
+        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (maxDownValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -524,21 +550,20 @@ const MergeOptions = (data, downData) => {
           } else {
             colorList = 'diamond';
           }
-
           return colorList;
         },
         symbolSize: 10,
-
         data: maxDownValues,
         itemStyle: {
           normal: {
-            color: '#338e06',
+            color: '#00FF00',
           },
         },
       },
       {
         name: 'DownMinOverRate',
         type: 'line',
+        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -550,21 +575,70 @@ const MergeOptions = (data, downData) => {
           } else {
             colorList = 'diamond';
           }
-
           return colorList;
         },
         symbolSize: 10,
-
         data: minDownValues,
         itemStyle: {
           normal: {
-            color: '#8bac7b',
+            color: '#7CFC00',
+          },
+        },
+      },
+      {
+        name: 'AVGOverRate',
+        type: 'line',
+        // symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (avgValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+          return colorList;
+        },
+        symbolSize: 10,
+        data: avgValues,
+        itemStyle: {
+          normal: {
+            color: '#FFFF00',
+          },
+        },
+      },
+      {
+        name: 'AVGDownOverRate',
+        type: 'line',
+        // symbol: 'diamond',
+        symbol: (v, params) => {
+          var colorList;
+          if (avgDownValuesMap[params.dataIndex]?.haveLimit == '1') {
+            colorList = 'arrow';
+          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '-1') {
+            colorList = 'circle';
+          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '2') {
+            colorList = 'pin';
+          } else {
+            colorList = 'diamond';
+          }
+          return colorList;
+        },
+        symbolSize: 10,
+        data: avgDownValues,
+        itemStyle: {
+          normal: {
+            color: '#A020F0',
           },
         },
       },
     ],
   };
 };
+
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
