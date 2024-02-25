@@ -1145,42 +1145,67 @@ export const MyFocusListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
-      render: (c) => {
+      // render: (c) => {
+      //   const cparts = c.split('|');
+      //   const prefix = cparts?.[0];
+      //   if (!cparts?.[1]?.trim()) {
+      //     return (
+      //       <div>
+      //         <p>{c}</p>
+      //       </div>
+      //     );
+      //   }
+      //   const valueMap = JSON.parse(cparts?.[1]);
+      //   return (
+      //     <div>
+      //       <p>{prefix}</p>
+      //       <p>Before</p>
+      //       {Object.keys(valueMap?.before).map((i) => {
+      //         if (i === '7-days' || i === '15-days') {
+      //           return (
+      //             <p>
+      //               {valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+      //             </p>
+      //           );
+      //         } else {
+      //           return (
+      //             <p>
+      //               <b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
+      //             </p>
+      //           );
+      //         }
+      //       })}
+      //       <p>After</p>
+      //       {Object.keys(valueMap?.after).map((i) => (
+      //         <p>
+      //           {valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
+      //         </p>
+      //       ))}
+      //     </div>
+      //   );
+      // },
+      render: (c, record) => {
         const cparts = c.split('|');
         const prefix = cparts?.[0];
-        if (!cparts?.[1]?.trim()) {
+        const newValue = record.turnoverrates_alteration;
+        if (!newValue?.trim()) {
           return (
             <div>
-              <p>{c}</p>
+              <p>{newValue}</p>
             </div>
           );
         }
-        const valueMap = JSON.parse(cparts?.[1]);
+        const valueMap = JSON.parse(newValue);
         return (
           <div>
             <p>{prefix}</p>
-            <p>Before</p>
-            {Object.keys(valueMap?.before).map((i) => {
-              if (i === '7-days' || i === '15-days') {
+            {Object.keys(valueMap).map((i) => {
                 return (
                   <p>
-                    {valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+                    <b>{valueMap?.[i]?.replaceAll(',', ',  ')}</b>({i})
                   </p>
                 );
-              } else {
-                return (
-                  <p>
-                    <b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
-                  </p>
-                );
-              }
             })}
-            <p>After</p>
-            {Object.keys(valueMap?.after).map((i) => (
-              <p>
-                {valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
-              </p>
-            ))}
           </div>
         );
       },
