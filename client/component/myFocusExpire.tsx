@@ -1199,6 +1199,23 @@ export const MyFocusExpireListComponent = () => {
       },
     },
     {
+      title: 'PCA',
+      dataIndex: 'profit_chip_analyze',
+      key: 'profit_chip_analyze',
+      render: (text) => {
+        const valueMap = JSON.parse(text);
+        return (
+          <div>
+            {Object.keys(valueMap).map((i) => {
+                return (
+                  <p>{i}: {valueMap?.[i]}</p>
+                );
+            })}
+          </div>
+        );
+      },
+    }, 
+    {
       title: 'Continuance BYG',
       dataIndex: 'continuance_BYG',
       key: 'continuance_BYG',

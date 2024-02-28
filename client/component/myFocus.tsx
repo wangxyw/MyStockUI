@@ -1214,32 +1214,49 @@ export const MyFocusListComponent = () => {
     //     }
     //   },
     // },
+    // {
+    //   title: 'Status',
+    //   dataIndex: 'focus_status',
+    //   key: 'focus_status',
+    //   render: (txt, row) => {
+    //     return (
+    //       <Dropdown
+    //         overlay={
+    //           <Menu
+    //             onClick={(item) => onClickMenu(item, row.symbol, row.datestr)}
+    //           >
+    //             {Object.keys(focusStatusMap).map((i) => (
+    //               <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
+    //             ))}
+    //           </Menu>
+    //         }
+    //       >
+    //         <Tag color={focusStatusMap[txt]?.color}>
+    //           {focusStatusMap[txt]?.name || '未标注'}
+    //         </Tag>
+    //       </Dropdown>
+    //     );
+    //   },
+    //   sorter: (a, b) =>
+    //     parseInt(a.focus_status || 0, 10) - parseInt(b.focus_status || 0, 10),
+    // },
     {
-      title: 'Status',
-      dataIndex: 'focus_status',
-      key: 'focus_status',
-      render: (txt, row) => {
+      title: 'PCA',
+      dataIndex: 'profit_chip_analyze',
+      key: 'profit_chip_analyze',
+      render: (text) => {
+        const valueMap = JSON.parse(text);
         return (
-          <Dropdown
-            overlay={
-              <Menu
-                onClick={(item) => onClickMenu(item, row.symbol, row.datestr)}
-              >
-                {Object.keys(focusStatusMap).map((i) => (
-                  <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
-                ))}
-              </Menu>
-            }
-          >
-            <Tag color={focusStatusMap[txt]?.color}>
-              {focusStatusMap[txt]?.name || '未标注'}
-            </Tag>
-          </Dropdown>
+          <div>
+            {Object.keys(valueMap).map((i) => {
+                return (
+                  <p>{i}: {valueMap?.[i]}</p>
+                );
+            })}
+          </div>
         );
       },
-      sorter: (a, b) =>
-        parseInt(a.focus_status || 0, 10) - parseInt(b.focus_status || 0, 10),
-    },
+    },    
     // {
     //   title: 'Current Price',
     //   dataIndex: 'todayPrice',
