@@ -555,6 +555,69 @@ const MergeProfitChips = (data, downData) => {
   };
 };
 
+const MergeFinalPrices = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const finalPrices = allData?.map((i) =>
+    i?.finalprice
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['FinalPrices'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'FinalPrices',
+        type: 'line',
+        data: finalPrices,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -984,6 +1047,7 @@ export const MyFocusExpireListComponent = () => {
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
+  const [finalPricesInModal, setFinalPricesInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1003,6 +1067,44 @@ export const MyFocusExpireListComponent = () => {
       console.log(x);
     });
   }, []);
+  const onClickMenu = (item, tableIndex, datestr) => {
+    post('/api/edit_focus_status', {
+      body: JSON.stringify({
+        symbol: tableIndex,
+        status: item.key,
+        datestr: datestr,
+      }),
+    }).then(() => {
+      if (item.key === '3') {
+        post('/api/edit_focus_datestr', {
+          body: JSON.stringify({
+            symbol: tableIndex,
+            status: item.key,
+            datestr: datestr,
+            newDatestr: caculateDate(today, 0),
+          }),
+        }).then((i) => {
+          if (i.code) {
+            alert(i.sqlMessage);
+          }
+        });
+      }
+      async function handleAllStockData() {
+        const data = await getAllFocusedStocks();
+        setData(
+          selectStatus
+            ? data.filter(
+                (i) =>
+                  i.focus_status ===
+                  (selectStatus === '0' ? null : selectStatus)
+              )
+            : data
+        );
+      }
+      handleAllStockData();
+    });
+  };
+
 
   const columns = [
     {
@@ -1070,6 +1172,7 @@ export const MyFocusExpireListComponent = () => {
                 setMergeOptions3InModal(MergeOptions(data3, downData3));
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
+                setFinalPricesInModal(MergeFinalPrices(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1315,6 +1418,24 @@ export const MyFocusExpireListComponent = () => {
 
   return (
     <div style={{ padding: '20px' }}>
+      Filter By Status:
+      <Dropdown
+        overlay={
+          <Menu onClick={(ob) => setSelectStatus(ob.key)}>
+            {Object.keys(focusStatusMap)
+              .map((i) => (
+                <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
+              ))
+              .concat(<Menu.Item key={'0'}>{'未标注'}</Menu.Item>)}
+          </Menu>
+        }
+      >
+        <Tag color={focusStatusMap[selectStatus]?.color}>
+          {selectStatus === '0'
+            ? '未标注'
+            : focusStatusMap[selectStatus]?.name || 'All'}
+        </Tag>
+      </Dropdown>
       <Table
         pagination={{ defaultPageSize: 100 }}
         columns={mergedColumns}
@@ -1382,6 +1503,15 @@ export const MyFocusExpireListComponent = () => {
             }}
           />
         )}
+        3 DAYs FinalPrices:
+        {!isEmpty(finalPricesInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={finalPricesInModal}
+          />
+        )} 
         3 DAYs QuantityRelativeRatios:
         {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
           <ReactEcharts

@@ -202,6 +202,69 @@ const MergeQuantityRelativeRatios = (data, downData) => {
   };
 };
 
+const MergeFinalPrices = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const finalPrices = allData?.map((i) =>
+    i?.finalprice
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['FinalPrices'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'FinalPrices',
+        type: 'line',
+        data: finalPrices,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
@@ -756,6 +819,7 @@ export const CriticalStocks3Component = () => {
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
+  const [finalPricesInModal, setFinalPricesInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -833,6 +897,7 @@ export const CriticalStocks3Component = () => {
                   setMergeOptions3InModal(MergeOptions(data3, downData3));
                   setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
+                  setFinalPricesInModal(MergeFinalPrices(data3, downData3));
                   setIsLoading(false);
                 }}
               >
@@ -1419,6 +1484,7 @@ export const CriticalStocks3Component = () => {
                 setMergeOptions(MergeOptions(data, downData));
                 setMergeProfitChips(MergeProfitChips(data, downData));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data, downData));
+                setFinalPricesInModal(MergeFinalPrices(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1551,6 +1617,15 @@ export const CriticalStocks3Component = () => {
           option={mergeProfitChips}
         />
       )}
+      FinalPrices:
+      {!isEmpty(finalPricesInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={finalPricesInModal}
+        />
+      )} 
       QuantityRelativeRatios:
       {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
         <ReactEcharts
@@ -1631,6 +1706,15 @@ export const CriticalStocks3Component = () => {
             option={mergeProfitChips3InModal}
           />
         )}
+        3 DAYs FinalPrices:
+        {!isEmpty(finalPricesInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={finalPricesInModal}
+          />
+        )} 
         3 DAYs QuantityRelativeRatios:
         {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
           <ReactEcharts
