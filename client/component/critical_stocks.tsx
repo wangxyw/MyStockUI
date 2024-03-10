@@ -158,6 +158,9 @@ const MergeProfitChips = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
+  const sources = allData?.map(
+    (i) => i?.source
+  );  
 
   return {
     title: {
@@ -202,7 +205,24 @@ const MergeProfitChips = (data, downData) => {
         type: 'line',
         data: maxProfitChips,
         label: {
+          show: true,
           position: 'top',
+          color: "black",
+          fontSize: 12,
+          formatter: function(d) {
+            var sourceLabel;
+            // '400s','100w','dr_100s','dr_400s','dr_100w'
+            if (sources[d.dataIndex] == '400s' || sources[d.dataIndex] == 'dr_400s') {
+              sourceLabel = '4s';
+            } else if (sources[d.dataIndex] == '100w' || sources[d.dataIndex] == 'dr_100w') {
+              sourceLabel = '1w';
+            } else if (sources[d.dataIndex] == 'dr_100s') {
+              sourceLabel = '1s';
+            } else {
+              sourceLabel = 'nil';
+            }
+            return sourceLabel;
+          }
         },
       },
       {
