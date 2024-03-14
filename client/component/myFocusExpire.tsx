@@ -599,17 +599,28 @@ const MergeProfitChips = (data, downData) => {
   };
 };
 
-const MergeFinalPrices = (data, downData) => {
+const MergeBigOrderPct = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
-  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
-  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
-    (i) => i.datestr
+  const allData = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
   );
+  const allDataDate = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  )?.map((i) => i.datestr);
 
-  const finalPrices = allData?.map((i) =>
-    i?.finalprice
+  const maxBigOrderPct = allData?.map((i) =>
+    i?.big_order_pcts_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const minBigOrderPct = allData?.map((i) =>
+    i?.big_order_pcts_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
 
   return {
@@ -618,7 +629,7 @@ const MergeFinalPrices = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['FinalPrices'],
+      data: ['MaxBigOrderPct', 'MinBigOrderPct'],
     },
     tooltip: {
       trigger: 'axis',
@@ -645,18 +656,23 @@ const MergeFinalPrices = (data, downData) => {
       type: 'category',
       data: allDataDate,
       axisLabel: { show: true, interval: 0, rotate: 45 },
+      onclick: (e) => {
+        console.log(e);
+      },
     },
     yAxis: {
       type: 'value',
     },
     series: [
       {
-        name: 'FinalPrices',
+        name: 'MaxBigOrderPct',
         type: 'line',
-        data: finalPrices,
-        label: {
-          position: 'top',
-        },
+        data: maxBigOrderPct,
+      },
+      {
+        name: 'MinBigOrderPct',
+        type: 'line',
+        data: minBigOrderPct,
       },
     ],
   };
@@ -1091,7 +1107,7 @@ export const MyFocusExpireListComponent = () => {
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
-  const [finalPricesInModal, setFinalPricesInModal] = useState({});
+  const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1216,7 +1232,7 @@ export const MyFocusExpireListComponent = () => {
                 setMergeOptions3InModal(MergeOptions(data3, downData3));
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
-                setFinalPricesInModal(MergeFinalPrices(data3, downData3));
+                setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1564,15 +1580,15 @@ export const MyFocusExpireListComponent = () => {
             }}
           />
         )}
-        3 DAYs FinalPrices:
-        {!isEmpty(finalPricesInModal) && (
+        3 DAYs BigOrderPct:
+        {!isEmpty(bigOrderPctInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
-            option={finalPricesInModal}
+            option={bigOrderPctInModal}
           />
-        )} 
+        )}  
         3 DAYs QuantityRelativeRatios:
         {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
           <ReactEcharts
