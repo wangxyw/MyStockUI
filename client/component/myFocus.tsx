@@ -1116,7 +1116,7 @@ export const MyFocusListComponent = () => {
 
   const curDate = new Date();
   const year = curDate.getFullYear();
-  const lastYear = curDate.getFullYear() - 1;
+  const lastYear = curDate.getFullYear() - 2;
   const month = curDate.getMonth() + 1;
   const day = curDate.getDate();
   const dateFormat = 'YYYY-MM-DD';
