@@ -225,6 +225,12 @@ const MergeBigOrderPct = (data, downData) => {
       ?.split('|')
       .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
   );
+  const avgBigOrderPct = allData?.map((i) => ({
+    value: i?.big_order_pcts_str
+      ?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
+    datestr: i.datestr,
+  }));
 
   return {
     title: {
@@ -232,7 +238,12 @@ const MergeBigOrderPct = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['MaxBigOrderPct', 'MinBigOrderPct'],
+      data: ['MaxBigOrderPct', 'MinBigOrderPct', 'AvgBigOrderPct'],
+      selected:{
+        'MaxBigOrderPct': false,
+        'MinBigOrderPct': false,
+        'AvgBigOrderPct': true,
+      },
     },
     tooltip: {
       trigger: 'axis',
@@ -276,6 +287,11 @@ const MergeBigOrderPct = (data, downData) => {
         name: 'MinBigOrderPct',
         type: 'line',
         data: minBigOrderPct,
+      },
+      {
+        name: 'AvgBigOrderPct',
+        type: 'line',
+        data: avgBigOrderPct,
       },
     ],
   };
