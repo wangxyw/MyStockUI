@@ -634,16 +634,14 @@ const MergeBigOrderPct = (data, downData) => {
   }));
 
   const avgUpBigOrderPct = allData?.map((i) => ({
-    value: includes(allUpDataDate, i.datestr)? null : i?.big_order_pcts_str
-      ?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
+    value: includes(allUpDataDate, i.datestr)? i?.big_order_pcts_str?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2) : null,
     datestr: i.datestr,
   }));
 
   const avgDownBigOrderPct = allData?.map((i) => ({
-    value: includes(allDownDataDate, i.datestr)? null : i?.big_order_pcts_str
-      ?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
+    value: includes(allDownDataDate, i.datestr)? i?.big_order_pcts_str?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2) : null,
     datestr: i.datestr,
   }));
 
