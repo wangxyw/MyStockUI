@@ -19,7 +19,7 @@ import React, {
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
 import img from './mark.jpg';
-import { uniqBy, isEmpty, orderBy } from 'lodash';
+import { uniqBy, isEmpty, orderBy, includes } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import {
@@ -461,7 +461,9 @@ const MergeQuantityRelativeRatios = (data, downData) => {
 
 const MergeBigOrderPct = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const allUpDataDate = orderedData.map((i) => i.datestr);
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+  const allDownDataDate = orderedDownData.map((i) => i.datestr);
 
   const allData = orderBy(
     uniqBy([...orderedData, ...orderedDownData], 'datestr'),
@@ -472,18 +474,34 @@ const MergeBigOrderPct = (data, downData) => {
     'datestr'
   )?.map((i) => i.datestr);
 
-  const maxBigOrderPct = allData?.map((i) =>
-    i?.big_order_pcts_str
+  const maxBigOrderPct = allData?.map((i) => ({
+    value: i?.big_order_pcts_str
       .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
-  );
-  const minBigOrderPct = allData?.map((i) =>
-    i?.big_order_pcts_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
-  );
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+  }));
+  const minBigOrderPct = allData?.map((i) => ({
+    value: i?.big_order_pcts_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
+    datestr: i.datestr,
+  }));
   const avgBigOrderPct = allData?.map((i) => ({
     value: i?.big_order_pcts_str
+      ?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
+    datestr: i.datestr,
+  }));
+
+  const avgUpBigOrderPct = allData?.map((i) => ({
+    value: includes(allUpDataDate, i.datestr)? null : i?.big_order_pcts_str
+      ?.split('|')
+      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
+    datestr: i.datestr,
+  }));
+
+  const avgDownBigOrderPct = allData?.map((i) => ({
+    value: includes(allDownDataDate, i.datestr)? null : i?.big_order_pcts_str
       ?.split('|')
       ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
     datestr: i.datestr,
@@ -495,11 +513,13 @@ const MergeBigOrderPct = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['MaxBigOrderPct', 'MinBigOrderPct', 'AvgBigOrderPct'],
+      data: ['MaxBigOrderPct', 'MinBigOrderPct', 'AvgBigOrderPct', 'AvgUpBigOrderPct', 'AvgDownBigOrderPct'],
       selected:{
         'MaxBigOrderPct': false,
         'MinBigOrderPct': false,
         'AvgBigOrderPct': true,
+        'AvgUpBigOrderPct': true,
+        'AvgDownBigOrderPct': true,
       },
     },
     tooltip: {
@@ -517,7 +537,7 @@ const MergeBigOrderPct = (data, downData) => {
         mark: { show: true },
         magicType: {
           show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
+          type: ['line'],
         },
         restore: { show: true },
         saveAsImage: { show: true },
@@ -549,6 +569,18 @@ const MergeBigOrderPct = (data, downData) => {
         name: 'AvgBigOrderPct',
         type: 'line',
         data: avgBigOrderPct,
+      },
+      {
+        name: 'AvgUpBigOrderPct',
+        type: 'scatter',
+        color: 'red',
+        data: avgUpBigOrderPct,
+      },
+      {
+        name: 'AvgDownBigOrderPct',
+        type: 'scatter',
+        color: 'green',
+        data: avgDownBigOrderPct,
       },
     ],
   };
