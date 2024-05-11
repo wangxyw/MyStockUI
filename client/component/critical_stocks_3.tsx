@@ -248,6 +248,13 @@ const MergeBigOrderPct = (data, downData) => {
     datestr: i.datestr,
   }));
 
+  const sourcesMap = allData?.map(
+    (i) => i?.source
+  );  
+  const statusMap = allData?.map(
+    (i) => i?.status
+  );
+
   return {
     title: {
       text: '',
@@ -316,12 +323,78 @@ const MergeBigOrderPct = (data, downData) => {
         type: 'scatter',
         color: 'red',
         data: avgUpBigOrderPct,
+        label: {
+          show: true,
+          position: 'top',
+          fontSize: 14,
+          fontWeight: 'bold',
+          formatter: function(d) {
+            var sourceLabel;
+            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
+              sourceLabel = '4s';
+            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
+              sourceLabel = '1w';
+            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
+              sourceLabel = '1s';
+            } else {
+              sourceLabel = 'nil';
+            }
+
+            var udstatus;
+            if (statusMap[d.dataIndex] == 'up') {
+               return '{up|' + sourceLabel + '}';
+            } else {
+               return '{down|' + sourceLabel + '}';
+            }
+          },
+          rich: {
+            up: {
+              color: 'red',
+            },
+            down: {
+              color: 'green',
+            },
+          },
+        },
       },
       {
         name: 'AvgDownBigOrderPct',
         type: 'scatter',
         color: 'green',
         data: avgDownBigOrderPct,
+        label: {
+          show: true,
+          position: 'top',
+          fontSize: 14,
+          fontWeight: 'bold',
+          formatter: function(d) {
+            var sourceLabel;
+            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
+              sourceLabel = '4s';
+            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
+              sourceLabel = '1w';
+            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
+              sourceLabel = '1s';
+            } else {
+              sourceLabel = 'nil';
+            }
+
+            var udstatus;
+            if (statusMap[d.dataIndex] == 'up') {
+               return '{up|' + sourceLabel + '}';
+            } else {
+               return '{down|' + sourceLabel + '}';
+            }
+          },
+          rich: {
+            up: {
+              color: 'red',
+            },
+            down: {
+              color: 'green',
+            },
+          },
+        },
       },
     ],
   };
