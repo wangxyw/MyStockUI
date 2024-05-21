@@ -12,6 +12,8 @@ import { TotalDataCom } from './component/data_total';
 import { DataAlarmCom } from './component/data_analysis_alarm';
 import { CriticalStocksComponent } from './component/critical_stocks';
 import { CriticalStocks3Component } from './component/critical_stocks_3';
+import { MyFocus2ListComponent } from './component/myFocus2';
+import { MyFocusExpire2ListComponent } from './component/myFocusExpire2';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_FOCUSED_EXPIRE = 'expire_my_focus';
@@ -26,6 +28,8 @@ const MENU_DA_ALARM = 'da_alarm';
 const MENU_CRI_STOCK = 'cri_stocks';
 const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
+const MENU_FOCUSED2 = 'my_focus2';
+const MENU_FOCUSED_EXPIRE2 = 'expire_my_focus2';
 
 function getInitPath() {
   if (window) {
@@ -47,6 +51,8 @@ function getInitPath() {
         MENU_DA_ALARM,
         MENU_CRI_STOCK,
         MENU_CRI_STOCK_3,
+        MENU_FOCUSED2,
+        MENU_FOCUSED_EXPIRE2,
       ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
@@ -78,12 +84,6 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_ALARM_100}>
           <Link to="/alarm100">Alarm100</Link>
         </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED}>
-          <Link to="/my_focus">My Focus</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED_EXPIRE}>
-          <Link to="/expire_my_focus">My Focus Expire</Link>
-        </Menu.Item>
         <Menu.Item key={MENU_DATA_ANA}>
           <Link to="/data_analysis">Data Analysis</Link>
         </Menu.Item>
@@ -111,14 +111,20 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_CRI_STOCK_3}>
           <Link to="/cri_stocks_3">Critical Stocks 3</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_FOCUSED}>
+          <Link to="/my_focus">MF1</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_FOCUSED_EXPIRE}>
+          <Link to="/expire_my_focus">MF1 Expire</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_FOCUSED2}>
+          <Link to="/my_focus2">MF2</Link>
+        </Menu.Item>
+        <Menu.Item key={MENU_FOCUSED_EXPIRE2}>
+          <Link to="/expire_my_focus2">MF2 Expire</Link>
+        </Menu.Item>
       </Menu>
       <Switch>
-        <Route path="/my_focus" component={MyFocusListComponent}>
-          <MyFocusListComponent />
-        </Route>
-        <Route path="/expire_my_focus" component={MyFocusExpireListComponent}>
-          <MyFocusExpireListComponent />
-        </Route>
         <Route path="/data_analysis" component={DataAnalysisCom}>
           <DataAnalysisCom />
         </Route>
@@ -148,7 +154,19 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/cri_stocks_3">
           <CriticalStocks3Component />
-        </Route>        
+        </Route>
+        <Route path="/my_focus" component={MyFocusListComponent}>
+          <MyFocusListComponent />
+        </Route>
+        <Route path="/expire_my_focus" component={MyFocusExpireListComponent}>
+          <MyFocusExpireListComponent />
+        </Route>
+        <Route path="/my_focus2" component={MyFocus2ListComponent}>
+          <MyFocus2ListComponent />
+        </Route>
+        <Route path="/expire_my_focus2" component={MyFocusExpire2ListComponent}>
+          <MyFocusExpire2ListComponent />
+        </Route>    
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />
         </Route>

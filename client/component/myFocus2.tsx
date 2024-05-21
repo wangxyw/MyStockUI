@@ -459,146 +459,6 @@ const MergeQuantityRelativeRatios = (data, downData) => {
   };
 };
 
-const MergeProfitChips = (data, downData) => {
-  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
-  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-
-  const allData = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  );
-  const allDataDate = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  )?.map((i) => i.datestr);
-
-  const maxProfitChips = allData?.map((i) =>
-    i?.profit_chips_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
-  );
-  const minProfitChips = allData?.map((i) =>
-    i?.profit_chips_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
-  );
-  const dProfitChips = allData?.map(
-    (i) =>
-      i?.profit_chips_str
-        .split('|')
-        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
-      i?.profit_chips_str
-        ?.split('|')
-        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
-  );
-  const sourcesMap = allData?.map(
-    (i) => i?.source
-  );  
-  const statusMap = allData?.map(
-    (i) => i?.status
-  );  
-  const continueDays= allData?.map(
-    (i) => i?.days + "days"
-  ); 
-
-  return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-      onclick: (e) => {
-        console.log(e);
-      },
-    },
-    yAxis: {
-      type: 'value',
-    },
-    series: [
-      {
-        name: 'MaxProfitChips',
-        type: 'line',
-        data: maxProfitChips,
-        label: {
-          show: true,
-          position: 'top',
-          // color: "black",
-          fontSize: 12,
-          formatter: function(d) {
-            var sourceLabel;
-            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
-              sourceLabel = '4s';
-            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
-              sourceLabel = '1w';
-            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
-              sourceLabel = '1s';
-            } else {
-              sourceLabel = 'nil';
-            }
-
-            var udstatus;
-            if (statusMap[d.dataIndex] == 'up') {
-               return '{up|' + sourceLabel + '}';
-            } else {
-               return '{down|' + sourceLabel + '}';
-            }
-          },
-          rich: {
-            up: {
-              color: 'red',
-            },
-            down: {
-              color: 'green',
-            },
-          },
-        },
-      },
-      {
-        name: 'MinProfitChips',
-        type: 'line',
-        data: minProfitChips,
-      },
-      {
-        name: 'DProfitChips',
-        type: 'line',
-        data: dProfitChips,
-      },
-      {
-        name: 'ContinueDays',
-        type: 'line',
-        data: continueDays,
-      },
-    ],
-  };
-};
-
 const MergeBigOrderPct = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const allUpDataDate = orderedData.map((i) => i.datestr);
@@ -792,6 +652,146 @@ const MergeBigOrderPct = (data, downData) => {
             },
           },
         },
+      },
+    ],
+  };
+};
+
+const MergeProfitChips = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  );
+  const allDataDate = orderBy(
+    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
+    'datestr'
+  )?.map((i) => i.datestr);
+
+  const maxProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      .split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
+  );
+  const minProfitChips = allData?.map((i) =>
+    i?.profit_chips_str
+      ?.split('|')
+      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+  const dProfitChips = allData?.map(
+    (i) =>
+      i?.profit_chips_str
+        .split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
+      i?.profit_chips_str
+        ?.split('|')
+        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
+  );
+  const sourcesMap = allData?.map(
+    (i) => i?.source
+  );  
+  const statusMap = allData?.map(
+    (i) => i?.status
+  );  
+  const continueDays= allData?.map(
+    (i) => i?.days + "days"
+  ); 
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+      onclick: (e) => {
+        console.log(e);
+      },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'MaxProfitChips',
+        type: 'line',
+        data: maxProfitChips,
+        label: {
+          show: true,
+          position: 'top',
+          // color: "black",
+          fontSize: 12,
+          formatter: function(d) {
+            var sourceLabel;
+            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
+              sourceLabel = '4s';
+            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
+              sourceLabel = '1w';
+            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
+              sourceLabel = '1s';
+            } else {
+              sourceLabel = 'nil';
+            }
+
+            var udstatus;
+            if (statusMap[d.dataIndex] == 'up') {
+               return '{up|' + sourceLabel + '}';
+            } else {
+               return '{down|' + sourceLabel + '}';
+            }
+          },
+          rich: {
+            up: {
+              color: 'red',
+            },
+            down: {
+              color: 'green',
+            },
+          },
+        },
+      },
+      {
+        name: 'MinProfitChips',
+        type: 'line',
+        data: minProfitChips,
+      },
+      {
+        name: 'DProfitChips',
+        type: 'line',
+        data: dProfitChips,
+      },
+      {
+        name: 'ContinueDays',
+        type: 'line',
+        data: continueDays,
       },
     ],
   };
@@ -1112,6 +1112,7 @@ interface EditableCellProps {
   children: React.ReactNode;
   dataIndex: keyof Item;
   record: Item;
+  handleSave: (record: Item) => void;
 }
 
 const EditableCell: React.FC<EditableCellProps> = ({
@@ -1120,6 +1121,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
   children,
   dataIndex,
   record,
+  handleSave,
   ...restProps
 }) => {
   const [editing, setEditing] = useState(false);
@@ -1141,6 +1143,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
     try {
       const values = await form.validateFields();
       toggleEdit();
+      handleSave({ ...record, ...values });
     } catch (errInfo) {
       console.log('Save failed:', errInfo);
     }
@@ -1176,29 +1179,9 @@ const EditableCell: React.FC<EditableCellProps> = ({
   return <td {...restProps}>{childNode}</td>;
 };
 
-async function getAllFocusedExpireStocks() {
-  const stockData = await get('/api/all_expire_focus_stock');
+async function getAllFocusedStocks() {
+  const stockData = await get('/api/all_focus_stock_other');
   const symbols = stockData.map((d) => d.symbol);
-  // const realtimeData = await post(`/api/qt_realtime`, {
-  //   body: JSON.stringify({ q: symbols.join(',') }),
-  // });
-
-  // const stockPriceByDay = await post(
-  //   `/api/get_price_from_common_data`, {body: JSON.stringify({stocks: symbols
-  //     .map((i) => `'${i}'`)
-  //     .join(',')})}
-  // );
-  // //caculate stock price
-  // const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
-
-  // return stockPriceData.map((s) => {
-  //   const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
-
-  //   return {
-  //     ...s,
-  //     currentPrice,
-  //   };
-  // });
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
     body: JSON.stringify({
       stocks: symbols.map((i) => `'${i}'`).join(',')
@@ -1214,7 +1197,7 @@ async function getAllFocusedExpireStocks() {
   return stockPriceData;
 }
 
-export const MyFocusExpireListComponent = () => {
+export const MyFocus2ListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
   const [rateByMax, setRateByMax] = useState();
@@ -1247,7 +1230,7 @@ export const MyFocusExpireListComponent = () => {
     });
   }, []);
   const onClickMenu = (item, tableIndex, datestr) => {
-    post('/api/edit_focus_status', {
+    post('/api/edit_focus_other_status', {
       body: JSON.stringify({
         symbol: tableIndex,
         status: item.key,
@@ -1255,7 +1238,7 @@ export const MyFocusExpireListComponent = () => {
       }),
     }).then(() => {
       if (item.key === '3') {
-        post('/api/edit_focus_datestr', {
+        post('/api/edit_focus_other_datestr', {
           body: JSON.stringify({
             symbol: tableIndex,
             status: item.key,
@@ -1283,7 +1266,6 @@ export const MyFocusExpireListComponent = () => {
       handleAllStockData();
     });
   };
-
 
   const columns = [
     {
@@ -1393,7 +1375,7 @@ export const MyFocusExpireListComponent = () => {
           </div>
         );
       },
-    }, 
+    },
     {
       title: 'Continuance BYG',
       dataIndex: 'continuance_BYG',
@@ -1404,45 +1386,6 @@ export const MyFocusExpireListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
-      // render: (c) => {
-      //   const cparts = c.split('|');
-      //   const prefix = cparts?.[0];
-      //   if (!cparts?.[1]?.trim()) {
-      //     return (
-      //       <div>
-      //         <p>{c}</p>
-      //       </div>
-      //     );
-      //   }
-      //   const valueMap = JSON.parse(cparts?.[1]);
-      //   return (
-      //     <div>
-      //       <p>{prefix}</p>
-      //       <p>Before</p>
-      //       {Object.keys(valueMap?.before).map((i) => {
-      //         if (i === '7-days' || i === '15-days') {
-      //           return (
-      //             <p>
-      //               {valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
-      //             </p>
-      //           );
-      //         } else {
-      //           return (
-      //             <p>
-      //               <b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
-      //             </p>
-      //           );
-      //         }
-      //       })}
-      //       <p>After</p>
-      //       {Object.keys(valueMap?.after).map((i) => (
-      //         <p>
-      //           {valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
-      //         </p>
-      //       ))}
-      //     </div>
-      //   );
-      // },
       render: (c, record) => {
         const cparts = c.split('|');
         const prefix = cparts?.[0];
@@ -1496,6 +1439,67 @@ export const MyFocusExpireListComponent = () => {
         var t2 = b.last_updated_at.split('T')?.[0].replaceAll('-', '')
         return (
           Number(t1) - Number(t2)
+        );
+      },
+    },
+    {
+      title: 'Recent 10 days',
+      dataIndex: 'recentTen',
+      key: 'recentTen',
+      render: (c, record) => {
+        const upA1 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A1'
+        ).length;
+        const upA2 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A2'
+        ).length;
+        const upA3 = c.filter(
+          (i) => i.status === 'up' && i.alarmtype === 'A3'
+        ).length;
+        const upNA = c.filter(
+          (i) =>
+            i.status === 'up' && (i.alarmtype === '' || i.alarmtype === null)
+        ).length;
+        const downA1 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A1'
+        ).length;
+        const downA2 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A2'
+        ).length;
+        const downA3 = c.filter(
+          (i) => i.status === 'down' && i.alarmtype === 'A3'
+        ).length;
+        const downNA = c.filter(
+          (i) =>
+            i.status === 'down' && (i.alarmtype === '' || i.alarmtype === null)
+        ).length;
+        return (
+          <div>
+            <table>
+              <thead>
+                <tr>
+                  <td>A1</td>
+                  <td>A2</td>
+                  <td>A3</td>
+                  <td>NA</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: '#f1b4b0' }}>
+                  <td>{upA1}</td>
+                  <td>{upA2}</td>
+                  <td>{upA3}</td>
+                  <td>{upNA}</td>
+                </tr>
+                <tr style={{ background: '#cbeba8' }}>
+                  <td>{downA1}</td>
+                  <td>{downA2}</td>
+                  <td>{downA3}</td>
+                  <td>{downNA}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         );
       },
     },
@@ -1554,16 +1558,12 @@ export const MyFocusExpireListComponent = () => {
         <Popconfirm
           title="Sure to delete?"
           onConfirm={() =>
-            post('/api/delete_expire_focus', {
+            post('/api/delete_focus_other', {
               body: JSON.stringify({
                 symbol: record?.symbol,
                 datestr: record?.datestr,
               }),
             }).then(() => {
-              async function handleAllStockData() {
-                const data = await getAllFocusedExpireStocks();
-                setData(data);
-              }
               handleAllStockData();
             })
           }
@@ -1577,7 +1577,19 @@ export const MyFocusExpireListComponent = () => {
   const [curAnaMap, setAnaMap] = useState();
   useEffect(() => {
     async function handleAllStockData() {
-      const data = await getAllFocusedExpireStocks();
+      const data = await getAllFocusedStocks();
+      const rateByCur = data?.filter(
+        (i) =>
+          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
+          (i.currentPrice < i.finalprice && i.predict === 'Down')
+      ).length;
+      const rateByMax = data?.filter(
+        (i) =>
+          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
+          (i.maxPriceDiff === 0 && i.predict === 'Down')
+      )?.length;
+      setRateByCur(`${rateByCur}/${data.length}` as any);
+      setRateByMax(`${rateByMax}/${data.length}` as any);
       setData(
         selectStatus
           ? data.filter(
@@ -1591,6 +1603,25 @@ export const MyFocusExpireListComponent = () => {
     handleAllStockData();
   }, [selectStatus]);
 
+  const handleSave = (row: any) => {
+    post('/api/focus_stocks_other', {
+      body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
+    }).then(() => {
+      async function handleAllStockData() {
+        const data = await getAllFocusedStocks();
+        setData(
+          selectStatus
+            ? data.filter(
+                (i) =>
+                  i.focus_status ===
+                  (selectStatus === '0' ? null : selectStatus)
+              )
+            : data
+        );
+      }
+      handleAllStockData();
+    });
+  };
   const components = {
     body: {
       row: EditableRow,
@@ -1608,6 +1639,7 @@ export const MyFocusExpireListComponent = () => {
         editable: col.editable,
         dataIndex: col.dataIndex,
         title: col.title,
+        handleSave: handleSave,
       }),
     };
   });
@@ -1686,15 +1718,6 @@ export const MyFocusExpireListComponent = () => {
                 });
                 // console.log(res, res?.[0].turnoverrates_analysis);
                 setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-                // console.log(
-                //   info.dataIndex, // 当前点击的第几个柱子
-                //   info.seriesIndex, // 当前点击的第几个数据源
-                //   info.value, // 当前柱子Y轴的数据
-                //   info.name, // 当前柱子X轴的名字
-                //   info.seriesName, // 当前数据源的名字
-                //   info.seriesType, // 当前数据的类型
-                //   info.color // 当前柱子的颜色
-                // );
               },
             }}
           />
@@ -1716,7 +1739,7 @@ export const MyFocusExpireListComponent = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )} 
+        )}        
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">

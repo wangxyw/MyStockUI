@@ -1177,28 +1177,8 @@ const EditableCell: React.FC<EditableCellProps> = ({
 };
 
 async function getAllFocusedExpireStocks() {
-  const stockData = await get('/api/all_expire_focus_stock');
+  const stockData = await get('/api/all_expire_focus_stock_other');
   const symbols = stockData.map((d) => d.symbol);
-  // const realtimeData = await post(`/api/qt_realtime`, {
-  //   body: JSON.stringify({ q: symbols.join(',') }),
-  // });
-
-  // const stockPriceByDay = await post(
-  //   `/api/get_price_from_common_data`, {body: JSON.stringify({stocks: symbols
-  //     .map((i) => `'${i}'`)
-  //     .join(',')})}
-  // );
-  // //caculate stock price
-  // const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
-
-  // return stockPriceData.map((s) => {
-  //   const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
-
-  //   return {
-  //     ...s,
-  //     currentPrice,
-  //   };
-  // });
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
     body: JSON.stringify({
       stocks: symbols.map((i) => `'${i}'`).join(',')
@@ -1214,7 +1194,7 @@ async function getAllFocusedExpireStocks() {
   return stockPriceData;
 }
 
-export const MyFocusExpireListComponent = () => {
+export const MyFocusExpire2ListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
   const [rateByMax, setRateByMax] = useState();
@@ -1247,7 +1227,7 @@ export const MyFocusExpireListComponent = () => {
     });
   }, []);
   const onClickMenu = (item, tableIndex, datestr) => {
-    post('/api/edit_focus_status', {
+    post('/api/edit_focus_other_status', {
       body: JSON.stringify({
         symbol: tableIndex,
         status: item.key,
@@ -1255,7 +1235,7 @@ export const MyFocusExpireListComponent = () => {
       }),
     }).then(() => {
       if (item.key === '3') {
-        post('/api/edit_focus_datestr', {
+        post('/api/edit_focus_other_datestr', {
           body: JSON.stringify({
             symbol: tableIndex,
             status: item.key,
@@ -1404,45 +1384,6 @@ export const MyFocusExpireListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
-      // render: (c) => {
-      //   const cparts = c.split('|');
-      //   const prefix = cparts?.[0];
-      //   if (!cparts?.[1]?.trim()) {
-      //     return (
-      //       <div>
-      //         <p>{c}</p>
-      //       </div>
-      //     );
-      //   }
-      //   const valueMap = JSON.parse(cparts?.[1]);
-      //   return (
-      //     <div>
-      //       <p>{prefix}</p>
-      //       <p>Before</p>
-      //       {Object.keys(valueMap?.before).map((i) => {
-      //         if (i === '7-days' || i === '15-days') {
-      //           return (
-      //             <p>
-      //               {valueMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
-      //             </p>
-      //           );
-      //         } else {
-      //           return (
-      //             <p>
-      //               <b>{valueMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
-      //             </p>
-      //           );
-      //         }
-      //       })}
-      //       <p>After</p>
-      //       {Object.keys(valueMap?.after).map((i) => (
-      //         <p>
-      //           {valueMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
-      //         </p>
-      //       ))}
-      //     </div>
-      //   );
-      // },
       render: (c, record) => {
         const cparts = c.split('|');
         const prefix = cparts?.[0];
@@ -1554,7 +1495,7 @@ export const MyFocusExpireListComponent = () => {
         <Popconfirm
           title="Sure to delete?"
           onConfirm={() =>
-            post('/api/delete_expire_focus', {
+            post('/api/delete_expire_focus_other', {
               body: JSON.stringify({
                 symbol: record?.symbol,
                 datestr: record?.datestr,
@@ -1686,15 +1627,6 @@ export const MyFocusExpireListComponent = () => {
                 });
                 // console.log(res, res?.[0].turnoverrates_analysis);
                 setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-                // console.log(
-                //   info.dataIndex, // 当前点击的第几个柱子
-                //   info.seriesIndex, // 当前点击的第几个数据源
-                //   info.value, // 当前柱子Y轴的数据
-                //   info.name, // 当前柱子X轴的名字
-                //   info.seriesName, // 当前数据源的名字
-                //   info.seriesType, // 当前数据的类型
-                //   info.color // 当前柱子的颜色
-                // );
               },
             }}
           />
