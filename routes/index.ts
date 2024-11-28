@@ -491,6 +491,9 @@ router.get('/get_focus_stock_price', function (req, res, next) {
 router.post('/get_price_from_common_data', function (req, res, next) {
   const symbols = req.body.stocks;
   let sql = `SELECT * FROM stock_day_common_data where symbol in (${symbols})`;
+  if (isEmpty(symbols)) {
+    sql = `SELECT * FROM stock_day_common_data where symbol in (-1)`;
+  }
   const simulateDate = req.body.simulateDate;
   const today = req.body.today;
   const startDate = req.body.startDate;
