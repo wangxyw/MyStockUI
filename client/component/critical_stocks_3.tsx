@@ -881,6 +881,69 @@ const MergeOptions = (data, downData) => {
   };
 };
 
+const MergeTotalTradeVol = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const totalTradeVol = allData?.map((i) =>
+    i?.totaltradevol
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['TotalTradeVol'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'TotalTradeVol',
+        type: 'line',
+        data: totalTradeVol,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
@@ -999,6 +1062,7 @@ export const CriticalStocks3Component = () => {
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
+  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -1077,6 +1141,7 @@ export const CriticalStocks3Component = () => {
                   setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                   setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
+                  setMergeTotalTradeVolInModal(MergeTotalTradeVol(data3, downData3));
                   setIsLoading(false);
                 }}
               >
@@ -1664,6 +1729,7 @@ export const CriticalStocks3Component = () => {
                 setMergeProfitChips(MergeProfitChips(data, downData));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data, downData));
                 setBigOrderPctInModal(MergeBigOrderPct(data, downData));
+                setMergeTotalTradeVolInModal(MergeTotalTradeVol(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1805,6 +1871,15 @@ export const CriticalStocks3Component = () => {
           option={bigOrderPctInModal}
         />
       )}  
+      TotalTradeVol(流动性):
+      {!isEmpty(mergeTotalTradeVolInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeTotalTradeVolInModal}
+        />
+      )}   
       QuantityRelativeRatios:
       {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
         <ReactEcharts
@@ -1813,7 +1888,7 @@ export const CriticalStocks3Component = () => {
           lazyUpdate={true}
           option={mergeQuantityRelativeRatiosInModal}
         />
-      )} 
+      )}     
 {/*      UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
@@ -1894,6 +1969,15 @@ export const CriticalStocks3Component = () => {
             option={bigOrderPctInModal}
           />
         )}  
+        TotalTradeVol(流动性):
+        {!isEmpty(mergeTotalTradeVolInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeTotalTradeVolInModal}
+          />
+        )}  
         3 DAYs QuantityRelativeRatios:
         {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
           <ReactEcharts
@@ -1902,7 +1986,7 @@ export const CriticalStocks3Component = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )}      
+        )}   
       </Modal>
     </div>
   );

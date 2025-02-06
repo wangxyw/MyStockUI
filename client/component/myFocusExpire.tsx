@@ -797,6 +797,69 @@ const MergeBigOrderPct = (data, downData) => {
   };
 };
 
+const MergeTotalTradeVol = (data, downData) => {
+  const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
+  const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
+
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
+    (i) => i.datestr
+  );
+
+  const totalTradeVol = allData?.map((i) =>
+    i?.totaltradevol
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['TotalTradeVol'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'TotalTradeVol',
+        type: 'line',
+        data: totalTradeVol,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -1227,6 +1290,7 @@ export const MyFocusExpireListComponent = () => {
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
+  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1352,6 +1416,7 @@ export const MyFocusExpireListComponent = () => {
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
+                setMergeTotalTradeVolInModal(MergeTotalTradeVol(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1706,6 +1771,15 @@ export const MyFocusExpireListComponent = () => {
             notMerge={true}
             lazyUpdate={true}
             option={bigOrderPctInModal}
+          />
+        )}  
+        TotalTradeVol(流动性):
+        {!isEmpty(mergeTotalTradeVolInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeTotalTradeVolInModal}
           />
         )}  
         3 DAYs QuantityRelativeRatios:
