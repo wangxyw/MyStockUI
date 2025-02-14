@@ -797,7 +797,7 @@ const MergeBigOrderPct = (data, downData) => {
   };
 };
 
-const MergeTotalTradeVol = (data, downData) => {
+const MergeFluidity = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
@@ -1270,7 +1270,7 @@ export const MyFocusExpire2ListComponent = () => {
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
-  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
+  const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1396,7 +1396,7 @@ export const MyFocusExpire2ListComponent = () => {
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
-                setMergeTotalTradeVolInModal(MergeTotalTradeVol(data3, downData3));
+                setMergeFluidityInModal(MergeFluidity(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1706,12 +1706,12 @@ export const MyFocusExpire2ListComponent = () => {
           />
         )}  
         Fluidity(流动性):
-        {!isEmpty(mergeTotalTradeVolInModal) && (
+        {!isEmpty(mergeFluidityInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
-            option={mergeTotalTradeVolInModal}
+            option={mergeFluidityInModal}
           />
         )}  
         3 DAYs QuantityRelativeRatios:

@@ -1,4 +1,4 @@
-import {
+ftimport {
   Table,
   Form,
   Input,
@@ -797,7 +797,7 @@ const MergeBigOrderPct = (data, downData) => {
   };
 };
 
-const MergeTotalTradeVol = (data, downData) => {
+const MergeFluidity = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
@@ -806,8 +806,8 @@ const MergeTotalTradeVol = (data, downData) => {
     (i) => i.datestr
   );
 
-  const totalTradeVol = allData?.map((i) =>
-    i?.totaltradevol
+  const fluidity = allData?.map((i) =>
+    i?.totaltradevol / (i?.marketvalue / i?.finalprice * 100000000)
   );
 
   return {
@@ -816,7 +816,7 @@ const MergeTotalTradeVol = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['TotalTradeVol'],
+      data: ['Fluidity'],
     },
     tooltip: {
       trigger: 'axis',
@@ -849,9 +849,9 @@ const MergeTotalTradeVol = (data, downData) => {
     },
     series: [
       {
-        name: 'TotalTradeVol',
+        name: 'Fluidity',
         type: 'line',
-        data: totalTradeVol,
+        data: fluidity,
         label: {
           position: 'top',
         },
@@ -1290,7 +1290,7 @@ export const MyFocusExpireListComponent = () => {
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
-  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
+  const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1416,7 +1416,7 @@ export const MyFocusExpireListComponent = () => {
                 setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
-                setMergeTotalTradeVolInModal(MergeTotalTradeVol(data3, downData3));
+                setMergeFluidityInModal(MergeFluidity(data3, downData3));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1773,13 +1773,13 @@ export const MyFocusExpireListComponent = () => {
             option={bigOrderPctInModal}
           />
         )}  
-        TotalTradeVol(流动性):
-        {!isEmpty(mergeTotalTradeVolInModal) && (
+        Fluidity(流动性):
+        {!isEmpty(mergeFluidityInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
-            option={mergeTotalTradeVolInModal}
+            option={mergeFluidityInModal}
           />
         )}  
         3 DAYs QuantityRelativeRatios:

@@ -881,7 +881,7 @@ const MergeOptions = (data, downData) => {
   };
 };
 
-const MergeTotalTradeVol = (data, downData) => {
+const MergeFluidity = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
 
@@ -1063,7 +1063,7 @@ export const CriticalStocks3Component = () => {
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
-  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
+  const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -1142,7 +1142,7 @@ export const CriticalStocks3Component = () => {
                   setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
                   setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                   setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
-                  setMergeTotalTradeVolInModal(MergeTotalTradeVol(data3, downData3));
+                  setMergeFluidityInModal(MergeFluidity(data3, downData3));
                   setIsLoading(false);
                 }}
               >
@@ -1730,7 +1730,7 @@ export const CriticalStocks3Component = () => {
                 setMergeProfitChips(MergeProfitChips(data, downData));
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data, downData));
                 setBigOrderPctInModal(MergeBigOrderPct(data, downData));
-                setMergeTotalTradeVolInModal(MergeTotalTradeVol(data, downData));
+                setMergeFluidityInModal(MergeFluidity(data, downData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1873,12 +1873,12 @@ export const CriticalStocks3Component = () => {
         />
       )}  
       Fluidity(流动性):
-      {!isEmpty(mergeTotalTradeVolInModal) && (
+      {!isEmpty(mergeFluidityInModal) && (
         <ReactEcharts
           style={{ height: 250, width: 1450 }}
           notMerge={true}
           lazyUpdate={true}
-          option={mergeTotalTradeVolInModal}
+          option={mergeFluidityInModal}
         />
       )}   
       QuantityRelativeRatios:
@@ -1971,12 +1971,12 @@ export const CriticalStocks3Component = () => {
           />
         )}  
         Fluidity(流动性):
-        {!isEmpty(mergeTotalTradeVolInModal) && (
+        {!isEmpty(mergeFluidityInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
             notMerge={true}
             lazyUpdate={true}
-            option={mergeTotalTradeVolInModal}
+            option={mergeFluidityInModal}
           />
         )}  
         3 DAYs QuantityRelativeRatios:
