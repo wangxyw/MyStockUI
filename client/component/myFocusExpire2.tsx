@@ -806,8 +806,8 @@ const MergeTotalTradeVol = (data, downData) => {
     (i) => i.datestr
   );
 
-  const totalTradeVol = allData?.map((i) =>
-    i?.totaltradevol
+  const fluidity = allData?.map((i) =>
+    i?.totaltradevol / (i?.marketvalue / i?.finalprice * 100000000)
   );
 
   return {
@@ -816,7 +816,7 @@ const MergeTotalTradeVol = (data, downData) => {
       left: 0,
     },
     legend: {
-      data: ['TotalTradeVol'],
+      data: ['Fluidity'],
     },
     tooltip: {
       trigger: 'axis',
@@ -849,9 +849,9 @@ const MergeTotalTradeVol = (data, downData) => {
     },
     series: [
       {
-        name: 'TotalTradeVol',
+        name: 'Fluidity',
         type: 'line',
-        data: totalTradeVol,
+        data: fluidity,
         label: {
           position: 'top',
         },
@@ -1705,7 +1705,7 @@ export const MyFocusExpire2ListComponent = () => {
             option={bigOrderPctInModal}
           />
         )}  
-        TotalTradeVol(流动性):
+        Fluidity(流动性):
         {!isEmpty(mergeTotalTradeVolInModal) && (
           <ReactEcharts
             style={{ height: 250, width: 1450 }}
