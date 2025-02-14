@@ -1,4 +1,4 @@
-ftimport {
+import {
   Table,
   Form,
   Input,
