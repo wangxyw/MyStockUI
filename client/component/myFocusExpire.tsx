@@ -807,7 +807,7 @@ const MergeFluidity = (data, downData) => {
   );
 
   const fluidity = allData?.map((i) =>
-    i?.totaltradevol / (i?.marketvalue / i?.finalprice * 100000000)
+    i?.totaltradevol / (i?.marketvalue / i?.finalprice * 1000000)
   );
 
   return {
