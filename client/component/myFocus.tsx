@@ -860,6 +860,87 @@ const MergeFluidity = (data, downData) => {
   };
 };
 
+const MergeKDJ = (kdjData) => {
+  const orderedData = orderBy(kdjData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const k = orderedData?.map((i) =>
+    i?.k
+  );
+  const d = orderedData?.map((i) =>
+    i?.d
+  );
+  const j = orderedData?.map((i) =>
+    i?.j
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['k', 'd', 'j'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'k',
+        type: 'line',
+        data: k,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'd',
+        type: 'line',
+        data: d,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'j',
+        type: 'line',
+        data: j,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -884,6 +965,15 @@ async function getAllCriStocks3(
 ) {
   const stockData = await get(
     `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
+  );
+  return stockData;
+}
+
+async function getKDJ(
+  stock
+) {
+  const stockData = await get(
+    `/api/kdj?stock=${stock}`
   );
   return stockData;
 }
@@ -1294,6 +1384,7 @@ export const MyFocusListComponent = () => {
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
+  const [mergeKDJInModal, setMergeKDJInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1412,6 +1503,9 @@ export const MyFocusListComponent = () => {
                   false,
                   true
                 );
+                const kdjData = await getKDJ(
+                  text
+                );
 
                 setIsModalVisible(true);
                 setMergeOptionsInModal(MergeOptions(data, downData));
@@ -1420,6 +1514,7 @@ export const MyFocusListComponent = () => {
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                 setMergeFluidityInModal(MergeFluidity(data3, downData3));
+                setMergeKDJInModal(MergeKDJ(kdjData));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1923,7 +2018,16 @@ export const MyFocusListComponent = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )}                
+        )}       
+        KDJ:
+        {!isEmpty(mergeKDJInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeKDJInModal}
+          />
+        )}          
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">

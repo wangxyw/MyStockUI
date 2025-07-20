@@ -945,6 +945,87 @@ const MergeFluidity = (data, downData) => {
   };
 };
 
+const MergeKDJ = (kdjData) => {
+  const orderedData = orderBy(kdjData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const k = orderedData?.map((i) =>
+    i?.k
+  );
+  const d = orderedData?.map((i) =>
+    i?.d
+  );
+  const j = orderedData?.map((i) =>
+    i?.j
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['k', 'd', 'j'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'k',
+        type: 'line',
+        data: k,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'd',
+        type: 'line',
+        data: d,
+        label: {
+          position: 'top',
+        },
+      },
+      {
+        name: 'j',
+        type: 'line',
+        data: j,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
@@ -1036,6 +1117,15 @@ async function getAllCriStocks3(
   // }));
 }
 
+async function getKDJ(
+  stock
+) {
+  const stockData = await get(
+    `/api/kdj?stock=${stock}`
+  );
+  return stockData;
+}
+
 export const CriticalStocks3Component = () => {
   const [data, setData] = useState<any>([]);
   const [downData, setDownData] = useState<any>();
@@ -1064,6 +1154,7 @@ export const CriticalStocks3Component = () => {
   const [mergeQuantityRelativeRatiosInModal, setMergeQuantityRelativeRatiosInModal] = useState({});
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
+  const [mergeKDJInModal, setMergeKDJInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -1133,6 +1224,9 @@ export const CriticalStocks3Component = () => {
                     isFocused,
                     true
                   );
+                  const kdjData = await getKDJ(
+                    text
+                  );
 
                   // setUpOptions(options(data));
                   // setDownOptions(options(downData));
@@ -1143,6 +1237,7 @@ export const CriticalStocks3Component = () => {
                   setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
                   setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                   setMergeFluidityInModal(MergeFluidity(data3, downData3));
+                  setMergeKDJInModal(MergeKDJ(kdjData));
                   setIsLoading(false);
                 }}
               >
@@ -1723,6 +1818,9 @@ export const CriticalStocks3Component = () => {
                 isFocused,
                 true
               );
+              const kdjData = await getKDJ(
+                searchStock
+              );
               if (searchStock) {
                 setUpOptions(options(data));
                 setDownOptions(options(downData));
@@ -1731,6 +1829,7 @@ export const CriticalStocks3Component = () => {
                 setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data, downData));
                 setBigOrderPctInModal(MergeBigOrderPct(data, downData));
                 setMergeFluidityInModal(MergeFluidity(data, downData));
+                setMergeKDJInModal(MergeKDJ(kdjData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1890,6 +1989,15 @@ export const CriticalStocks3Component = () => {
           option={mergeQuantityRelativeRatiosInModal}
         />
       )}     
+      KDJ:
+      {!isEmpty(mergeKDJInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeKDJInModal}
+        />
+      )} 
 {/*      UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
@@ -1988,6 +2096,15 @@ export const CriticalStocks3Component = () => {
             option={mergeQuantityRelativeRatiosInModal}
           />
         )}   
+        KDJ:
+        {!isEmpty(mergeKDJInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeKDJInModal}
+          />
+        )} 
       </Modal>
     </div>
   );
