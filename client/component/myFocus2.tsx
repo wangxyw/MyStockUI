@@ -1764,7 +1764,7 @@ export const MyFocus2ListComponent = () => {
   }, [selectStatus]);
 
   const handleSave = (row: any) => {
-    post('/api/focus_stocks_other', {
+    post('/api/focus_stocks2', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
     }).then(() => {
       async function handleAllStockData() {
