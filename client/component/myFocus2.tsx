@@ -1332,7 +1332,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
   return <td {...restProps}>{childNode}</td>;
 };
 
-async function getAllFocusedStocks() {
+async function getAllFocusedStocks2() {
   const stockData = await get('/api/all_focus_stock2');
   const symbols = stockData.map((d) => d.symbol);
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
@@ -1407,7 +1407,7 @@ export const MyFocus2ListComponent = () => {
         });
       }
       async function handleAllStockData() {
-        const data = await getAllFocusedStocks();
+        const data = await getAllFocusedStocks2();
         setData(
           selectStatus
             ? data.filter(
@@ -1429,6 +1429,7 @@ export const MyFocus2ListComponent = () => {
       key: 'symbol',
       render: (text, record) => {
         const end_date = record?.datestr;
+        const predict = record?.predict;
         return (
           <div>
             <a
@@ -1501,6 +1502,10 @@ export const MyFocus2ListComponent = () => {
             >
               Show Charts
             </Button>
+            <br />
+            <span style={{ color: 'red' }}>
+              {predict === 'Up' ? 'UP' : ''}
+            </span>
           </div>
         );
       },
@@ -1546,31 +1551,6 @@ export const MyFocus2ListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
-      render: (c, record) => {
-        const cparts = c.split('|');
-        const prefix = cparts?.[0];
-        const newValue = record.turnoverrates_alteration;
-        if (!newValue?.trim()) {
-          return (
-            <div>
-              <p>{newValue}</p>
-            </div>
-          );
-        }
-        const valueMap = JSON.parse(newValue);
-        return (
-          <div>
-            <p>{prefix}</p>
-            {Object.keys(valueMap).map((i) => {
-                return (
-                  <p>
-                    <b>{valueMap?.[i]?.replaceAll(',', ',  ')}</b>({i})
-                  </p>
-                );
-            })}
-          </div>
-        );
-      },
     },
     {
       title: 'Date',
@@ -1737,7 +1717,7 @@ export const MyFocus2ListComponent = () => {
   const [curAnaMap, setAnaMap] = useState();
   useEffect(() => {
     async function handleAllStockData() {
-      const data = await getAllFocusedStocks();
+      const data = await getAllFocusedStocks2();
       const rateByCur = data?.filter(
         (i) =>
           (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
@@ -1764,7 +1744,7 @@ export const MyFocus2ListComponent = () => {
   }, [selectStatus]);
 
   const handleSave = (row: any) => {
-    post('/api/focus_stocks2', {
+    post('/api/edit_focus2', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
     }).then(() => {
       async function handleAllStockData() {
@@ -1878,6 +1858,15 @@ export const MyFocus2ListComponent = () => {
                 });
                 // console.log(res, res?.[0].turnoverrates_analysis);
                 setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
+                // console.log(
+                //   info.dataIndex, // 当前点击的第几个柱子
+                //   info.seriesIndex, // 当前点击的第几个数据源
+                //   info.value, // 当前柱子Y轴的数据
+                //   info.name, // 当前柱子X轴的名字
+                //   info.seriesName, // 当前数据源的名字
+                //   info.seriesType, // 当前数据的类型
+                //   info.color // 当前柱子的颜色
+                // );
               },
             }}
           />
@@ -1908,7 +1897,7 @@ export const MyFocus2ListComponent = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )}     
+        )}       
         KDJ:
         {!isEmpty(mergeKDJInModal) && (
           <ReactEcharts
@@ -1917,7 +1906,7 @@ export const MyFocus2ListComponent = () => {
             lazyUpdate={true}
             option={mergeKDJInModal}
           />
-        )}     
+        )}          
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">
