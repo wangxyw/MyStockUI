@@ -1333,7 +1333,7 @@ const EditableCell: React.FC<EditableCellProps> = ({
 };
 
 async function getAllFocusedStocks() {
-  const stockData = await get('/api/all_focus_stock_other');
+  const stockData = await get('/api/all_focus_stock2');
   const symbols = stockData.map((d) => d.symbol);
   const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
     body: JSON.stringify({
@@ -1385,7 +1385,7 @@ export const MyFocus2ListComponent = () => {
     });
   }, []);
   const onClickMenu = (item, tableIndex, datestr) => {
-    post('/api/edit_focus_other_status', {
+    post('/api/edit_focus2_status', {
       body: JSON.stringify({
         symbol: tableIndex,
         status: item.key,
@@ -1393,7 +1393,7 @@ export const MyFocus2ListComponent = () => {
       }),
     }).then(() => {
       if (item.key === '3') {
-        post('/api/edit_focus_other_datestr', {
+        post('/api/edit_focus2_datestr', {
           body: JSON.stringify({
             symbol: tableIndex,
             status: item.key,
@@ -1718,7 +1718,7 @@ export const MyFocus2ListComponent = () => {
         <Popconfirm
           title="Sure to delete?"
           onConfirm={() =>
-            post('/api/delete_focus_other', {
+            post('/api/delete_focus2', {
               body: JSON.stringify({
                 symbol: record?.symbol,
                 datestr: record?.datestr,

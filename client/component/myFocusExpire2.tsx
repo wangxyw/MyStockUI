@@ -1382,7 +1382,7 @@ export const MyFocusExpire2ListComponent = () => {
     });
   }, []);
   const onClickMenu = (item, tableIndex, datestr) => {
-    post('/api/edit_focus_other_status', {
+    post('/api/edit_focus2_status', {
       body: JSON.stringify({
         symbol: tableIndex,
         status: item.key,
@@ -1390,7 +1390,7 @@ export const MyFocusExpire2ListComponent = () => {
       }),
     }).then(() => {
       if (item.key === '3') {
-        post('/api/edit_focus_other_datestr', {
+        post('/api/edit_focus2_datestr', {
           body: JSON.stringify({
             symbol: tableIndex,
             status: item.key,

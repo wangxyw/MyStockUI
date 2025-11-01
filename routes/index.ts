@@ -140,10 +140,10 @@ router.post('/delete_focus', function (req, res, next) {
   });
 });
 
-router.post('/delete_focus_other', function (req, res, next) {
+router.post('/delete_focus2', function (req, res, next) {
   const symbol = req.body.symbol;
   const datestr = req.body.datestr;
-  const sql = `DELETE from focus_stocks_other where symbol= '${symbol}' and datestr= '${datestr}';`;
+  const sql = `DELETE from focus_stocks2 where symbol= '${symbol}' and datestr= '${datestr}';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -218,10 +218,10 @@ router.post('/edit_focus', function (req, res, next) {
     }
   });
 });
-router.post('/edit_focus_other', function (req, res, next) {
+router.post('/edit_focus2', function (req, res, next) {
   const symbol = req.body.symbol;
   const comments = req.body.comments;
-  const sql = `UPDATE focus_stocks_other SET comments='${comments}' where symbol='${symbol}';`;
+  const sql = `UPDATE focus_stocks2 SET comments='${comments}' where symbol='${symbol}';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -294,11 +294,11 @@ router.post('/edit_focus_status', function (req, res, next) {
     res.json(rows);
   });
 });
-router.post('/edit_focus_other_status', function (req, res, next) {
+router.post('/edit_focus2_status', function (req, res, next) {
   const status = req.body.status;
   const code = req.body.symbol;
   const datestr = req.body.datestr;
-  const sql = `UPDATE focus_stocks_other set focus_status=${status} where symbol='${code}' and datestr='${datestr}'`;
+  const sql = `UPDATE focus_stocks2 set focus_status=${status} where symbol='${code}' and datestr='${datestr}'`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -318,12 +318,12 @@ router.post('/edit_focus_datestr', function (req, res, next) {
     }
   });
 });
-router.post('/edit_focus_other_datestr', function (req, res, next) {
+router.post('/edit_focus2_datestr', function (req, res, next) {
   // const status = req.body.status;
   const code = req.body.symbol;
   const datestr = req.body.datestr;
   const newDatestr = req.body.newDatestr;
-  const sql = `UPDATE focus_stocks_other set datestr='${newDatestr}' where symbol='${code}' and datestr='${datestr}'`;
+  const sql = `UPDATE focus_stocks2 set datestr='${newDatestr}' where symbol='${code}' and datestr='${datestr}'`;
   pool.query(sql, function (err, rows, fields) {
     if (err) {
       res.json(err);
@@ -382,8 +382,8 @@ router.get('/all_focus_stock', function (req, res, next) {
   });
 });
 
-router.get('/all_focus_stock_other', function (req, res, next) {
-  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks_other a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
+router.get('/all_focus_stock2', function (req, res, next) {
+  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks2 a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     //res.json(rows);
