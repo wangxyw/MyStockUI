@@ -970,10 +970,12 @@ async function getAllCriStocks3(
 }
 
 async function getKDJ(
-  stock
+  stock,
+  startDate: any = null,
+  endDate: any = 0
 ) {
   const stockData = await get(
-    `/api/kdj?stock=${stock}`
+    `/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return stockData;
 }
@@ -1504,7 +1506,9 @@ export const MyFocusListComponent = () => {
                   true
                 );
                 const kdjData = await getKDJ(
-                  text
+                  text,
+                  startDate,
+                  endDate
                 );
 
                 setIsModalVisible(true);

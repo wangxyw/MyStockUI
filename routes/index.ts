@@ -642,8 +642,12 @@ router.get('/critical_data3', function (req, res, next) {
 
 router.get('/kdj', function (req, res, next) {
   const stock = req.query.stock;
-  let sql = `select kdj.symbol, kdj.datestr, kdj.k, kdj.d, kdj.j from replay_critical_3 a join stock_day_common_data b on a.symbol=b.symbol and b.datestr=a.end_date join kdj on a.symbol=kdj.symbol and a.end_date=kdj.datestr where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC;`;
-
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  let sql = `select kdj.symbol, kdj.datestr, kdj.k, kdj.d, kdj.j from replay_critical_3 a join stock_day_common_data b on a.symbol=b.symbol and b.datestr=a.end_date join kdj on a.symbol=kdj.symbol and a.end_date=kdj.datestr where a.symbol LIKE '%${stock}%' and kdj.datestr >= '${startDateStr}' and kdj.datestr <= '${endDateStr}' GROUP BY end_date ORDER BY end_date DESC;`;
+  if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+    sql = `select kdj.symbol, kdj.datestr, kdj.k, kdj.d, kdj.j from replay_critical_3 a join stock_day_common_data b on a.symbol=b.symbol and b.datestr=a.end_date join kdj on a.symbol=kdj.symbol and a.end_date=kdj.datestr where a.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC;`;
+  }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);

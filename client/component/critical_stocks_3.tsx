@@ -1117,11 +1117,13 @@ async function getAllCriStocks3(
   // }));
 }
 
-async function getKDJ(
-  stock
+async function Ï(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
 ) {
   const stockData = await get(
-    `/api/kdj?stock=${stock}`
+    `/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return stockData;
 }
@@ -1225,7 +1227,9 @@ export const CriticalStocks3Component = () => {
                     true
                   );
                   const kdjData = await getKDJ(
-                    text
+                    text,
+                    startDate,
+                    endDate
                   );
 
                   // setUpOptions(options(data));
@@ -1819,7 +1823,9 @@ export const CriticalStocks3Component = () => {
                 true
               );
               const kdjData = await getKDJ(
-                searchStock
+                searchStock,
+                startDate,
+                endDate
               );
               if (searchStock) {
                 setUpOptions(options(data));
