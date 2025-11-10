@@ -1117,7 +1117,7 @@ async function getAllCriStocks3(
   // }));
 }
 
-async function Ï(
+async function getKDJ(
   stock,
   startDate: any = null,
   endDate: any = 0
