@@ -14,6 +14,7 @@ import { CriticalStocksComponent } from './component/critical_stocks';
 import { CriticalStocks3Component } from './component/critical_stocks_3';
 import { MyFocus2ListComponent } from './component/myFocus2';
 import { MyFocusExpire2ListComponent } from './component/myFocusExpire2';
+import { VlogComponent } from './component/vlog';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
 const MENU_FOCUSED_EXPIRE = 'expire_my_focus';
@@ -30,6 +31,7 @@ const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
 const MENU_FOCUSED2 = 'my_focus2';
 const MENU_FOCUSED_EXPIRE2 = 'expire_my_focus2';
+const MENU_VLOG = 'vlog';
 
 function getInitPath() {
   if (window) {
@@ -53,6 +55,7 @@ function getInitPath() {
         MENU_CRI_STOCK_3,
         MENU_FOCUSED2,
         MENU_FOCUSED_EXPIRE2,
+        MENU_VLOG,
       ].find((p) => path.startsWith(`/${p}`))
     ) {
       return path.slice(1);
@@ -123,6 +126,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_FOCUSED_EXPIRE2}>
           <Link to="/expire_my_focus2">MF2 Expire</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_VLOG}>
+          <Link to="/vlog">VLOG</Link>
+        </Menu.Item>
       </Menu>
       <Switch>
         <Route path="/data_analysis" component={DataAnalysisCom}>
@@ -167,6 +173,9 @@ const App = (): JSX.Element => {
         <Route path="/expire_my_focus2" component={MyFocusExpire2ListComponent}>
           <MyFocusExpire2ListComponent />
         </Route>    
+        <Route path="/vlog">
+          <VlogComponent />
+        </Route>
         <Route path="/" component={AlarmComponent}>
           <AlarmComponent from100={false} />
         </Route>
