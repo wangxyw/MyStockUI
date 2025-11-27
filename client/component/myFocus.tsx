@@ -982,7 +982,7 @@ const MergeContinuousProfitChips = (profitChipsData) => {
     xAxis: {
       type: 'category',
       data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
+      axisLabel: { show: false, interval: 0, rotate: 45 },
     },
     yAxis: {
       type: 'value',
