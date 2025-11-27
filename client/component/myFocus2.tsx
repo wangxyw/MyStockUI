@@ -941,6 +941,65 @@ const MergeKDJ = (kdjData) => {
   };
 };
 
+const MergeContinuousProfitChips = (profitChipsData) => {
+  const orderedData = orderBy(profitChipsData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const pc = orderedData?.map((i) =>
+    i?.profit_chip
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['profit_chip'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'profit_chip',
+        type: 'line',
+        data: pc,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -978,6 +1037,17 @@ async function getKDJ(
     `/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return stockData;
+}
+
+async function getContinuousProfitChips(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const profitChipsData = await get(
+    `/api/profit_chips?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return profitChipsData;
 }
 
 interface Item {
@@ -1367,6 +1437,7 @@ export const MyFocus2ListComponent = () => {
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
   const [mergeKDJInModal, setMergeKDJInModal] = useState({});
+  const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
 
@@ -1490,6 +1561,11 @@ export const MyFocus2ListComponent = () => {
                   startDate,
                   endDate
                 );
+                const profitChipsData = await getContinuousProfitChips(
+                  text,
+                  startDate,
+                  endDate
+                );                
 
                 setIsModalVisible(true);
                 setMergeOptionsInModal(MergeOptions(data, downData));
@@ -1499,6 +1575,7 @@ export const MyFocus2ListComponent = () => {
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                 setMergeFluidityInModal(MergeFluidity(data3, downData3));
                 setMergeKDJInModal(MergeKDJ(kdjData));
+                setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -1875,6 +1952,15 @@ export const MyFocus2ListComponent = () => {
             }}
           />
         )}
+        ProfitChips:
+        {!isEmpty(mergeContinuousProfitChipsInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeContinuousProfitChipsInModal}
+          />
+        )}       
         3 DAYs BigOrderPct:
         {!isEmpty(bigOrderPctInModal) && (
           <ReactEcharts
@@ -1910,7 +1996,7 @@ export const MyFocus2ListComponent = () => {
             lazyUpdate={true}
             option={mergeKDJInModal}
           />
-        )}          
+        )}     
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">

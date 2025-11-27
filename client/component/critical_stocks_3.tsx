@@ -1026,6 +1026,65 @@ const MergeKDJ = (kdjData) => {
   };
 };
 
+const MergeContinuousProfitChips = (profitChipsData) => {
+  const orderedData = orderBy(profitChipsData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const pc = orderedData?.map((i) =>
+    i?.profit_chip
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['profit_chip'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: false, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'profit_chip',
+        type: 'line',
+        data: pc,
+        label: {
+          position: 'top',
+        },
+      },
+    ],
+  };
+};
+
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
@@ -1117,6 +1176,17 @@ async function getAllCriStocks3(
   // }));
 }
 
+async function getContinuousProfitChips(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const profitChipsData = await get(
+    `/api/profit_chips?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return profitChipsData;
+}
+
 async function getKDJ(
   stock,
   startDate: any = null,
@@ -1157,6 +1227,7 @@ export const CriticalStocks3Component = () => {
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
   const [mergeKDJInModal, setMergeKDJInModal] = useState({});
+  const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -1231,6 +1302,11 @@ export const CriticalStocks3Component = () => {
                     startDate,
                     endDate
                   );
+                  const profitChipsData = await getContinuousProfitChips(
+                    text,
+                    startDate,
+                    endDate
+                  );
 
                   // setUpOptions(options(data));
                   // setDownOptions(options(downData));
@@ -1242,6 +1318,7 @@ export const CriticalStocks3Component = () => {
                   setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                   setMergeFluidityInModal(MergeFluidity(data3, downData3));
                   setMergeKDJInModal(MergeKDJ(kdjData));
+                  setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                   setIsLoading(false);
                 }}
               >
@@ -1827,6 +1904,11 @@ export const CriticalStocks3Component = () => {
                 startDate,
                 endDate
               );
+              const profitChipsData = await getContinuousProfitChips(
+                searchStock,
+                startDate,
+                endDate
+              );
               if (searchStock) {
                 setUpOptions(options(data));
                 setDownOptions(options(downData));
@@ -1836,6 +1918,7 @@ export const CriticalStocks3Component = () => {
                 setBigOrderPctInModal(MergeBigOrderPct(data, downData));
                 setMergeFluidityInModal(MergeFluidity(data, downData));
                 setMergeKDJInModal(MergeKDJ(kdjData));
+                setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -1968,6 +2051,15 @@ export const CriticalStocks3Component = () => {
           option={mergeProfitChips}
         />
       )}
+      ProfitChips:
+      {!isEmpty(mergeContinuousProfitChipsInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeContinuousProfitChipsInModal}
+        />
+      )} 
       BigOrderPct:
       {!isEmpty(bigOrderPctInModal) && (
         <ReactEcharts
@@ -2075,6 +2167,15 @@ export const CriticalStocks3Component = () => {
             option={mergeProfitChips3InModal}
           />
         )}
+        ProfitChips:
+        {!isEmpty(mergeContinuousProfitChipsInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeContinuousProfitChipsInModal}
+          />
+        )} 
         3 DAYs BigOrderPct:
         {!isEmpty(bigOrderPctInModal) && (
           <ReactEcharts
