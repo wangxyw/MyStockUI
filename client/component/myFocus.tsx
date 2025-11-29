@@ -949,6 +949,9 @@ const MergeContinuousProfitChips = (profitChipsData) => {
   const pc = orderedData?.map((i) =>
     i?.profit_chip
   );
+  const tr = orderedData?.map((i) =>
+    i?.turnoverrate
+  );
 
   return {
     title: {
@@ -956,7 +959,7 @@ const MergeContinuousProfitChips = (profitChipsData) => {
       left: 0,
     },
     legend: {
-      data: ['profit_chip'],
+      data: ['profit_chip', 'turnoverrate'],
     },
     tooltip: {
       trigger: 'axis',
@@ -994,6 +997,17 @@ const MergeContinuousProfitChips = (profitChipsData) => {
         data: pc,
         label: {
           position: 'top',
+        },
+      },
+      {
+        name: 'turnoverrate',
+        type: 'line',
+        data: tr,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          color: '#ff0000' // 红色
         },
       },
     ],

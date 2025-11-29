@@ -658,10 +658,10 @@ router.get('/profit_chips', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
   const endDateStr = req.query.end_date;
-  let sql = `SELECT datestr, profit_chip FROM stock_day_common_data WHERE symbol LIKE '%${stock}%' AND datestr >= '${startDateStr}' and datestr <= '${endDateStr}' ORDER BY datestr DESC;`;
+  let sql = `SELECT datestr, profit_chip, turnoverrate FROM stock_day_common_data WHERE symbol LIKE '%${stock}%' AND datestr >= '${startDateStr}' and datestr <= '${endDateStr}' ORDER BY datestr DESC;`;
   if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
     let intervalMonth = 24;
-    sql = `SELECT datestr, profit_chip FROM stock_day_common_data WHERE symbol LIKE '%${stock}%' AND datestr >= DATE_SUB(CURDATE(), INTERVAL ${intervalMonth} MONTH) ORDER BY datestr DESC;`;
+    sql = `SELECT datestr, profit_chip, turnoverrate FROM stock_day_common_data WHERE symbol LIKE '%${stock}%' AND datestr >= DATE_SUB(CURDATE(), INTERVAL ${intervalMonth} MONTH) ORDER BY datestr DESC;`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
