@@ -950,7 +950,7 @@ const MergeContinuousProfitChips = (profitChipsData) => {
     i?.profit_chip
   );
   const tr = orderedData?.map((i) =>
-    i?.turnoverrate
+    i?.turnoverrate < 0 ? 0 : i?.turnoverrate
   );
 
   return {
