@@ -941,6 +941,102 @@ const MergeKDJ = (kdjData) => {
   };
 };
 
+const MergeDMI = (dmiData) => {
+  const orderedData = orderBy(dmiData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const pdi = orderedData?.map((i) =>
+    i?.pdi
+  );
+  const mdi = orderedData?.map((i) =>
+    i?.mdi
+  );
+  const adx = orderedData?.map((i) =>
+    i?.adx
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['pdi', 'mdi', 'adx'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'pdi',
+        type: 'line',
+        data: pdi,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#FF0000', // 修改为红色
+          },
+        },        
+      },
+      {
+        name: 'mdi',
+        type: 'line',
+        data: mdi,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#00FF00', // 纯绿色
+          },
+        },
+      },
+      {
+        name: 'adx',
+        type: 'line',
+        data: adx,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#800080', // 纯绿色
+          },
+        },
+      },
+    ],
+  };
+};
+
 const MergeContinuousProfitChips = (profitChipsData) => {
   const orderedData = orderBy(profitChipsData, 'datestr');
   const allDataDate = orderedData?.map(
@@ -1049,6 +1145,17 @@ async function getKDJ(
 ) {
   const stockData = await get(
     `/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
+}
+
+async function getDMI(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/dmi?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return stockData;
 }
@@ -1471,6 +1578,7 @@ export const MyFocusListComponent = () => {
   const [bigOrderPctInModal, setBigOrderPctInModal] = useState({});
   const [mergeFluidityInModal, setMergeFluidityInModal] = useState({});
   const [mergeKDJInModal, setMergeKDJInModal] = useState({});
+  const [mergeDMIInModal, setMergeDMIInModal] = useState({});
   const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
@@ -1595,6 +1703,11 @@ export const MyFocusListComponent = () => {
                   startDate,
                   endDate
                 );
+                const dmiData = await getDMI(
+                  text,
+                  startDate,
+                  endDate
+                );
                 const profitChipsData = await getContinuousProfitChips(
                   text,
                   startDate,
@@ -1609,6 +1722,7 @@ export const MyFocusListComponent = () => {
                 setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
                 setMergeFluidityInModal(MergeFluidity(data3, downData3));
                 setMergeKDJInModal(MergeKDJ(kdjData));
+                setMergeDMIInModal(MergeDMI(dmiData));
                 setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
@@ -2131,7 +2245,16 @@ export const MyFocusListComponent = () => {
             lazyUpdate={true}
             option={mergeKDJInModal}
           />
-        )}        
+        )}  
+        DMI:
+        {!isEmpty(mergeDMIInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeDMIInModal}
+          />
+        )}      
         {!isEmpty(curAnaMap) && (
           <div class="table">
             <div class="col">

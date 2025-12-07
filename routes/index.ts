@@ -654,6 +654,20 @@ router.get('/kdj', function (req, res, next) {
   });
 });
 
+router.get('/dmi', function (req, res, next) {
+  const stock = req.query.stock;
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  let sql = `select dmi.symbol, dmi.datestr, dmi.pdi, dmi.mdi, dmi.adx from replay_critical_3 rc3 join dmi on rc3.symbol=dmi.symbol and rc3.end_date=dmi.datestr where rc3.symbol LIKE '%${stock}%' and dmi.datestr >= '${startDateStr}' and dmi.datestr <= '${endDateStr}' GROUP BY end_date ORDER BY end_date DESC;`;
+  if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+    sql = `select dmi.symbol, dmi.datestr, dmi.pdi, dmi.mdi, dmi.adx from replay_critical_3 rc3 join dmi on rc3.symbol=dmi.symbol and rc3.end_date=dmi.datestr where rc3.symbol LIKE '%${stock}%' GROUP BY end_date ORDER BY end_date DESC;`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/profit_chips', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
