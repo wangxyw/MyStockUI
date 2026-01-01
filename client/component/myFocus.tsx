@@ -2337,6 +2337,15 @@ export const MyFocusListComponent = () => {
             }}
           />
         )}
+        MA:
+        {!isEmpty(mergeMAInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeMAInModal}
+          />
+        )}  
         ProfitChips:
         {!isEmpty(mergeContinuousProfitChipsInModal) && (
           <ReactEcharts
@@ -2372,16 +2381,7 @@ export const MyFocusListComponent = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )}
-        MA:
-        {!isEmpty(mergeMAInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeMAInModal}
-          />
-        )}          
+        )}        
         KDJ:
         {!isEmpty(mergeKDJInModal) && (
           <ReactEcharts

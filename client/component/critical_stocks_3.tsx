@@ -2327,6 +2327,15 @@ export const CriticalStocks3Component = () => {
           option={mergeProfitChips}
         />
       )}
+      MA:
+      {!isEmpty(mergeMAInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeMAInModal}
+        />
+      )}   
       ProfitChips:
       {!isEmpty(mergeContinuousProfitChipsInModal) && (
         <ReactEcharts
@@ -2362,16 +2371,7 @@ export const CriticalStocks3Component = () => {
           lazyUpdate={true}
           option={mergeQuantityRelativeRatiosInModal}
         />
-      )}
-      MA:
-      {!isEmpty(mergeMAInModal) && (
-        <ReactEcharts
-          style={{ height: 250, width: 1450 }}
-          notMerge={true}
-          lazyUpdate={true}
-          option={mergeMAInModal}
-        />
-      )}     
+      )}  
       KDJ:
       {!isEmpty(mergeKDJInModal) && (
         <ReactEcharts
@@ -2461,6 +2461,15 @@ export const CriticalStocks3Component = () => {
             option={mergeProfitChips3InModal}
           />
         )}
+        MA:
+        {!isEmpty(mergeMAInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeMAInModal}
+          />
+        )}  
         ProfitChips:
         {!isEmpty(mergeContinuousProfitChipsInModal) && (
           <ReactEcharts
@@ -2497,15 +2506,6 @@ export const CriticalStocks3Component = () => {
             option={mergeQuantityRelativeRatiosInModal}
           />
         )}   
-        MA:
-        {!isEmpty(mergeMAInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeMAInModal}
-          />
-        )}  
         KDJ:
         {!isEmpty(mergeKDJInModal) && (
           <ReactEcharts
