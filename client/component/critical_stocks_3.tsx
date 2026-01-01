@@ -1195,6 +1195,124 @@ const MergeContinuousProfitChips = (profitChipsData) => {
   };
 };
 
+const MergeMA = (maData) => {
+  const orderedData = orderBy(maData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const ma5 = orderedData?.map((i) =>
+    i?.ma5
+  );
+  const ma10 = orderedData?.map((i) =>
+    i?.ma10
+  );
+  const ma20 = orderedData?.map((i) =>
+    i?.ma20
+  );
+  const ma60 = orderedData?.map((i) =>
+    i?.ma60
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['ma5', 'ma10', 'ma20', 'ma60'],
+      selected:{
+        'ma5': true,
+        'ma10': false,
+        'ma20': false,
+        'ma60': true,
+      },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'ma5',
+        type: 'line',
+        data: ma5,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#800080', // 修改为红色
+          },
+        },        
+      },
+      {
+        name: 'ma10',
+        type: 'line',
+        data: ma10,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#FFFF00', // 纯绿色
+          },
+        },
+      },
+      {
+        name: 'ma20',
+        type: 'line',
+        data: ma20,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#0000FF', // 纯蓝色
+          },
+        },
+      },
+      {
+        name: 'ma60',
+        type: 'line',
+        data: ma60,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#ff0000', // 纯红色
+          },
+        },
+      },
+    ],
+  };
+};
+
 const curDate = new Date();
 const year = curDate.getFullYear();
 const month = curDate.getMonth() + 1;
@@ -1319,6 +1437,17 @@ async function getDMI(
   return stockData;
 }
 
+async function getMA(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/ma?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
+}
+
 export const CriticalStocks3Component = () => {
   const [data, setData] = useState<any>([]);
   const [downData, setDownData] = useState<any>();
@@ -1350,6 +1479,7 @@ export const CriticalStocks3Component = () => {
   const [mergeKDJInModal, setMergeKDJInModal] = useState({});
   const [mergeDMIInModal, setMergeDMIInModal] = useState({});
   const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
+  const [mergeMAInModal, setMergeMAInModal] = useState({});
 
   console.log('data', mergeOptions);
   const columns = [
@@ -1434,6 +1564,11 @@ export const CriticalStocks3Component = () => {
                     startDate,
                     endDate
                   );
+                  const maData = await getMA(
+                    text,
+                    startDate,
+                    endDate
+                  );
 
                   // setUpOptions(options(data));
                   // setDownOptions(options(downData));
@@ -1447,6 +1582,7 @@ export const CriticalStocks3Component = () => {
                   setMergeKDJInModal(MergeKDJ(kdjData));
                   setMergeDMIInModal(MergeDMI(dmiData));
                   setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
+                  setMergeMAInModal(MergeMA(maData));
                   setIsLoading(false);
                 }}
               >
@@ -2042,6 +2178,11 @@ export const CriticalStocks3Component = () => {
                 startDate,
                 endDate
               );
+              const maData = await getMA(
+                searchStock,
+                startDate,
+                endDate
+              );
               if (searchStock) {
                 setUpOptions(options(data));
                 setDownOptions(options(downData));
@@ -2053,6 +2194,7 @@ export const CriticalStocks3Component = () => {
                 setMergeKDJInModal(MergeKDJ(kdjData));
                 setMergeDMIInModal(MergeDMI(dmiData));
                 setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
+                setMergeMAInModal(MergeMA(maData));
               }
               setData(
                 searchStock && searchStock.substr(0, 6) != 'xywang'
@@ -2220,6 +2362,15 @@ export const CriticalStocks3Component = () => {
           lazyUpdate={true}
           option={mergeQuantityRelativeRatiosInModal}
         />
+      )}
+      MA:
+      {!isEmpty(mergeMAInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeMAInModal}
+        />
       )}     
       KDJ:
       {!isEmpty(mergeKDJInModal) && (
@@ -2346,6 +2497,15 @@ export const CriticalStocks3Component = () => {
             option={mergeQuantityRelativeRatiosInModal}
           />
         )}   
+        MA:
+        {!isEmpty(mergeMAInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeMAInModal}
+          />
+        )}  
         KDJ:
         {!isEmpty(mergeKDJInModal) && (
           <ReactEcharts

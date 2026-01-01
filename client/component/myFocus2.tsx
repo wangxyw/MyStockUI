@@ -1110,6 +1110,124 @@ const MergeContinuousProfitChips = (profitChipsData) => {
   };
 };
 
+const MergeMA = (maData) => {
+  const orderedData = orderBy(maData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const ma5 = orderedData?.map((i) =>
+    i?.ma5
+  );
+  const ma10 = orderedData?.map((i) =>
+    i?.ma10
+  );
+  const ma20 = orderedData?.map((i) =>
+    i?.ma20
+  );
+  const ma60 = orderedData?.map((i) =>
+    i?.ma60
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['ma5', 'ma10', 'ma20', 'ma60'],
+      selected:{
+        'ma5': true,
+        'ma10': false,
+        'ma20': false,
+        'ma60': true,
+      },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'ma5',
+        type: 'line',
+        data: ma5,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#800080', // 修改为红色
+          },
+        },        
+      },
+      {
+        name: 'ma10',
+        type: 'line',
+        data: ma10,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#FFFF00', // 纯绿色
+          },
+        },
+      },
+      {
+        name: 'ma20',
+        type: 'line',
+        data: ma20,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#0000FF', // 纯蓝色
+          },
+        },
+      },
+      {
+        name: 'ma60',
+        type: 'line',
+        data: ma60,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#ff0000', // 纯红色
+          },
+        },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -1169,6 +1287,17 @@ async function getContinuousProfitChips(
     `/api/profit_chips?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return profitChipsData;
+}
+
+async function getMA(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/ma?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
 }
 
 interface Item {
@@ -1562,6 +1691,7 @@ export const MyFocus2ListComponent = () => {
   const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
+  const [mergeMAInModal, setMergeMAInModal] = useState({});
 
   const curDate = new Date();
   const year = curDate.getFullYear();
@@ -1692,7 +1822,12 @@ export const MyFocus2ListComponent = () => {
                   text,
                   startDate,
                   endDate
-                );                
+                );  
+                const maData = await getMA(
+                  text,
+                  startDate,
+                  endDate
+                );              
 
                 setIsModalVisible(true);
                 setMergeOptionsInModal(MergeOptions(data, downData));
@@ -1704,6 +1839,7 @@ export const MyFocus2ListComponent = () => {
                 setMergeKDJInModal(MergeKDJ(kdjData));
                 setMergeDMIInModal(MergeDMI(dmiData));
                 setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
+                setMergeMAInModal(MergeMA(maData));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -2115,7 +2251,16 @@ export const MyFocus2ListComponent = () => {
             lazyUpdate={true}
             option={mergeQuantityRelativeRatiosInModal}
           />
-        )}       
+        )}  
+        MA:
+        {!isEmpty(mergeMAInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeMAInModal}
+          />
+        )}        
         KDJ:
         {!isEmpty(mergeKDJInModal) && (
           <ReactEcharts
