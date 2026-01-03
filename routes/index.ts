@@ -682,6 +682,20 @@ router.get('/ma', function (req, res, next) {
   });
 });
 
+router.get('/totaltradevol', function (req, res, next) {
+  const stock = req.query.stock;
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  let sql = `select sdcd.symbol, sdcd.datestr, sdcd.totaltradevol from replay_critical_3 rc3 join stock_day_common_data sdcd on rc3.symbol=sdcd.symbol and rc3.end_date=sdcd.datestr where rc3.symbol LIKE '%${stock}%' and sdcd.datestr >= '${startDateStr}' and sdcd.datestr <= '${endDateStr}' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+  if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+    sql = `select sdcd.symbol, sdcd.datestr, sdcd.totaltradevol from replay_critical_3 rc3 join stock_day_common_data sdcd on rc3.symbol=sdcd.symbol and rc3.end_date=sdcd.datestr where rc3.symbol LIKE '%${stock}%' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/profit_chips', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;

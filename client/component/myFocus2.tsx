@@ -1228,6 +1228,71 @@ const MergeMA = (maData) => {
   };
 };
 
+const MergeTotalTradeVol = (totaltradevolData) => {
+  const orderedData = orderBy(totaltradevolData, 'datestr'); // 注意：这里应该是 totaltradevolData，不是 maData
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const totaltradevol = orderedData?.map((i) =>
+    i?.totaltradevol
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['totaltradevol'],
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow', // 柱状图适合用shadow类型
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'totaltradevol',
+        type: 'bar', // 主要修改：将 'line' 改为 'bar'
+        data: totaltradevol,
+        label: {
+          position: 'top',
+          show: false, // 添加show属性确保标签显示
+        },
+        itemStyle: {
+          color: '#800080', // 简化颜色设置
+        },
+        // 可选：添加柱状图特定配置
+        barWidth: '60%', // 控制柱状图宽度
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -1296,6 +1361,17 @@ async function getMA(
 ) {
   const stockData = await get(
     `/api/ma?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
+}
+
+async function getTotalTradeVol(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/totaltradevol?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
   );
   return stockData;
 }
@@ -1692,6 +1768,7 @@ export const MyFocus2ListComponent = () => {
   const [curText, setCurText] = useState('');
   const [curSymbol, setCurSymbol] = useState('');
   const [mergeMAInModal, setMergeMAInModal] = useState({});
+  const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
   const curDate = new Date();
   const year = curDate.getFullYear();
@@ -1827,7 +1904,12 @@ export const MyFocus2ListComponent = () => {
                   text,
                   startDate,
                   endDate
-                );              
+                );   
+                const totalTradeVolData = await getTotalTradeVol(
+                  text,
+                  startDate,
+                  endDate
+                );           
 
                 setIsModalVisible(true);
                 setMergeOptionsInModal(MergeOptions(data, downData));
@@ -1840,6 +1922,7 @@ export const MyFocus2ListComponent = () => {
                 setMergeDMIInModal(MergeDMI(dmiData));
                 setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                 setMergeMAInModal(MergeMA(maData));
+                setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -2225,6 +2308,15 @@ export const MyFocus2ListComponent = () => {
             option={mergeMAInModal}
           />
         )} 
+        TotalTradeVol:
+        {!isEmpty(mergeTotalTradeVolInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeTotalTradeVolInModal}
+          />
+        )}  
         ProfitChips:
         {!isEmpty(mergeContinuousProfitChipsInModal) && (
           <ReactEcharts
