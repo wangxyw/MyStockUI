@@ -1313,6 +1313,90 @@ const MergeMA = (maData) => {
   };
 };
 
+const MergeDS = (dsData) => {
+  const orderedData = orderBy(dsData, 'datestr');
+  const allDataDate = orderedData?.map(
+    (i) => i.datestr
+  );
+  const perDynamic = orderedData?.map((i) =>
+    i?.per_dynamic
+  );
+  const perStatic = orderedData?.map((i) =>
+    i?.per_static
+  );
+
+  return {
+    title: {
+      text: '',
+      left: 0,
+    },
+    legend: {
+      data: ['dynamic', 'static'],
+      selected:{
+        'dynamic': true,
+        'static': true,
+      },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow',
+      },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: {
+          show: true,
+          type: ['line', 'bar', 'stack', 'tiled'],
+        },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+    },
+    series: [
+      {
+        name: 'dynamic',
+        type: 'line',
+        data: perDynamic,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#800080', // 修改为红色
+          },
+        },        
+      },
+      {
+        name: 'static',
+        type: 'line',
+        data: perStatic,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#ff0000', // 纯红色
+          },
+        },
+      },
+    ],
+  };
+};
+
 const MergeTotalTradeVol = (totaltradevolData) => {
   const orderedData = orderBy(totaltradevolData, 'datestr'); // 注意：这里应该是 totaltradevolData，不是 maData
   const allDataDate = orderedData?.map(
@@ -1513,6 +1597,17 @@ async function getMA(
   return stockData;
 }
 
+async function getDS(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/ds?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
+}
+
 async function getTotalTradeVol(
   stock,
   startDate: any = null,
@@ -1556,6 +1651,7 @@ export const CriticalStocks3Component = () => {
   const [mergeDMIInModal, setMergeDMIInModal] = useState({});
   const [mergeContinuousProfitChipsInModal, setContinuousMergeProfitChipsInModal] = useState({});
   const [mergeMAInModal, setMergeMAInModal] = useState({});
+  const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
   console.log('data', mergeOptions);
@@ -1646,6 +1742,11 @@ export const CriticalStocks3Component = () => {
                     startDate,
                     endDate
                   );
+                  const dsData = await getDS(
+                    text,
+                    startDate,
+                    endDate
+                  );
                   const totalTradeVolData = await getTotalTradeVol(
                     text,
                     startDate,
@@ -1665,6 +1766,7 @@ export const CriticalStocks3Component = () => {
                   setMergeDMIInModal(MergeDMI(dmiData));
                   setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                   setMergeMAInModal(MergeMA(maData));
+                  setMergeDSInModal(MergeDS(dsData));
                   setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
                   setIsLoading(false);
                 }}
@@ -2266,6 +2368,11 @@ export const CriticalStocks3Component = () => {
                 startDate,
                 endDate
               );
+              const dsData = await getDS(
+                searchStock,
+                startDate,
+                endDate
+              );
               const totalTradeVolData = await getTotalTradeVol(
                 searchStock,
                 startDate,
@@ -2283,6 +2390,7 @@ export const CriticalStocks3Component = () => {
                 setMergeDMIInModal(MergeDMI(dmiData));
                 setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
                 setMergeMAInModal(MergeMA(maData));
+                setMergeDSInModal(MergeDS(dsData));
                 setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
               }
               setData(
@@ -2488,6 +2596,15 @@ export const CriticalStocks3Component = () => {
           option={mergeDMIInModal}
         />
       )}
+      DS:
+      {!isEmpty(mergeDSInModal) && (
+        <ReactEcharts
+          style={{ height: 250, width: 1450 }}
+          notMerge={true}
+          lazyUpdate={true}
+          option={mergeDSInModal}
+        />
+      )}
 {/*      UPUP:
       {!isEmpty(upOptions) && (
         <ReactEcharts
@@ -2630,7 +2747,16 @@ export const CriticalStocks3Component = () => {
             lazyUpdate={true}
             option={mergeDMIInModal}
           />
-        )} 
+        )}
+        DS:
+        {!isEmpty(mergeDSInModal) && (
+          <ReactEcharts
+            style={{ height: 250, width: 1450 }}
+            notMerge={true}
+            lazyUpdate={true}
+            option={mergeDSInModal}
+          />
+        )}   
       </Modal>
     </div>
   );
