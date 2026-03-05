@@ -1324,6 +1324,9 @@ const MergeDS = (dsData) => {
   const perStatic = orderedData?.map((i) =>
     i?.per_static
   );
+  const differences = orderedData?.map((i) => 
+    Math.abs((i?.per_dynamic || 0) - (i?.per_static || 0))
+  );
 
   return {
     title: {
@@ -1331,10 +1334,11 @@ const MergeDS = (dsData) => {
       left: 0,
     },
     legend: {
-      data: ['dynamic', 'static'],
+      data: ['dynamic', 'static', 'difference'],
       selected:{
         'dynamic': true,
         'static': true,
+        'difference': true,
       },
     },
     tooltip: {
@@ -1390,6 +1394,19 @@ const MergeDS = (dsData) => {
         itemStyle: {
           normal: {
             color: '#ff0000', // 纯红色
+          },
+        },
+      },
+      {
+        name: 'difference',
+        type: 'line',
+        data: differences,
+        label: {
+          position: 'top',
+        },
+        itemStyle: {
+          normal: {
+            color: '#000000', // 黑色
           },
         },
       },
