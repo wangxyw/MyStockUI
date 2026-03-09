@@ -871,6 +871,42 @@ router.get('/da_data', function (req, res, next) {
   });
 });
 
+// 获取业务类型的汇总统计
+router.get('/business_type_summary', async function (req, res, next) {
+  const analyzeDate = req.query.analyze_date;
+  const status = req.query.status;
+  
+  // 检查日期参数
+  if (!analyzeDate) {
+    return res.status(400).json({
+      code: 400,
+      message: '请提供analyze_date参数',
+      data: []
+    });
+  }
+  
+  // 使用参数化查询防止SQL注入
+  const sql = `
+    SELECT 
+        rc.end_date,
+        sb.business_code,
+        b.name,
+        COUNT(*) as count
+    FROM replay_critical_3 rc
+    INNER JOIN sw_stock_business sb ON rc.symbol = sb.symbol
+    INNER JOIN business b ON sb.business_code = b.code
+    WHERE rc.status = '${status}' AND rc.end_date = '${analyzeDate}'
+    GROUP BY rc.end_date, sb.business_code
+    ORDER BY count DESC
+    LIMIT 0, 30
+  `;
+  
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/searchByDay', async function (req, res, next) {
   const {
     datestr,
