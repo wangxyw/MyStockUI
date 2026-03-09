@@ -153,7 +153,7 @@ const ContentSection = ({
   })();
 
   return (
-    <div style={{ marginBottom: '40px', padding: '20px', background: status === 'down' ? '#fff1f0' : '#f6ffed', borderRadius: '8px' }}>
+    <div style={{ marginBottom: '40px', padding: '20px', background: status === 'down' ? '#f6ffed' : '#fff1f0', borderRadius: '8px' }}>
       <h3>{title} <Tag color={status === 'up' ? 'red' : 'green'}>{status === 'up' ? '上涨' : '下跌'}</Tag></h3>
       <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
         <DatePicker
