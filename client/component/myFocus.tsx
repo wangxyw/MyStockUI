@@ -2176,6 +2176,20 @@ export const MyFocusListComponent = () => {
       title: 'Continuance BYG',
       dataIndex: 'continuance_BYG',
       key: 'continuance_BYG',
+      render: (c, record) => {
+        const firstPart = c.split('|')[0]?.trim() || '';
+        
+        // 提取数字并判断
+        const numericMatch = firstPart.match(/-?\d+(\.\d+)?/);
+        if (!numericMatch) return false;
+
+        const isUp = parseFloat(numericMatch[0]) > 0;
+        return (
+          <>
+            <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
+          </>
+        );
+      },      
     },
     {
       title: 'Comments',
