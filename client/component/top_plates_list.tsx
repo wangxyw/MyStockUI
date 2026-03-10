@@ -13,7 +13,8 @@ import {
   Tag,
   Modal,
   Select,
-  Space
+  Space,
+  Tooltip
 } from 'antd';
 import moment from 'moment';
 import { get } from '../lib/request';
@@ -38,6 +39,17 @@ interface BusinessHistoryData {
   business_code: string;
   name: string;
   count: number;
+}
+
+// 定义报警股票数据类型
+interface AlertStockData {
+  symbol: string;
+  name: string;
+  stock_name?: string;  // 添加stock_name字段
+  alert_date: string;
+  comments: string;
+  continuance_BYG: string;
+  source?: string;
 }
 
 // 图表配置函数（柱状图）
@@ -202,7 +214,7 @@ const combinedHistoryChartOption = (
         symbolSize: 8,
         lineStyle: {
           width: 3,
-          color: '#ff4d4f', // 红色表示上涨
+          color: '#ff4d4f',
         },
         areaStyle: {
           color: 'rgba(255, 77, 79, 0.1)',
@@ -231,7 +243,7 @@ const combinedHistoryChartOption = (
         symbolSize: 8,
         lineStyle: {
           width: 3,
-          color: '#52c41a', // 绿色表示下跌
+          color: '#52c41a',
         },
         areaStyle: {
           color: 'rgba(82, 196, 26, 0.1)',
@@ -286,6 +298,7 @@ const ContentSection = ({
   status = 'up',
   chartColor = '#1890ff',
   onShowCombinedChart,
+  onShowAlertStocks,
   selectedBusinessForChart
 }: { 
   title: string;
@@ -297,6 +310,7 @@ const ContentSection = ({
   status?: string;
   chartColor?: string;
   onShowCombinedChart?: (businessCode: string, businessName: string) => void;
+  onShowAlertStocks?: (businessCode: string, businessName: string, analyzeDate: string, status: string) => void;
   selectedBusinessForChart?: {name: string, code: string} | null;
 }) => {
   const [activeTab, setActiveTab] = useState('table');
@@ -308,6 +322,13 @@ const ContentSection = ({
   const handleViewTrend = (businessCode: string, businessName: string) => {
     if (onShowCombinedChart) {
       onShowCombinedChart(businessCode, businessName);
+    }
+  };
+
+  // 处理查看报警股票按钮点击
+  const handleViewAlertStocks = (businessCode: string, businessName: string) => {
+    if (onShowAlertStocks) {
+      onShowAlertStocks(businessCode, businessName, analyzeDate, status);
     }
   };
 
@@ -336,16 +357,26 @@ const ContentSection = ({
     {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: 220,
       render: (text: any, record: BusinessStatsData) => (
-        <Button 
-          type="link" 
-          size="small"
-          onClick={() => handleViewTrend(record.business_code, record.name)}
-          loading={isHistoryLoading && selectedBusinessForChart?.code === record.business_code}
-        >
-          查看涨跌对比
-        </Button>
+        <Space size="small">
+          <Button 
+            type="link" 
+            size="small"
+            onClick={() => handleViewTrend(record.business_code, record.name)}
+            loading={isHistoryLoading && selectedBusinessForChart?.code === record.business_code}
+          >
+            涨跌对比
+          </Button>
+          <Button 
+            type="link" 
+            size="small"
+            onClick={() => handleViewAlertStocks(record.business_code, record.name)}
+            style={{ color: '#52c41a' }}
+          >
+            报警股票
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -492,8 +523,104 @@ export const TopPlatesListComponent = () => {
   const [isCombinedLoading, setIsCombinedLoading] = useState(false);
   const [selectedDays, setSelectedDays] = useState<number>(360);
 
+  // 报警股票相关状态
+  const [isAlertModalVisible, setIsAlertModalVisible] = useState(false);
+  const [alertStockData, setAlertStockData] = useState<AlertStockData[]>([]);
+  const [selectedAlertBusiness, setSelectedAlertBusiness] = useState<{name: string, code: string, date: string, status: string} | null>(null);
+  const [isAlertLoading, setIsAlertLoading] = useState(false);
+
   // 天数选项
   const dayOptions = [90, 180, 360, 720];
+
+  // 报警股票表格列定义 - 添加stock_name列
+  const alertColumns = [
+    {
+      title: '股票代码',
+      dataIndex: 'symbol',
+      key: 'symbol',
+      width: 120,
+      render: (text: string) => (
+        <a href={`https://quote.eastmoney.com/${text}.html`} target="_blank" rel="noopener noreferrer">
+          {text}
+        </a>
+      ),
+    },
+    {
+      title: '股票名称',
+      dataIndex: 'stock_name',
+      key: 'stock_name',
+      width: 120,
+      render: (text: string, record: AlertStockData) => {
+        // 如果没有stock_name，使用业务名称作为备选
+        const displayName = text || record.name || '-';
+        return <span>{displayName}</span>;
+      },
+    },
+    {
+      title: '报警日期',
+      dataIndex: 'alert_date',
+      key: 'alert_date',
+      width: 120,
+      sorter: (a: AlertStockData, b: AlertStockData) => {
+        return (
+          Number(a.alert_date.replaceAll('-', '')) -
+          Number(b.alert_date.replaceAll('-', ''))
+        );
+      },
+
+      defaultSortOrder: 'descend',
+    },
+    {
+      title: '持续BYG',
+      dataIndex: 'continuance_BYG',
+      key: 'continuance_BYG',
+      width: 180,
+      render: (text: string) => {
+        const parts = text.split('|').map(p => p.trim());
+        const percent = parts[0];
+        const isPositive = !percent.startsWith('-');
+        return (
+          <Tag color={isPositive ? 'red' : 'green'}>
+            {text}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: '备注',
+      dataIndex: 'comments',
+      key: 'comments',
+      width: 200,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: '业务名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 120,
+    },
+    {
+      title: '来源',
+      dataIndex: 'source',
+      key: 'source',
+      width: 100,
+      render: (text: string) => {
+        if (!text) return '-';
+        let color = 'blue';
+        let displayText = text;
+        
+        if (text.includes('focus_stocks')) {
+          color = 'purple';
+          displayText = '小';
+        } else if (text.includes('focus_stocks2')) {
+          color = 'blue';
+          displayText = '中大';
+        }
+        
+        return <Tag color={color}>{displayText}</Tag>;
+      },
+    },
+  ];
 
   // 获取上涨业务统计数据
   const fetchUpBusinessStats = () => {
@@ -501,7 +628,7 @@ export const TopPlatesListComponent = () => {
     
     get(`/api/business_type_summary?analyze_date=${analyzeDate1}&status=up`)
       .then((res: any) => {
-        console.log('上涨数据API返回:', res);
+        // console.log('上涨数据API返回:', res);
         
         if (Array.isArray(res)) {
           setBusinessData1(res);
@@ -539,7 +666,7 @@ export const TopPlatesListComponent = () => {
     
     get(`/api/business_type_summary?analyze_date=${analyzeDate2}&status=down`)
       .then((res: any) => {
-        console.log('下跌数据API返回:', res);
+        // console.log('下跌数据API返回:', res);
         
         if (Array.isArray(res)) {
           setBusinessData2(res);
@@ -585,8 +712,8 @@ export const TopPlatesListComponent = () => {
       get(`/api/business_trend?business_code=${businessCode}&start_date=${startDate}&end_date=${endDate}&status=down`)
     ])
       .then(([upRes, downRes]) => {
-        console.log('上涨历史数据:', upRes);
-        console.log('下跌历史数据:', downRes);
+        // console.log('上涨历史数据:', upRes);
+        // console.log('下跌历史数据:', downRes);
         
         const processResponse = (res: any): BusinessHistoryData[] => {
           if (Array.isArray(res)) {
@@ -618,6 +745,45 @@ export const TopPlatesListComponent = () => {
       });
   };
 
+  // 获取报警股票数据
+  const fetchAlertStocks = (businessCode: string, businessName: string, analyzeDate: string, status: string) => {
+    setIsAlertLoading(true);
+    setSelectedAlertBusiness({ name: businessName, code: businessCode, date: analyzeDate, status });
+    
+    get(`/api/business_trend_focus_stocks?business_code=${businessCode}`)
+      .then((res: any) => {
+        // console.log('报警股票数据API返回:', res);
+        
+        if (Array.isArray(res)) {
+          setAlertStockData(res);
+          if (res.length === 0) {
+            message.info('该业务没有报警股票数据');
+          } else {
+            setIsAlertModalVisible(true);
+          }
+        } else if (res?.code === 200) {
+          setAlertStockData(res.data || []);
+          if (res.data.length === 0) {
+            message.info('该业务没有报警股票数据');
+          } else {
+            setIsAlertModalVisible(true);
+          }
+        } else {
+          console.error('未知的数据格式:', res);
+          message.error('获取报警股票数据失败');
+          setAlertStockData([]);
+        }
+      })
+      .catch((error) => {
+        console.error('获取报警股票数据失败:', error);
+        message.error('网络错误，请检查后端服务');
+        setAlertStockData([]);
+      })
+      .finally(() => {
+        setIsAlertLoading(false);
+      });
+  };
+
   // 处理日期变更
   const handleDateChange1 = (date: string) => {
     setAnalyzeDate1(date);
@@ -646,7 +812,7 @@ export const TopPlatesListComponent = () => {
             <Option key={day} value={day}>{day}天</Option>
           ))}
         </Select>
-        <span style={{ color: '#666', marginLeft: '10px' }}>（选择后点击"查看涨跌对比"按钮查看对应周期的趋势）</span>
+        <span style={{ color: '#666', marginLeft: '10px' }}>（选择后点击"涨跌对比"按钮查看对应周期的趋势）</span>
       </div>
 
       <ContentSection 
@@ -659,6 +825,7 @@ export const TopPlatesListComponent = () => {
         status="up"
         chartColor="#1890ff"
         onShowCombinedChart={fetchCombinedHistoryData}
+        onShowAlertStocks={fetchAlertStocks}
         selectedBusinessForChart={selectedBusiness}
       />
       
@@ -674,6 +841,7 @@ export const TopPlatesListComponent = () => {
         status="down"
         chartColor="#ff4d4f"
         onShowCombinedChart={fetchCombinedHistoryData}
+        onShowAlertStocks={fetchAlertStocks}
         selectedBusinessForChart={selectedBusiness}
       />
 
@@ -720,6 +888,53 @@ export const TopPlatesListComponent = () => {
           ) : (
             <div style={{ textAlign: 'center', padding: '100px' }}>
               暂无历史数据
+            </div>
+          )}
+        </Spin>
+      </Modal>
+
+      {/* 报警股票列表弹窗 */}
+      <Modal
+        title={
+          <div>
+            <span>报警股票列表 - {selectedAlertBusiness?.name}</span>
+            <Tag color={selectedAlertBusiness?.status === 'up' ? 'red' : 'green'} style={{ marginLeft: '10px' }}>
+              {selectedAlertBusiness?.status === 'up' ? '上涨' : '下跌'}
+            </Tag>
+            <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>
+              {selectedAlertBusiness?.date}
+            </span>
+          </div>
+        }
+        visible={isAlertModalVisible}
+        onCancel={() => setIsAlertModalVisible(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setIsAlertModalVisible(false)} size="large">
+            关闭
+          </Button>
+        ]}
+        width={1400}  // 增加宽度以适应新列
+        style={{ top: 20 }}
+        bodyStyle={{ height: 1000, padding: '20px' }}
+      >
+        <Spin spinning={isAlertLoading}>
+          {alertStockData.length > 0 ? (
+            <Table
+              columns={alertColumns}
+              dataSource={alertStockData}
+              rowKey={(record) => `${record.symbol}_${record.alert_date}`}
+              pagination={{
+                pageSize: 100,
+                showSizeChanger: false,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showTotal: (total) => `共 ${total} 条记录`,
+              }}
+              scroll={{ x: 'max-content', y: 850 }}
+              size="small"
+            />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '100px' }}>
+              暂无报警股票数据
             </div>
           )}
         </Spin>

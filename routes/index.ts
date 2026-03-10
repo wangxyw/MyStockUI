@@ -907,7 +907,7 @@ router.get('/business_type_summary', async function (req, res, next) {
   });
 });
 
-// 获取业务类型的汇总统计
+// 获取业务板块趋势图
 router.get('/business_trend', async function (req, res, next) {
   const business_code = req.query.business_code;
   const status = req.query.status;
@@ -945,6 +945,58 @@ router.get('/business_trend', async function (req, res, next) {
     WHERE rc.status = '${status}' AND sb.business_code='${business_code}' AND rc.end_date>='${startDate}' AND rc.end_date<='${endDate}'
     GROUP BY rc.end_date, sb.business_code
     ORDER BY rc.end_date DESC;
+  `;
+  
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+// 获取板块对应报警列表
+router.get('/business_trend_focus_stocks', async function (req, res, next) {
+  const business_code = req.query.business_code;
+  
+  // 检查business_code参数
+  if (!business_code) {
+    return res.status(400).json({
+      code: 400,
+      message: '请提供business_code参数',
+      data: []
+    });
+  }
+
+  // 使用参数化查询防止SQL注入
+  const sql = `
+    SELECT 
+        fs.symbol,
+        stocks.name AS stock_name,
+        fs.datestr AS alert_date,
+        fs.comments,
+        fs.continuance_BYG,
+        b.name,
+        'focus_stocks' AS source  -- 来源标识
+    FROM focus_stocks fs
+    INNER JOIN sw_stock_business sb ON fs.symbol = sb.symbol
+    INNER JOIN stocks ON stocks.symbol = fs.symbol
+    INNER JOIN business b ON sb.business_code = b.code
+    WHERE sb.business_code = '${business_code}'
+
+    UNION ALL
+
+    SELECT 
+        fs.symbol,
+        stocks.name AS stock_name, 
+        fs.datestr AS alert_date,
+        fs.comments,
+        fs.continuance_BYG,
+        b.name,
+        'focus_stocks2' AS source  -- 来源标识
+    FROM focus_stocks2 fs
+    INNER JOIN sw_stock_business sb ON fs.symbol = sb.symbol
+    INNER JOIN stocks ON stocks.symbol = fs.symbol
+    INNER JOIN business b ON sb.business_code = b.code
+    WHERE sb.business_code = '${business_code}';
   `;
   
   pool.query(sql, function (err, rows, fields) {
