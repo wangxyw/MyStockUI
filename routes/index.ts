@@ -907,6 +907,52 @@ router.get('/business_type_summary', async function (req, res, next) {
   });
 });
 
+// 获取业务类型的汇总统计
+router.get('/business_trend', async function (req, res, next) {
+  const business_code = req.query.business_code;
+  const status = req.query.status;
+  const startDate = req.query.start_date;
+  const endDate = req.query.end_date;
+  
+  // 检查business_code参数
+  if (!business_code) {
+    return res.status(400).json({
+      code: 400,
+      message: '请提供business_code参数',
+      data: []
+    });
+  }
+
+  // 检查status参数
+  if (!status) {
+    return res.status(400).json({
+      code: 400,
+      message: '请提供status参数',
+      data: []
+    });
+  }
+  
+  // 使用参数化查询防止SQL注入
+  const sql = `
+    SELECT     
+      rc.end_date,
+        sb.business_code,
+        b.name,
+        COUNT(*) as count 
+    FROM sw_stock_business sb
+    INNER JOIN replay_critical_3 rc ON rc.symbol = sb.symbol
+    INNER JOIN business b ON sb.business_code = b.code
+    WHERE rc.status = '${status}' AND sb.business_code='${business_code}' AND rc.end_date>='${startDate}' AND rc.end_date<='${endDate}'
+    GROUP BY rc.end_date, sb.business_code
+    ORDER BY rc.end_date DESC;
+  `;
+  
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/searchByDay', async function (req, res, next) {
   const {
     datestr,
