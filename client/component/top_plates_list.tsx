@@ -45,7 +45,7 @@ interface BusinessHistoryData {
 interface AlertStockData {
   symbol: string;
   name: string;
-  stock_name?: string;  // 添加stock_name字段
+  stock_name?: string;
   alert_date: string;
   comments: string;
   continuance_BYG: string;
@@ -64,6 +64,9 @@ const businessChartOption = (data: BusinessStatsData[], title: string, color: st
     title: {
       text: title,
       left: 'center',
+      textStyle: {
+        fontSize: 14
+      }
     },
     tooltip: {
       trigger: 'axis',
@@ -75,11 +78,15 @@ const businessChartOption = (data: BusinessStatsData[], title: string, color: st
       left: '3%',
       right: '4%',
       bottom: '3%',
+      top: '15%',
       containLabel: true,
     },
     xAxis: {
       type: 'value',
       name: '数量',
+      nameTextStyle: {
+        fontSize: 11
+      }
     },
     yAxis: {
       type: 'category',
@@ -87,7 +94,12 @@ const businessChartOption = (data: BusinessStatsData[], title: string, color: st
         const item = groupedByCode[code][0];
         return item.name;
       }),
-      axisLabel: { interval: 0 },
+      axisLabel: { 
+        interval: 0,
+        fontSize: 11,
+        width: 100,
+        overflow: 'truncate'
+      },
     },
     series: [
       {
@@ -100,7 +112,9 @@ const businessChartOption = (data: BusinessStatsData[], title: string, color: st
         label: {
           show: true,
           position: 'right',
+          fontSize: 11
         },
+        barWidth: 15,
       },
     ],
   };
@@ -338,26 +352,27 @@ const ContentSection = ({
       title: '日期',
       dataIndex: 'end_date',
       key: 'end_date',
-      width: 120,
+      width: 100,
     },
     {
       title: '业务名称',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: 150,
+      ellipsis: true,
     },
     {
       title: '数量',
       dataIndex: 'count',
       key: 'count',
-      width: 100,
+      width: 80,
       sorter: (a: BusinessStatsData, b: BusinessStatsData) => a.count - b.count,
       defaultSortOrder: 'descend',
     },
     {
       title: '操作',
       key: 'action',
-      width: 220,
+      width: 160,
       render: (text: any, record: BusinessStatsData) => (
         <Space size="small">
           <Button 
@@ -399,52 +414,57 @@ const ContentSection = ({
   })();
 
   return (
-    <div style={{ marginBottom: '40px', padding: '20px', background: status === 'down' ? '#f6ffed' : '#fff1f0', borderRadius: '8px' }}>
-      <h3>{title} <Tag color={status === 'up' ? 'red' : 'green'}>{status === 'up' ? '上涨' : '下跌'}</Tag></h3>
-      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+    <div style={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      background: status === 'down' ? '#f6ffed' : '#fff1f0', 
+      borderRadius: '8px',
+      padding: '16px'
+    }}>
+      <div style={{ marginBottom: '16px' }}>
+        <h3 style={{ margin: 0, display: 'inline-block', marginRight: '8px' }}>{title}</h3>
+        <Tag color={status === 'up' ? 'red' : 'green'}>{status === 'up' ? '上涨' : '下跌'}</Tag>
+      </div>
+      
+      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         <DatePicker
           value={moment(analyzeDate, dateFormat)}
           format={dateFormat}
           onChange={(date) => date && onDateChange(date.format(dateFormat))}
           allowClear={false}
-          style={{ width: '150px' }}
+          style={{ width: '130px' }}
+          size="small"
         />
-        <Button type="primary" onClick={onRefresh} loading={isLoading}>
+        <Button type="primary" onClick={onRefresh} loading={isLoading} size="small">
           查询
         </Button>
       </div>
 
       {statistics && (
-        <Row gutter={[16, 16]} style={{ marginBottom: '20px' }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card size="small">
+        <Row gutter={[8, 8]} style={{ marginBottom: '16px' }}>
+          <Col span={12}>
+            <Card size="small" bodyStyle={{ padding: '8px' }}>
               <Statistic 
                 title="总股票数" 
                 value={statistics.totalCount} 
                 suffix="只"
+                valueStyle={{ fontSize: '12px' }}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card size="small">
+          <Col span={12}>
+            <Card size="small" bodyStyle={{ padding: '8px' }}>
               <Statistic 
-                title="业务板块数" 
+                title="板块数" 
                 value={statistics.businessCount} 
                 suffix="个"
+                valueStyle={{ fontSize: '16px' }}
               />
             </Card>
           </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card size="small">
-              <Statistic 
-                title="前三名合计" 
-                value={statistics.top3Total} 
-                suffix={`/ ${((statistics.top3Total / statistics.totalCount) * 100).toFixed(1)}%`}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card size="small" bodyStyle={{ padding: '12px' }}>
+          <Col span={24}>
+            <Card size="small" bodyStyle={{ padding: '8px' }}>
               <div style={{ fontSize: '12px' }}>
                 <div style={{ marginBottom: '4px' }}>
                   <span style={{ color: '#ff4d4f' }}>🥇</span> {statistics.top1?.name}: {statistics.top1?.count}
@@ -461,8 +481,13 @@ const ContentSection = ({
         </Row>
       )}
 
-      <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane tab="表格视图" key="table">
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab}
+        size="small"
+        style={{ flex: 1 }}
+      >
+        <TabPane tab="表格" key="table">
           <Spin spinning={isLoading}>
             {businessData.length > 0 ? (
               <Table
@@ -472,30 +497,30 @@ const ContentSection = ({
                 pagination={{
                   pageSize: 50,
                   showSizeChanger: false,
-                  showTotal: (total) => `共 ${total} 条记录`,
+                  size: 'small'
                 }}
-                scroll={{ x: 'max-content', y: 500 }}
+                scroll={{ y: 1500 }}
                 size="small"
               />
             ) : (
-              <div style={{ textAlign: 'center', padding: '50px', background: '#f5f5f5', borderRadius: '4px' }}>
-                {isLoading ? '加载中...' : '暂无数据，请点击查询按钮'}
+              <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '4px' }}>
+                {isLoading ? '加载中...' : '暂无数据'}
               </div>
             )}
           </Spin>
         </TabPane>
-        <TabPane tab="图表视图" key="chart">
+        <TabPane tab="图表" key="chart">
           <Spin spinning={isLoading}>
             {!isEmpty(businessData) ? (
               <ReactEcharts
-                style={{ height: 500, width: '100%' }}
+                style={{ height: 450, width: '100%' }}
                 notMerge={true}
                 lazyUpdate={true}
-                option={businessChartOption(businessData, `${analyzeDate} ${status === 'up' ? '上涨' : '下跌'}业务分布统计`, chartColor)}
+                option={businessChartOption(businessData, `${analyzeDate}`, chartColor)}
               />
             ) : (
-              <div style={{ textAlign: 'center', padding: '50px', background: '#f5f5f5', borderRadius: '4px' }}>
-                {isLoading ? '加载中...' : '暂无数据，请点击查询按钮'}
+              <div style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', borderRadius: '4px' }}>
+                {isLoading ? '加载中...' : '暂无数据'}
               </div>
             )}
           </Spin>
@@ -532,13 +557,13 @@ export const TopPlatesListComponent = () => {
   // 天数选项
   const dayOptions = [90, 180, 360, 720];
 
-  // 报警股票表格列定义 - 添加stock_name列
+  // 报警股票表格列定义
   const alertColumns = [
     {
       title: '股票代码',
       dataIndex: 'symbol',
       key: 'symbol',
-      width: 120,
+      width: 100,
       render: (text: string) => (
         <a href={`https://quote.eastmoney.com/${text}.html`} target="_blank" rel="noopener noreferrer">
           {text}
@@ -549,32 +574,55 @@ export const TopPlatesListComponent = () => {
       title: '股票名称',
       dataIndex: 'stock_name',
       key: 'stock_name',
-      width: 120,
+      width: 100,
       render: (text: string, record: AlertStockData) => {
-        // 如果没有stock_name，使用业务名称作为备选
         const displayName = text || record.name || '-';
         return <span>{displayName}</span>;
+      },
+    },
+    {
+      title: '业务名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 100,
+    },
+    {
+      title: '来源',
+      dataIndex: 'source',
+      key: 'source',
+      width: 80,
+      render: (text: string) => {
+        if (!text) return '-';
+        let color = 'blue';
+        let displayText = text;
+        
+        if (text.includes('400s')) {
+          color = 'purple';
+          displayText = '400s';
+        } else if (text.includes('100w')) {
+          color = 'orange';
+          displayText = '100w';
+        } else if (text.includes('dr_')) {
+          color = 'cyan';
+          displayText = text.replace('dr_', '');
+        }
+        
+        return <Tag color={color}>{displayText}</Tag>;
       },
     },
     {
       title: '报警日期',
       dataIndex: 'alert_date',
       key: 'alert_date',
-      width: 120,
-      sorter: (a: AlertStockData, b: AlertStockData) => {
-        return (
-          Number(a.alert_date.replaceAll('-', '')) -
-          Number(b.alert_date.replaceAll('-', ''))
-        );
-      },
-
+      width: 100,
+      sorter: (a: AlertStockData, b: AlertStockData) => b.alert_date.localeCompare(a.alert_date),
       defaultSortOrder: 'descend',
     },
     {
       title: '持续BYG',
       dataIndex: 'continuance_BYG',
       key: 'continuance_BYG',
-      width: 180,
+      width: 160,
       render: (text: string) => {
         const parts = text.split('|').map(p => p.trim());
         const percent = parts[0];
@@ -590,35 +638,8 @@ export const TopPlatesListComponent = () => {
       title: '备注',
       dataIndex: 'comments',
       key: 'comments',
-      width: 200,
+      width: 150,
       render: (text: string) => text || '-',
-    },
-    {
-      title: '业务名称',
-      dataIndex: 'name',
-      key: 'name',
-      width: 120,
-    },
-    {
-      title: '来源',
-      dataIndex: 'source',
-      key: 'source',
-      width: 100,
-      render: (text: string) => {
-        if (!text) return '-';
-        let color = 'blue';
-        let displayText = text;
-        
-        if (text.includes('focus_stocks')) {
-          color = 'purple';
-          displayText = '小';
-        } else if (text.includes('focus_stocks2')) {
-          color = 'blue';
-          displayText = '中大';
-        }
-        
-        return <Tag color={color}>{displayText}</Tag>;
-      },
     },
   ];
 
@@ -807,43 +828,48 @@ export const TopPlatesListComponent = () => {
           value={selectedDays} 
           onChange={setSelectedDays}
           style={{ width: 120 }}
+          size="small"
         >
           {dayOptions.map(day => (
             <Option key={day} value={day}>{day}天</Option>
           ))}
         </Select>
-        <span style={{ color: '#666', marginLeft: '10px' }}>（选择后点击"涨跌对比"按钮查看对应周期的趋势）</span>
+        <span style={{ color: '#666', marginLeft: '10px', fontSize: '12px' }}>（点击"涨跌对比"按钮查看趋势）</span>
       </div>
 
-      <ContentSection 
-        title="业务板块统计 - 第一部分"
-        businessData={businessData1}
-        isLoading={isLoading1}
-        analyzeDate={analyzeDate1}
-        onDateChange={handleDateChange1}
-        onRefresh={fetchUpBusinessStats}
-        status="up"
-        chartColor="#1890ff"
-        onShowCombinedChart={fetchCombinedHistoryData}
-        onShowAlertStocks={fetchAlertStocks}
-        selectedBusinessForChart={selectedBusiness}
-      />
-      
-      <div style={{ margin: '40px 0', borderTop: '2px dashed #ccc' }}></div>
-      
-      <ContentSection 
-        title="业务板块统计 - 第二部分"
-        businessData={businessData2}
-        isLoading={isLoading2}
-        analyzeDate={analyzeDate2}
-        onDateChange={handleDateChange2}
-        onRefresh={fetchDownBusinessStats}
-        status="down"
-        chartColor="#ff4d4f"
-        onShowCombinedChart={fetchCombinedHistoryData}
-        onShowAlertStocks={fetchAlertStocks}
-        selectedBusinessForChart={selectedBusiness}
-      />
+      <Row gutter={16}>
+        <Col span={12}>
+          <ContentSection 
+            title="上涨板块"
+            businessData={businessData1}
+            isLoading={isLoading1}
+            analyzeDate={analyzeDate1}
+            onDateChange={handleDateChange1}
+            onRefresh={fetchUpBusinessStats}
+            status="up"
+            chartColor="#ff4d4f"
+            onShowCombinedChart={fetchCombinedHistoryData}
+            onShowAlertStocks={fetchAlertStocks}
+            selectedBusinessForChart={selectedBusiness}
+          />
+        </Col>
+        
+        <Col span={12}>
+          <ContentSection 
+            title="下跌板块"
+            businessData={businessData2}
+            isLoading={isLoading2}
+            analyzeDate={analyzeDate2}
+            onDateChange={handleDateChange2}
+            onRefresh={fetchDownBusinessStats}
+            status="down"
+            chartColor="#52c41a"
+            onShowCombinedChart={fetchCombinedHistoryData}
+            onShowAlertStocks={fetchAlertStocks}
+            selectedBusinessForChart={selectedBusiness}
+          />
+        </Col>
+      </Row>
 
       {/* 合并历史趋势弹窗 */}
       <Modal
@@ -913,9 +939,9 @@ export const TopPlatesListComponent = () => {
             关闭
           </Button>
         ]}
-        width={1400}  // 增加宽度以适应新列
+        width={1400}
         style={{ top: 20 }}
-        bodyStyle={{ height: 1000, padding: '20px' }}
+        bodyStyle={{ height: 600, padding: '20px' }}
       >
         <Spin spinning={isAlertLoading}>
           {alertStockData.length > 0 ? (
@@ -924,12 +950,12 @@ export const TopPlatesListComponent = () => {
               dataSource={alertStockData}
               rowKey={(record) => `${record.symbol}_${record.alert_date}`}
               pagination={{
-                pageSize: 100,
-                showSizeChanger: false,
+                pageSize: 20,
+                showSizeChanger: true,
                 pageSizeOptions: ['10', '20', '50', '100'],
                 showTotal: (total) => `共 ${total} 条记录`,
               }}
-              scroll={{ x: 'max-content', y: 850 }}
+              scroll={{ x: 'max-content', y: 450 }}
               size="small"
             />
           ) : (
