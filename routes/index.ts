@@ -696,6 +696,101 @@ router.get('/ds', function (req, res, next) {
   });
 });
 
+// routes/index.ts - 串行执行版本
+router.get('/alarm_trends', function (req, res, next) {
+  const { days, daysTill } = req.query;
+  
+  console.log('Received params:', { days, daysTill });
+  
+  // 参数验证
+  if (!days || !daysTill) {
+    return res.status(400).json({ error: 'Missing required parameters: days and daysTill' });
+  }
+  
+  // 计算开始日期
+  const endDate = daysTill;
+  const startDateObj = new Date(endDate as string);
+  startDateObj.setDate(startDateObj.getDate() - parseInt(days as string));
+  const startDate = startDateObj.toISOString().split('T')[0];
+  
+  console.log('Date range:', { startDate, endDate });
+  
+  const results = {
+    '400s_up': [],
+    '400s_down': [],
+    '100w_up': [],
+    '100w_down': []
+  };
+  
+  // 串行执行查询
+  const executeQueries = () => {
+    // 查询 400s up
+    const sql400sUp = `SELECT datestr, COUNT(*) AS count 
+      FROM stock_big_data 
+      WHERE status = 'up' 
+        AND datestr >= '${startDate}' 
+        AND datestr <= '${endDate}' 
+      GROUP BY datestr 
+      ORDER BY datestr`;
+    
+    pool.query(sql400sUp, (err, rows) => {
+      if (!err && rows) {
+        results['400s_up'] = rows;
+      }
+      
+      // 查询 400s down
+      const sql400sDown = `SELECT datestr, COUNT(*) AS count 
+        FROM stock_big_data 
+        WHERE status = 'down' 
+          AND datestr >= '${startDate}' 
+          AND datestr <= '${endDate}' 
+        GROUP BY datestr 
+        ORDER BY datestr`;
+      
+      pool.query(sql400sDown, (err, rows) => {
+        if (!err && rows) {
+          results['400s_down'] = rows;
+        }
+        
+        // 查询 100w up
+        const sql100wUp = `SELECT datestr, COUNT(*) AS count 
+          FROM stock_big_data_100 
+          WHERE status = 'up' 
+            AND datestr >= '${startDate}' 
+            AND datestr <= '${endDate}' 
+          GROUP BY datestr 
+          ORDER BY datestr`;
+        
+        pool.query(sql100wUp, (err, rows) => {
+          if (!err && rows) {
+            results['100w_up'] = rows;
+          }
+          
+          // 查询 100w down
+          const sql100wDown = `SELECT datestr, COUNT(*) AS count 
+            FROM stock_big_data_100 
+            WHERE status = 'down' 
+              AND datestr >= '${startDate}' 
+              AND datestr <= '${endDate}' 
+            GROUP BY datestr 
+            ORDER BY datestr`;
+          
+          pool.query(sql100wDown, (err, rows) => {
+            if (!err && rows) {
+              results['100w_down'] = rows;
+            }
+            
+            console.log('All queries completed');
+            res.json(results);
+          });
+        });
+      });
+    });
+  };
+  
+  executeQueries();
+});
+
 router.get('/totaltradevol', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
