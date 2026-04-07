@@ -59,7 +59,7 @@ const dapanOptionWithBoth = (
   isSimpleMode: boolean = false,
   labelDensity: 'high' | 'medium' | 'low' = 'high',
   rotateAngle: number = 0,
-  showValues: boolean = true,  // 新增：是否显示数值标签
+  showValues: boolean = true,  // 默认显示数值标签
 ) => {
   const dates = Object.keys(upData || {});
   
@@ -146,7 +146,8 @@ const dapanOptionWithBoth = (
   }
   
   // 判断是否显示数值标签
-  const shouldShowLabels = showValues && !isLargeDataset && !isSimpleMode && dataCount <= 60;
+  // 默认显示，只有当用户关闭开关或数据量过大且开启简化模式时才隐藏
+  const shouldShowLabels = showValues && !(isLargeDataset && isSimpleMode);
   
   return {
     title: { text: '', left: 0 },
@@ -217,7 +218,7 @@ const dapanOptionWithBoth = (
         symbolSize: isLargeDataset ? 3 : 5,
         label: { 
           show: shouldShowLabels,
-          position: 'top', 
+          position: 'top',
           fontSize: 10,
           fontWeight: 'bold',
           formatter: (params: any) => params.value > 0 ? params.value : '',
@@ -237,7 +238,7 @@ const dapanOptionWithBoth = (
         symbolSize: isLargeDataset ? 3 : 5,
         label: { 
           show: shouldShowLabels,
-          position: 'bottom', 
+          position: 'bottom',
           fontSize: 10,
           fontWeight: 'bold',
           formatter: (params: any) => params.value > 0 ? params.value : '',
@@ -258,7 +259,7 @@ const dapanOptionWithBoth = (
         symbolSize: isLargeDataset ? 3 : 5,
         label: { 
           show: shouldShowLabels,
-          position: 'right', 
+          position: 'right',
           fontSize: 10,
           fontWeight: 'bold',
           formatter: (params: any) => params.value !== 0 ? params.value : '',
@@ -381,7 +382,7 @@ export const TotalDataComNew = (props) => {
   const [labelRotate, setLabelRotate] = useState(0);
   const [showDataZoom, setShowDataZoom] = useState(true);
   
-  // 新增：是否显示数值标签
+  // 新增：是否显示数值标签，默认为 true（显示）
   const [showValues, setShowValues] = useState(true);
   
   // 开关：false（默认）= 同步模式，true = 独立模式
@@ -691,7 +692,7 @@ export const TotalDataComNew = (props) => {
               </span>
             </Tooltip>
             
-            <Tooltip title="在图表上显示具体数值">
+            <Tooltip title={showValues ? "隐藏数值标签" : "显示数值标签"}>
               <span>
                 显示数值
                 <Switch 
