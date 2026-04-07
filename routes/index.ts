@@ -562,37 +562,6 @@ router.get('/all_alarm_data', function (req, res, next) {
   });
 });
 
-// 优化后的后端代码
-router.get('/all_alarm_data_new', function (req, res, next) {
-  const datestr = req.query.date_str;
-  const endDateStr = req.query.end_date_str;
-  const from100 = req.query.from100;
-  
-  let table = 'stock_big_data';
-  if (from100 === 'true') table = 'stock_big_data_100';
-  
-  // 移除LIMIT或设置更大的值
-  let sql = `
-    select a.*, b.profit_chip 
-    from ${table} a 
-    join stock_day_common_data b on a.symbol = b.symbol and a.datestr = b.datestr 
-    where a.datestr > ? and a.datestr <= ? and a.name not like ?
-    order by a.datestr, a.symbol
-  `;
-  // 不要加 LIMIT，或者设置更大的值如 LIMIT 500000
-  
-  const params = [datestr, endDateStr, '%ST%'];
-  
-  pool.query(sql, params, function (err, rows, fields) {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: err.message });
-    }
-    console.log(`返回数据量: ${rows.length}`);
-    res.json(rows);
-  });
-});
-
 router.get('/critical_data', function (req, res, next) {
   const startDateStr = req.query.start_date;
   const endDateStr = req.query.end_date;
