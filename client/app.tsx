@@ -9,6 +9,7 @@ import { DataAnalysisCom } from './component/data_analysis';
 import { DAFocusListComponent } from './component/da_focus';
 import { DAPlatesCom } from './component/da_plate';
 import { TotalDataCom } from './component/data_total';
+import { TotalDataComNew } from './component/data_total_new';
 import SimpleAlarmTrend from './component/data_trends'; 
 import { DataAlarmCom } from './component/data_analysis_alarm';
 import { CriticalStocksComponent } from './component/critical_stocks';
@@ -27,6 +28,7 @@ const MENU_OLD_ALARM = 'old_alarm';
 const MENU_DA_FOCUS = 'da_focus';
 const MENU_DA_PLATE = 'da_plate';
 const MENU_DA_TOTAL = 'da_total';
+const MENU_DA_TOTAL_NEW = 'da_total_new';
 const MENU_DA_TRENDS = 'da_trends';
 const MENU_DA_ALARM = 'da_alarm';
 const MENU_CRI_STOCK = 'cri_stocks';
@@ -54,6 +56,7 @@ function getInitPath() {
         MENU_DA_PLATE,
         MENU_DA_DR,
         MENU_DA_TOTAL,
+        MENU_DA_TOTAL_NEW,
         MENU_DA_TRENDS,
         MENU_DA_ALARM,
         MENU_CRI_STOCK,
@@ -114,6 +117,9 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_DA_TOTAL}>
           <Link to="/da_total">DA Total</Link>
         </Menu.Item>
+        <Menu.Item key={MENU_DA_TOTAL_NEW}>
+          <Link to="/da_total_new">DA Total New</Link>
+        </Menu.Item>        
         <Menu.Item key={MENU_DA_TRENDS}>
           <Link to="/da_trends">DA Trends</Link>
         </Menu.Item>
@@ -163,6 +169,9 @@ const App = (): JSX.Element => {
         </Route>
         <Route path="/da_total">
           <TotalDataCom isDR={true} />
+        </Route>
+        <Route path="/da_total_new">
+          <TotalDataComNew isDR={true} />
         </Route>
         <Route path="/da_trends">
           <SimpleAlarmTrend />
