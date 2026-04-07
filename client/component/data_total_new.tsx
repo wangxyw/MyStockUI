@@ -56,10 +56,9 @@ const formatDateLabel = (date: string, index: number, total: number, density: 'h
 const dapanOptionWithBoth = (
   upData: any, 
   downData: any, 
-  isSimpleMode: boolean = false,
   labelDensity: 'high' | 'medium' | 'low' = 'high',
   rotateAngle: number = 0,
-  showValues: boolean = true,  // 默认显示数值标签
+  showValues: boolean = true,
 ) => {
   const dates = Object.keys(upData || {});
   
@@ -146,8 +145,7 @@ const dapanOptionWithBoth = (
   }
   
   // 判断是否显示数值标签
-  // 默认显示，只有当用户关闭开关或数据量过大且开启简化模式时才隐藏
-  const shouldShowLabels = showValues && !(isLargeDataset && isSimpleMode);
+  const shouldShowLabels = showValues;
   
   return {
     title: { text: '', left: 0 },
@@ -214,8 +212,8 @@ const dapanOptionWithBoth = (
         type: 'line',
         data: upYData,
         itemStyle: { color: '#ff4d4f' },
-        symbol: isSimpleMode ? 'none' : 'circle',
-        symbolSize: isLargeDataset ? 3 : 5,
+        symbol: 'circle',
+        symbolSize: isLargeDataset ? 4 : 6,
         label: { 
           show: shouldShowLabels,
           position: 'top',
@@ -224,8 +222,7 @@ const dapanOptionWithBoth = (
           formatter: (params: any) => params.value > 0 ? params.value : '',
           offset: [0, 5],
         },
-        smooth: !isSimpleMode && dataCount <= 60,
-        step: isSimpleMode || dataCount > 80,
+        smooth: dataCount <= 60,
         lineStyle: { width: isLargeDataset ? 1.5 : 2 },
         connectNulls: true,
       },
@@ -234,8 +231,8 @@ const dapanOptionWithBoth = (
         type: 'line',
         data: downYData,
         itemStyle: { color: '#52c41a' },
-        symbol: isSimpleMode ? 'none' : 'diamond',
-        symbolSize: isLargeDataset ? 3 : 5,
+        symbol: 'diamond',
+        symbolSize: isLargeDataset ? 4 : 6,
         label: { 
           show: shouldShowLabels,
           position: 'bottom',
@@ -244,8 +241,7 @@ const dapanOptionWithBoth = (
           formatter: (params: any) => params.value > 0 ? params.value : '',
           offset: [0, -5],
         },
-        smooth: !isSimpleMode && dataCount <= 60,
-        step: isSimpleMode || dataCount > 80,
+        smooth: dataCount <= 60,
         lineStyle: { width: isLargeDataset ? 1.5 : 2 },
         connectNulls: true,
       },
@@ -255,8 +251,8 @@ const dapanOptionWithBoth = (
         data: diffYData,
         itemStyle: { color: '#faad14' },
         lineStyle: { type: 'dashed', width: isLargeDataset ? 1 : 2 },
-        symbol: isSimpleMode ? 'none' : 'triangle',
-        symbolSize: isLargeDataset ? 3 : 5,
+        symbol: 'triangle',
+        symbolSize: isLargeDataset ? 4 : 6,
         label: { 
           show: shouldShowLabels,
           position: 'right',
@@ -265,7 +261,7 @@ const dapanOptionWithBoth = (
           formatter: (params: any) => params.value !== 0 ? params.value : '',
           offset: [10, 0],
         },
-        smooth: !isSimpleMode && dataCount <= 60,
+        smooth: dataCount <= 60,
         connectNulls: true,
       },
     ],
@@ -375,14 +371,12 @@ export const TotalDataComNew = (props) => {
   const [from100, setFrom100] = useState('400s');
   const [selectConsDays, setSelectConsDays] = useState(5);
   const [selectConsTotal, setSelectConsTotal] = useState('CONS');
-  const [simpleMode, setSimpleMode] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentProcessingDate, setCurrentProcessingDate] = useState('');
   const [labelDensity, setLabelDensity] = useState<'high' | 'medium' | 'low'>('high');
   const [labelRotate, setLabelRotate] = useState(0);
-  const [showDataZoom, setShowDataZoom] = useState(true);
   
-  // 新增：是否显示数值标签，默认为 true（显示）
+  // 是否显示数值标签，默认为 true（显示）
   const [showValues, setShowValues] = useState(true);
   
   // 开关：false（默认）= 同步模式，true = 独立模式
@@ -557,12 +551,11 @@ export const TotalDataComNew = (props) => {
     return dapanOptionWithBoth(
       currentData.upData, 
       currentData.downData, 
-      simpleMode, 
       labelDensity,
       labelRotate,
-      showValues,  // 传递显示数值开关状态
+      showValues,
     );
-  }, [chartDataCache, from100, simpleMode, labelDensity, labelRotate, showValues]);
+  }, [chartDataCache, from100, labelDensity, labelRotate, showValues]);
 
   const statistics = useMemo(() => {
     const currentData = chartDataCache[from100];
@@ -685,13 +678,6 @@ export const TotalDataComNew = (props) => {
         {/* 图表显示选项 */}
         <div style={{ padding: '10px', background: '#fff', borderBottom: '1px solid #eee' }}>
           <Space wrap style={{ width: '100%' }}>
-            <Tooltip title="简化曲线，提升大数据量性能">
-              <span>
-                简化模式
-                <Switch size="small" checked={simpleMode} onChange={setSimpleMode} style={{ marginLeft: '8px' }} />
-              </span>
-            </Tooltip>
-            
             <Tooltip title={showValues ? "隐藏数值标签" : "显示数值标签"}>
               <span>
                 显示数值
