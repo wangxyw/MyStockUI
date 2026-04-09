@@ -791,6 +791,14 @@ router.get('/alarm_trends', function (req, res, next) {
   executeQueries();
 });
 
+router.get('/ai_focus_stocks_trend', function (req, res, next) {
+  let sql = `SELECT datestr, COUNT(symbol) AS symbol_count FROM focus_stocks_ai GROUP BY datestr ORDER BY datestr DESC;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/totaltradevol', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
