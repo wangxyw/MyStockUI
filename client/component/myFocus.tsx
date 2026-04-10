@@ -28,6 +28,7 @@ import {
   ConsoleSqlOutlined,
 } from '@ant-design/icons';
 import { caculateAfterDate, caculateDate, today } from './alarm';
+
 export const focusStatusMap = {
   '1': {
     name: '下跌中-1',
@@ -270,7 +271,6 @@ const MergeOptions = (data, downData) => {
       {
         name: 'MinOverRate',
         type: 'line',
-        // symbol: 'diamond',
         symbolSize: 10,
         symbol: (v, params) => {
           var colorList;
@@ -295,7 +295,6 @@ const MergeOptions = (data, downData) => {
       {
         name: 'DownMaxOverRate',
         type: 'line',
-        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (maxDownValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -320,7 +319,6 @@ const MergeOptions = (data, downData) => {
       {
         name: 'DownMinOverRate',
         type: 'line',
-        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -345,7 +343,6 @@ const MergeOptions = (data, downData) => {
       {
         name: 'AVGOverRate',
         type: 'line',
-        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (avgValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -370,7 +367,6 @@ const MergeOptions = (data, downData) => {
       {
         name: 'AVGDownOverRate',
         type: 'line',
-        // symbol: 'diamond',
         symbol: (v, params) => {
           var colorList;
           if (avgDownValuesMap[params.dataIndex]?.haveLimit == '1') {
@@ -747,7 +743,6 @@ const MergeProfitChips = (data, downData) => {
         label: {
           show: true,
           position: 'top',
-          // color: "black",
           fontSize: 12,
           formatter: function(d) {
             var sourceLabel;
@@ -1003,7 +998,7 @@ const MergeDMI = (dmiData) => {
         },
         itemStyle: {
           normal: {
-            color: '#FF0000', // 修改为红色
+            color: '#FF0000',
           },
         },        
       },
@@ -1016,7 +1011,7 @@ const MergeDMI = (dmiData) => {
         },
         itemStyle: {
           normal: {
-            color: '#00FF00', // 纯绿色
+            color: '#00FF00',
           },
         },
       },
@@ -1029,7 +1024,7 @@ const MergeDMI = (dmiData) => {
         },
         itemStyle: {
           normal: {
-            color: '#800080', // 纯绿色
+            color: '#800080',
           },
         },
       },
@@ -1103,7 +1098,7 @@ const MergeContinuousProfitChips = (profitChipsData) => {
           position: 'top',
         },
         itemStyle: {
-          color: '#ff0000' // 红色
+          color: '#ff0000'
         },
       },
     ],
@@ -1181,7 +1176,7 @@ const MergeMA = (maData) => {
         },
         itemStyle: {
           normal: {
-            color: '#800080', // 修改为红色
+            color: '#800080',
           },
         },        
       },
@@ -1194,7 +1189,7 @@ const MergeMA = (maData) => {
         },
         itemStyle: {
           normal: {
-            color: '#FFFF00', // 纯绿色
+            color: '#FFFF00',
           },
         },
       },
@@ -1207,7 +1202,7 @@ const MergeMA = (maData) => {
         },
         itemStyle: {
           normal: {
-            color: '#0000FF', // 纯蓝色
+            color: '#0000FF',
           },
         },
       },
@@ -1220,7 +1215,7 @@ const MergeMA = (maData) => {
         },
         itemStyle: {
           normal: {
-            color: '#ff0000', // 纯红色
+            color: '#ff0000',
           },
         },
       },
@@ -1295,7 +1290,7 @@ const MergeDS = (dsData) => {
         },
         itemStyle: {
           normal: {
-            color: '#800080', // 修改为红色
+            color: '#800080',
           },
         },        
       },
@@ -1308,7 +1303,7 @@ const MergeDS = (dsData) => {
         },
         itemStyle: {
           normal: {
-            color: '#ff0000', // 纯红色
+            color: '#ff0000',
           },
         },
       },
@@ -1321,7 +1316,7 @@ const MergeDS = (dsData) => {
         },
         itemStyle: {
           normal: {
-            color: '#000000', // 黑色
+            color: '#000000',
           },
         },
       },
@@ -1330,7 +1325,7 @@ const MergeDS = (dsData) => {
 };
 
 const MergeTotalTradeVol = (totaltradevolData) => {
-  const orderedData = orderBy(totaltradevolData, 'datestr'); // 注意：这里应该是 totaltradevolData，不是 maData
+  const orderedData = orderBy(totaltradevolData, 'datestr');
   const allDataDate = orderedData?.map(
     (i) => i.datestr
   );
@@ -1349,7 +1344,7 @@ const MergeTotalTradeVol = (totaltradevolData) => {
     tooltip: {
       trigger: 'axis',
       axisPointer: {
-        type: 'shadow', // 柱状图适合用shadow类型
+        type: 'shadow',
       },
     },
     toolbox: {
@@ -1378,17 +1373,16 @@ const MergeTotalTradeVol = (totaltradevolData) => {
     series: [
       {
         name: 'totaltradevol',
-        type: 'bar', // 主要修改：将 'line' 改为 'bar'
+        type: 'bar',
         data: totaltradevol,
         label: {
           position: 'top',
-          show: false, // 添加show属性确保标签显示
+          show: false,
         },
         itemStyle: {
-          color: '#800080', // 简化颜色设置
+          color: '#800080',
         },
-        // 可选：添加柱状图特定配置
-        barWidth: '60%', // 控制柱状图宽度
+        barWidth: '60%',
       },
     ],
   };
@@ -1488,6 +1482,41 @@ async function getTotalTradeVol(
   return stockData;
 }
 
+// 修改 getAllFocusedStocks 函数，支持分页
+async function getAllFocusedStocks(page = 1, pageSize = 50) {
+  const response = await get(`/api/all_focus_stock?page=${page}&pageSize=${pageSize}`);
+  
+  // 如果返回的数据没有 maxPriceDiff 字段，需要重新计算
+  if (response.data && response.data.length > 0 && response.data[0].maxPriceDiff === undefined) {
+    // 获取所有股票代码
+    const symbols = response.data.map(d => d.symbol);
+    
+    // 获取价格数据
+    const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
+      body: JSON.stringify({
+        stocks: symbols.map(i => `'${i}'`).join(',')
+      }),
+    });
+    
+    // 重新计算价格数据
+    const calculatedData = caculatePriceData(
+      response.data,
+      stockPriceByDay,
+      '不限'
+    );
+    
+    // 合并 recentTen 数据
+    const dataWithRecentTen = calculatedData.map((item, index) => ({
+      ...item,
+      recentTen: response.data[index]?.recentTen || []
+    }));
+    
+    return { data: dataWithRecentTen, total: response.total };
+  }
+  
+  return response;
+}
+
 interface Item {
   key: string;
   name: string;
@@ -1559,7 +1588,6 @@ export const caculatePriceData = (
 ) => {
   const yesterday = caculateDate(simulateDate ?? today, 1);
   const priceData = stockData.map((i) => {
-    //i.datestr is addDate
     const todayData =
       stockPriceByDay?.find(
         (e) => e.symbol === i.symbol && e.datestr === simulateDate
@@ -1842,44 +1870,6 @@ const EditableCell: React.FC<EditableCellProps> = ({
   return <td {...restProps}>{childNode}</td>;
 };
 
-async function getAllFocusedStocks() {
-  const stockData = await get('/api/all_focus_stock');
-  const symbols = stockData.map((d) => d.symbol);
-  // const realtimeData = await post(`/api/qt_realtime`, {
-  //   body: JSON.stringify({ q: symbols.join(',') }),
-  // });
-
-  // const stockPriceByDay = await get(
-  //   `/api/get_focus_stock_price?stocks=${symbols
-  //     .map((i) => `'${i}'`)
-  //     .join(',')}`
-  // );
-  // //caculate stock price
-  // const stockPriceData = caculatePriceData(stockData, stockPriceByDay);
-
-  // return stockPriceData.map((s) => {
-  //   const { currentPrice } = realtimeData.find((r) => r.symbol === s.symbol);
-
-  //   return {
-  //     ...s,
-  //     currentPrice,
-  //   };
-  // });
-  const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
-    body: JSON.stringify({
-      stocks: symbols.map((i) => `'${i}'`).join(',')
-    }),
-  });
-  //caculate stock price
-  const stockPriceData = caculatePriceData(
-    stockData,
-    stockPriceByDay,
-    '不限'
-  );
-
-  return stockPriceData;
-}
-
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
@@ -1903,6 +1893,12 @@ export const MyFocusListComponent = () => {
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
+  // 新增分页相关 state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [tableLoading, setTableLoading] = useState(false);
+  const pageSize = 100;
+
   const curDate = new Date();
   const year = curDate.getFullYear();
   const lastYear = curDate.getFullYear() - 2;
@@ -1919,6 +1915,45 @@ export const MyFocusListComponent = () => {
       console.log(x);
     });
   }, []);
+
+  const [selectStatus, setSelectStatus] = useState<any>(null);
+  const [curAnaMap, setAnaMap] = useState();
+
+  // 替换原有的 handleAllStockData 函数
+  const handleAllStockData = useCallback(async (page = 1) => {
+    setTableLoading(true);
+    try {
+      const response = await getAllFocusedStocks(page, pageSize);
+      const stockData = response.data || [];
+      const rateByCur = stockData?.filter(
+        (i) =>
+          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
+          (i.currentPrice < i.finalprice && i.predict === 'Down')
+      ).length;
+      const rateByMax = stockData?.filter(
+        (i) =>
+          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
+          (i.maxPriceDiff === 0 && i.predict === 'Down')
+      )?.length;
+      setRateByCur(`${rateByCur}/${stockData.length}` as any);
+      setRateByMax(`${rateByMax}/${stockData.length}` as any);
+      setData(
+        selectStatus
+          ? stockData.filter(
+              (i) =>
+                i.focus_status === (selectStatus === '0' ? null : selectStatus)
+            )
+          : stockData
+      );
+      setTotal(response.total || 0);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setTableLoading(false);
+    }
+  }, [selectStatus]);
+
+  // 修改 onClickMenu 函数
   const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
       body: JSON.stringify({
@@ -1939,23 +1974,27 @@ export const MyFocusListComponent = () => {
           if (i.code) {
             alert(i.sqlMessage);
           }
+          handleAllStockData(currentPage);
         });
+      } else {
+        handleAllStockData(currentPage);
       }
-      async function handleAllStockData() {
-        const data = await getAllFocusedStocks();
-        setData(
-          selectStatus
-            ? data.filter(
-                (i) =>
-                  i.focus_status ===
-                  (selectStatus === '0' ? null : selectStatus)
-              )
-            : data
-        );
-      }
-      handleAllStockData();
     });
   };
+
+  // 修改 handleSave 函数
+  const handleSave = (row: any) => {
+    post('/api/edit_focus', {
+      body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
+    }).then(() => {
+      handleAllStockData(currentPage);
+    });
+  };
+
+  // 替换原有的 useEffect
+  useEffect(() => {
+    handleAllStockData(1);
+  }, []);
 
   const columns = [
     {
@@ -2091,46 +2130,6 @@ export const MyFocusListComponent = () => {
         );
       },
     },
-    // {
-    //   title: 'Predict',
-    //   dataIndex: 'predict',
-    //   key: 'predict',
-    //   sorter: (a: any, b: any): any => a.predict - b.predict,
-    //   render: (txt: any): any => {
-    //     if (txt === 'Up') {
-    //       return '看涨';
-    //     }
-    //     if (txt === 'Down') {
-    //       return '看跌';
-    //     }
-    //   },
-    // },
-    // {
-    //   title: 'Status',
-    //   dataIndex: 'focus_status',
-    //   key: 'focus_status',
-    //   render: (txt, row) => {
-    //     return (
-    //       <Dropdown
-    //         overlay={
-    //           <Menu
-    //             onClick={(item) => onClickMenu(item, row.symbol, row.datestr)}
-    //           >
-    //             {Object.keys(focusStatusMap).map((i) => (
-    //               <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
-    //             ))}
-    //           </Menu>
-    //         }
-    //       >
-    //         <Tag color={focusStatusMap[txt]?.color}>
-    //           {focusStatusMap[txt]?.name || '未标注'}
-    //         </Tag>
-    //       </Dropdown>
-    //     );
-    //   },
-    //   sorter: (a, b) =>
-    //     parseInt(a.focus_status || 0, 10) - parseInt(b.focus_status || 0, 10),
-    // },
     {
       title: 'PCA',
       dataIndex: 'profit_chip_analyze',
@@ -2148,30 +2147,6 @@ export const MyFocusListComponent = () => {
         );
       },
     },    
-    // {
-    //   title: 'Current Price',
-    //   dataIndex: 'todayPrice',
-    //   key: 'todayPrice',
-    //   render: (c, record) => {
-    //     const isUp = c - record.finalprice > 0;
-    //     const arrow = !isUp ? (
-    //       <ArrowDownOutlined style={{ color: 'green' }} />
-    //     ) : (
-    //       <ArrowUpOutlined style={{ color: 'red' }} />
-    //     );
-    //     return (
-    //       <>
-    //         <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
-    //         {arrow}
-    //       </>
-    //     );
-    //   },
-    // },
-    // {
-    //   title: 'Final Price',
-    //   dataIndex: 'finalprice',
-    //   key: 'finalprice',
-    // },
     {
       title: 'Continuance BYG',
       dataIndex: 'continuance_BYG',
@@ -2179,7 +2154,6 @@ export const MyFocusListComponent = () => {
       render: (c, record) => {
         const firstPart = c.split('|')[0]?.trim() || '';
         
-        // 提取数字并判断
         const numericMatch = firstPart.match(/-?\d+(\.\d+)?/);
         if (!numericMatch) return false;
 
@@ -2196,37 +2170,11 @@ export const MyFocusListComponent = () => {
       dataIndex: 'comments',
       key: 'comments',
       editable: true,
-      // render: (c, record) => {
-      //   const cparts = c.split('|');
-      //   const prefix = cparts?.[0];
-      //   const newValue = record.turnoverrates_alteration;
-      //   if (!newValue?.trim()) {
-      //     return (
-      //       <div>
-      //         <p>{newValue}</p>
-      //       </div>
-      //     );
-      //   }
-      //   const valueMap = JSON.parse(newValue);
-      //   return (
-      //     <div>
-      //       <p>{prefix}</p>
-      //       {Object.keys(valueMap).map((i) => {
-      //           return (
-      //             <p>
-      //               <b>{valueMap?.[i]?.replaceAll(',', ',  ')}</b>({i})
-      //             </p>
-      //           );
-      //       })}
-      //     </div>
-      //   );
-      // },
     },
     {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
-      // defaultSortOrder: 'descend',
       sorter: (a: any, b: any): any => {
         return (
           Number(a.datestr.replaceAll('-', '')) -
@@ -2285,13 +2233,13 @@ export const MyFocusListComponent = () => {
         ).length;
         return (
           <div>
-            <table>
+            <table border="1">
               <thead>
                 <tr>
-                  <td>A1</td>
-                  <td>A2</td>
-                  <td>A3</td>
-                  <td>NA</td>
+                  <th>A1</th>
+                  <th>A2</th>
+                  <th>A3</th>
+                  <th>NA</th>
                 </tr>
               </thead>
               <tbody>
@@ -2367,83 +2315,23 @@ export const MyFocusListComponent = () => {
       render: (text, record) => (
         <Popconfirm
           title="Sure to delete?"
-          onConfirm={() =>
+          onConfirm={() => {
             post('/api/delete_focus', {
               body: JSON.stringify({
                 symbol: record?.symbol,
                 datestr: record?.datestr,
               }),
             }).then(() => {
-              // async function handleAllStockData() {
-              //   const data = await getAllFocusedStocks();
-              //   setData(
-              //     selectStatus
-              //       ? data.filter(
-              //           (i) =>
-              //             i.focus_status ===
-              //             (selectStatus === '0' ? null : selectStatus)
-              //         )
-              //       : data
-              //   );
-              // }
-              handleAllStockData();
-            })
-          }
+              handleAllStockData(currentPage);
+            });
+          }}
         >
           <a>Delete</a>
         </Popconfirm>
       ),
     },
   ];
-  const [selectStatus, setSelectStatus] = useState<any>(null);
-  const [curAnaMap, setAnaMap] = useState();
-  useEffect(() => {
-    async function handleAllStockData() {
-      const data = await getAllFocusedStocks();
-      const rateByCur = data?.filter(
-        (i) =>
-          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
-          (i.currentPrice < i.finalprice && i.predict === 'Down')
-      ).length;
-      const rateByMax = data?.filter(
-        (i) =>
-          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
-          (i.maxPriceDiff === 0 && i.predict === 'Down')
-      )?.length;
-      setRateByCur(`${rateByCur}/${data.length}` as any);
-      setRateByMax(`${rateByMax}/${data.length}` as any);
-      setData(
-        selectStatus
-          ? data.filter(
-              (i) =>
-                i.focus_status === (selectStatus === '0' ? null : selectStatus)
-            )
-          : data
-      );
-    }
 
-    handleAllStockData();
-  }, [selectStatus]);
-
-  const handleSave = (row: any) => {
-    post('/api/edit_focus', {
-      body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
-    }).then(() => {
-      async function handleAllStockData() {
-        const data = await getAllFocusedStocks();
-        setData(
-          selectStatus
-            ? data.filter(
-                (i) =>
-                  i.focus_status ===
-                  (selectStatus === '0' ? null : selectStatus)
-              )
-            : data
-        );
-      }
-      handleAllStockData();
-    });
-  };
   const components = {
     body: {
       row: EditableRow,
@@ -2471,7 +2359,11 @@ export const MyFocusListComponent = () => {
       Filter By Status:
       <Dropdown
         overlay={
-          <Menu onClick={(ob) => setSelectStatus(ob.key)}>
+          <Menu onClick={(ob) => {
+            setSelectStatus(ob.key);
+            setCurrentPage(1);
+            handleAllStockData(1);
+          }}>
             {Object.keys(focusStatusMap)
               .map((i) => (
                 <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
@@ -2487,10 +2379,23 @@ export const MyFocusListComponent = () => {
         </Tag>
       </Dropdown>
       <Table
-        pagination={{ defaultPageSize: 100 }}
+        loading={tableLoading}
+        pagination={{ 
+          current: currentPage,
+          total: total,
+          pageSize: pageSize,
+          onChange: (page) => {
+            setCurrentPage(page);
+            handleAllStockData(page);
+          },
+          showSizeChanger: false,
+          showQuickJumper: true,
+          showTotal: (total) => `共 ${total} 条记录`
+        }}
         columns={mergedColumns}
         dataSource={data}
         components={components}
+        rowKey="symbol"
       />
       <Modal
         title={`Charts: ${curText}`}
@@ -2538,17 +2443,7 @@ export const MyFocusListComponent = () => {
                     today: info.name,
                   }),
                 });
-                // console.log(res, res?.[0].turnoverrates_analysis);
                 setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-                // console.log(
-                //   info.dataIndex, // 当前点击的第几个柱子
-                //   info.seriesIndex, // 当前点击的第几个数据源
-                //   info.value, // 当前柱子Y轴的数据
-                //   info.name, // 当前柱子X轴的名字
-                //   info.seriesName, // 当前数据源的名字
-                //   info.seriesType, // 当前数据的类型
-                //   info.color // 当前柱子的颜色
-                // );
               },
             }}
           />

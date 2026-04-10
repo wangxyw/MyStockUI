@@ -359,25 +359,58 @@ router.get('/get_stock_plate', (req, res, next) => {
   });
 });
 
+// 获取所有关注股票列表（分页版本）
 router.get('/all_focus_stock', function (req, res, next) {
-  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
-  pool.query(sql, function (err, rows, fields) {
-    if (err) throw err;
-    //res.json(rows);
-    let batchSql = '';
-    rows?.forEach(
-      (i) =>
-        (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
-    );
-    pool.query(batchSql, function (newerr, newrows, newfields) {
-      if (err) throw err;
-      //...newrows.forEach(i => {})
-      const newResult = rows?.map((item, key) => ({
-        ...item,
-        //recentTen: newrows?.flat()?.filter((i) => i.symbol === item.symbol),
-        recentTen: newrows[key],
-      }));
-      res.json(newResult);
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 50;
+  const offset = (page - 1) * pageSize;
+  
+  // 先获取总数
+  const countSql = `SELECT COUNT(*) as total FROM focus_stocks`;
+  pool.query(countSql, function (countErr, countRows) {
+    if (countErr) {
+      console.error(countErr);
+      return res.status(500).json({ error: countErr.message });
+    }
+    
+    const total = countRows[0].total;
+    
+    // 分页查询主数据
+    const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+                 FROM focus_stocks a 
+                 JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+                 ORDER BY a.datestr DESC
+                 LIMIT ? OFFSET ?`;
+    
+    pool.query(sql, [pageSize, offset], function (err, rows, fields) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (!rows || rows.length === 0) {
+        return res.json({ data: [], total: total });
+      }
+      
+      // 构建批量查询（此时 rows 数量已减少到 pageSize）
+      let batchSql = '';
+      rows.forEach((i) => {
+        batchSql += `SELECT * FROM stock_big_data WHERE symbol = '${i.symbol}' AND datestr <= '${i.datestr}' ORDER BY datestr DESC LIMIT 10;`;
+      });
+      
+      pool.query(batchSql, function (newerr, newrows, newfields) {
+        if (newerr) {
+          console.error(newerr);
+          return res.status(500).json({ error: newerr.message });
+        }
+        
+        const newResult = rows?.map((item, key) => ({
+          ...item,
+          recentTen: newrows[key] || [],
+        }));
+        
+        res.json({ data: newResult, total: total });
+      });
     });
   });
 });
