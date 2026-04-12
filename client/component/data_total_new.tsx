@@ -378,7 +378,6 @@ export const TotalDataComNew = (props) => {
   
   // 是否显示数值标签，默认为 true（显示）
   const [showValues, setShowValues] = useState(true);
-  
   // 开关：false（默认）= 同步模式，true = 独立模式
   const [independentMode, setIndependentMode] = useState(false);
   
@@ -389,6 +388,10 @@ export const TotalDataComNew = (props) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   const chartRef = useRef<any>(null);
+  
+  // StrictMode 兼容：防止重复请求的 refs
+  const requestLockRef = useRef<{ [key: string]: boolean }>({}); // 请求锁，防止并发
+  const lastFetchParamsRef = useRef<string>(''); // 记录上次请求的参数
 
   const [selectDate, setSelectDate] = useState(moment().format('YYYY-MM-DD'));
 
@@ -446,15 +449,29 @@ export const TotalDataComNew = (props) => {
     }
   }, [selectConsDays]);
 
+  // fetchData - 只有用户点击 RUN 时才调用
   const fetchData = useCallback(async () => {
     const paramsKey = getParamsKey();
     const currentType = from100;
+    const lockKey = `${paramsKey}_${currentType}`;
     
+    // 检查是否有相同请求正在进行
+    if (requestLockRef.current[lockKey]) {
+      console.log('请求正在进行中，跳过');
+      return;
+    }
+    
+    // 检查缓存（5分钟内有效）
     const cached = chartDataCache[currentType];
     if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
       console.log('使用缓存数据');
+      message.info('使用缓存数据，如需刷新请再次点击 RUN');
       return;
     }
+
+    // 设置请求锁
+    requestLockRef.current[lockKey] = true;
+    lastFetchParamsRef.current = lockKey;
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -530,16 +547,22 @@ export const TotalDataComNew = (props) => {
         setCurrentProcessingDate('');
       }
       abortControllerRef.current = null;
+      // 释放请求锁
+      delete requestLockRef.current[lockKey];
     }
   }, [selectDate, selectDays, selectConsAllDays, selectConsDays, selectConsTotal, from100, chartDataCache, getParamsKey, independentMode]);
 
+  // runAnalysis - 用户点击 RUN 按钮时调用
   const runAnalysis = useCallback(() => {
+    // 清除当前类型的缓存，强制重新请求
     setChartDataCache(prev => ({
       ...prev,
       [from100]: null
     }));
     fetchData();
   }, [from100, fetchData]);
+
+  // 注意：这里没有自动加载的 useEffect，页面打开时不自动请求数据
 
   const handleFrom100Change = useCallback((value: string) => {
     setFrom100(value);
