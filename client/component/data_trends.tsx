@@ -201,11 +201,12 @@ const SimpleAlarmTrend: React.FC = () => {
           bottom: 0,
           height: 20,
         },
-        {
-          type: 'inside',
-          start: 0,
-          end: 100,
-        }
+        // 注释掉 inside 类型即可禁用鼠标滚轮
+        // {
+        //   type: 'inside',
+        //   start: 0,
+        //   end: 100,
+        // }
       ] : [],
     };
   };
@@ -358,11 +359,12 @@ const SimpleAlarmTrend: React.FC = () => {
           bottom: 0,
           height: 20,
         },
-        {
-          type: 'inside',
-          start: 0,
-          end: 100,
-        }
+        // 注释掉 inside 类型即可禁用鼠标滚轮
+        // {
+        //   type: 'inside',
+        //   start: 0,
+        //   end: 100,
+        // }
       ] : [],
     };
   };
