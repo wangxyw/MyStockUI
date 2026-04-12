@@ -2295,6 +2295,9 @@ export const MyFocusListComponent = () => {
       title: 'MinPrice',
       dataIndex: 'minPrice',
       key: 'minPrice',
+      sorter: (a: any, b: any): any => {
+        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
+      },
       render: (c, record) => {
         const diff = record.minPriceDiff;
         return (
