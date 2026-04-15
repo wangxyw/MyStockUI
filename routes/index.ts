@@ -365,7 +365,11 @@ router.get('/all_focus_stock', function (req, res, next) {
   const pageSize = parseInt(req.query.pageSize) || 50;
   const offset = (page - 1) * pageSize;
   
-  // 先获取总数
+  // 日期排序参数
+  const sortByDate = req.query.sortByDate === 'true';
+  const dateSortOrder = req.query.dateSortOrder === 'ASC' ? 'ASC' : 'DESC';
+  
+  // 获取总数
   const countSql = `SELECT COUNT(*) as total FROM focus_stocks`;
   pool.query(countSql, function (countErr, countRows) {
     if (countErr) {
@@ -375,12 +379,22 @@ router.get('/all_focus_stock', function (req, res, next) {
     
     const total = countRows[0].total;
     
-    // 分页查询主数据
-    const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
-                 FROM focus_stocks a 
-                 JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
-                 ORDER BY a.datestr DESC
-                 LIMIT ? OFFSET ?`;
+    // 根据是否需要排序构建不同的 SQL
+    let sql;
+    if (sortByDate) {
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+             FROM focus_stocks a 
+             JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             ORDER BY a.datestr ${dateSortOrder}
+             LIMIT ? OFFSET ?`;
+    } else {
+      // 默认按更新时间倒序（保持原有性能）
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+             FROM focus_stocks a 
+             JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             ORDER BY a.updated_at DESC
+             LIMIT ? OFFSET ?`;
+    }
     
     pool.query(sql, [pageSize, offset], function (err, rows, fields) {
       if (err) {
@@ -392,7 +406,7 @@ router.get('/all_focus_stock', function (req, res, next) {
         return res.json({ data: [], total: total });
       }
       
-      // 构建批量查询（此时 rows 数量已减少到 pageSize）
+      // 构建批量查询
       let batchSql = '';
       rows.forEach((i) => {
         batchSql += `SELECT * FROM stock_big_data WHERE symbol = '${i.symbol}' AND datestr <= '${i.datestr}' ORDER BY datestr DESC LIMIT 10;`;

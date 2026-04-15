@@ -1482,9 +1482,13 @@ async function getTotalTradeVol(
   return stockData;
 }
 
-// 修改 getAllFocusedStocks 函数，支持分页
-async function getAllFocusedStocks(page = 1, pageSize = 50) {
-  const response = await get(`/api/all_focus_stock?page=${page}&pageSize=${pageSize}`);
+// 修改 getAllFocusedStocks 函数，支持日期排序参数
+async function getAllFocusedStocks(page = 1, pageSize = 50, sortByDate = false, dateSortOrder = 'DESC') {
+  let url = `/api/all_focus_stock?page=${page}&pageSize=${pageSize}`;
+  if (sortByDate) {
+    url += `&sortByDate=true&dateSortOrder=${dateSortOrder}`;
+  }
+  const response = await get(url);
   
   // 如果返回的数据没有 maxPriceDiff 字段，需要重新计算
   if (response.data && response.data.length > 0 && response.data[0].maxPriceDiff === undefined) {
@@ -1893,11 +1897,15 @@ export const MyFocusListComponent = () => {
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
-  // 新增分页相关 state
+  // 分页相关 state
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [tableLoading, setTableLoading] = useState(false);
   const pageSize = 100;
+
+  // 日期排序相关 state
+  const [sortByDate, setSortByDate] = useState(false);
+  const [dateSortOrder, setDateSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
   const curDate = new Date();
   const year = curDate.getFullYear();
@@ -1919,11 +1927,14 @@ export const MyFocusListComponent = () => {
   const [selectStatus, setSelectStatus] = useState<any>(null);
   const [curAnaMap, setAnaMap] = useState();
 
-  // 替换原有的 handleAllStockData 函数
-  const handleAllStockData = useCallback(async (page = 1) => {
+  // 修改 handleAllStockData 函数
+  const handleAllStockData = useCallback(async (page = 1, sortDate?: boolean, order?: 'ASC' | 'DESC') => {
     setTableLoading(true);
     try {
-      const response = await getAllFocusedStocks(page, pageSize);
+      const shouldSortByDate = sortDate !== undefined ? sortDate : sortByDate;
+      const currentOrder = order !== undefined ? order : dateSortOrder;
+      
+      const response = await getAllFocusedStocks(page, pageSize, shouldSortByDate, currentOrder);
       const stockData = response.data || [];
       const rateByCur = stockData?.filter(
         (i) =>
@@ -1951,9 +1962,22 @@ export const MyFocusListComponent = () => {
     } finally {
       setTableLoading(false);
     }
-  }, [selectStatus]);
+  }, [selectStatus, sortByDate, dateSortOrder, pageSize]);
 
-  // 修改 onClickMenu 函数
+  // 处理日期列排序
+  const handleDateSort = (order: 'ascend' | 'descend' | null) => {
+    if (order === null) {
+      // 取消排序，恢复默认
+      setSortByDate(false);
+      handleAllStockData(1, false, 'DESC');
+    } else {
+      const newOrder = order === 'ascend' ? 'ASC' : 'DESC';
+      setSortByDate(true);
+      setDateSortOrder(newOrder);
+      handleAllStockData(1, true, newOrder);
+    }
+  };
+
   const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
       body: JSON.stringify({
@@ -1982,7 +2006,6 @@ export const MyFocusListComponent = () => {
     });
   };
 
-  // 修改 handleSave 函数
   const handleSave = (row: any) => {
     post('/api/edit_focus', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
@@ -1991,7 +2014,6 @@ export const MyFocusListComponent = () => {
     });
   };
 
-  // 替换原有的 useEffect
   useEffect(() => {
     handleAllStockData(1);
   }, []);
@@ -2175,29 +2197,29 @@ export const MyFocusListComponent = () => {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
-      sorter: (a: any, b: any): any => {
-        return (
-          Number(a.datestr.replaceAll('-', '')) -
-          Number(b.datestr.replaceAll('-', ''))
-        );
-      },
+      sorter: true,
+      sortOrder: sortByDate ? (dateSortOrder === 'ASC' ? 'ascend' : 'descend') : null,
+      onHeaderCell: () => ({
+        onClick: () => {
+          if (!sortByDate || dateSortOrder === 'DESC') {
+            handleDateSort('ascend');
+          } else if (dateSortOrder === 'ASC') {
+            handleDateSort('descend');
+          } else {
+            handleDateSort(null);
+          }
+        },
+      }),
     },
     {
       title: 'last_updated_at',
       dataIndex: 'last_updated_at',
       key: 'last_updated_at',
       render:(c) => {
-        const value = c.split('T')?.[0]
+        const value = c?.split('T')?.[0];
         return (
             <p>{value}</p>
         );        
-      },
-      sorter: (a: any, b: any): any => {
-        var t1 = a.last_updated_at.split('T')?.[0].replaceAll('-', '');
-        var t2 = b.last_updated_at.split('T')?.[0].replaceAll('-', '')
-        return (
-          Number(t1) - Number(t2)
-        );
       },
     },
     {
@@ -2274,9 +2296,6 @@ export const MyFocusListComponent = () => {
       title: 'MaxPrice',
       dataIndex: 'maxPrice',
       key: 'maxPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
-      },
       render: (c, record) => {
         const diff = record.maxPriceDiff;
         return (
@@ -2295,9 +2314,6 @@ export const MyFocusListComponent = () => {
       title: 'MinPrice',
       dataIndex: 'minPrice',
       key: 'minPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
-      },
       render: (c, record) => {
         const diff = record.minPriceDiff;
         return (
@@ -2402,7 +2418,7 @@ export const MyFocusListComponent = () => {
       />
       <Modal
         title={`Charts: ${curText}`}
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
           <Button onClick={() => setIsModalVisible(false)} type="primary">
@@ -2533,8 +2549,8 @@ export const MyFocusListComponent = () => {
           />
         )}       
         {!isEmpty(curAnaMap) && (
-          <div class="table">
-            <div class="col">
+          <div className="table">
+            <div className="col">
               <p>Before</p>
               {Object.keys(curAnaMap?.before).map((i) => {
                 if (i === '7-days' || i === '15-days') {
@@ -2552,7 +2568,7 @@ export const MyFocusListComponent = () => {
                 }
               })}
             </div>
-            <div class="col">
+            <div className="col">
               <p>After</p>
               {Object.keys(curAnaMap?.after).map((i) => (
                 <p>
