@@ -2418,7 +2418,7 @@ export const MyFocusListComponent = () => {
       />
       <Modal
         title={`Charts: ${curText}`}
-        open={isModalVisible}
+        visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
           <Button onClick={() => setIsModalVisible(false)} type="primary">
