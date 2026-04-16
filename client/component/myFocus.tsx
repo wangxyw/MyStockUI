@@ -48,6 +48,58 @@ export const focusStatusMap = {
   },
 };
 
+// 通用工具函数：为图表添加异常时间窗口标记
+const addMarkAreaToOption = (option, anomalyWindows) => {
+  // 如果没有异常窗口数据，直接返回原配置
+  if (!anomalyWindows || anomalyWindows.length === 0 || !option) return option;
+  
+  const markAreaData = anomalyWindows.map(window => [
+    {
+      name: '异常窗口',
+      xAxis: window.start_date,
+      itemStyle: {
+        color: 'rgba(255, 99, 132, 0.25)',
+        borderColor: '#ff4444',
+        borderWidth: 1,
+        borderType: 'dashed',
+      },
+      label: {
+        show: true,
+        position: 'insideTop',
+        formatter: `⚠️ ${window.start_date} ~ ${window.end_date}`,
+        color: '#ff4444',
+        fontWeight: 'bold',
+        fontSize: 10,
+        rotate: 0,
+      },
+      tooltip: {
+        show: true,
+        formatter: () => `异常时间窗口<br/>${window.start_date} 至 ${window.end_date}`,
+      },
+    },
+    {
+      xAxis: window.end_date,
+    },
+  ]);
+
+  const markAreaConfig = {
+    silent: false,
+    label: { show: true },
+    data: markAreaData,
+    animation: false,
+  };
+
+  // 给所有系列添加
+  if (option.series) {
+    option.series = option.series.map(series => ({
+      ...series,
+      markArea: markAreaConfig,
+    }));
+  }
+  
+  return option;
+};
+
 const MergeOptions = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
@@ -1032,7 +1084,8 @@ const MergeDMI = (dmiData) => {
   };
 };
 
-const MergeContinuousProfitChips = (profitChipsData) => {
+// 修改 MergeContinuousProfitChips 函数，添加异常窗口参数
+const MergeContinuousProfitChips = (profitChipsData, anomalyWindows = []) => {
   const orderedData = orderBy(profitChipsData, 'datestr');
   const allDataDate = orderedData?.map(
     (i) => i.datestr
@@ -1044,7 +1097,7 @@ const MergeContinuousProfitChips = (profitChipsData) => {
     (i?.turnoverrate < 0 || i?.turnoverrate > 100) ? 0 : i?.turnoverrate
   );
 
-  return {
+  const option = {
     title: {
       text: '',
       left: 0,
@@ -1103,6 +1156,9 @@ const MergeContinuousProfitChips = (profitChipsData) => {
       },
     ],
   };
+  
+  // 添加异常窗口标记
+  return addMarkAreaToOption(option, anomalyWindows);
 };
 
 const MergeMA = (maData) => {
@@ -1521,6 +1577,35 @@ async function getAllFocusedStocks(page = 1, pageSize = 50, sortByDate = false, 
   return response;
 }
 
+// 获取异常时间窗口数据
+async function getAnomalyWindows(stock) {
+  try {
+    const response = await get(`/api/stock_anomaly_windows?stock=${stock}`);
+
+    // 处理返回的数据格式: [{ anomaly_window: "[{...},{...}]" }]
+    if (response && Array.isArray(response) && response.length > 0) {
+      const firstItem = response[0];
+      if (firstItem && firstItem.anomaly_window) {
+        const anomalyWindowStr = firstItem.anomaly_window;
+        // 解析 JSON 字符串
+        const parsedWindows = JSON.parse(anomalyWindowStr);
+        console.log('Parsed anomaly windows:', parsedWindows);
+        return parsedWindows || [];
+      }
+    }
+    
+    // 如果响应直接是数组格式（没有嵌套 anomaly_window 字段）
+    if (response && Array.isArray(response) && response.length > 0 && response[0].start_date) {
+      return response;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('获取异常窗口失败:', error);
+    return [];
+  }
+}
+
 interface Item {
   key: string;
   name: string;
@@ -1897,6 +1982,9 @@ export const MyFocusListComponent = () => {
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
+  // 新增：存储异常窗口数据（仅用于 ProfitChips）
+  const [anomalyWindows, setAnomalyWindows] = useState<any[]>([]);
+
   // 分页相关 state
   const [currentPage, setCurrentPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -2108,8 +2196,10 @@ export const MyFocusListComponent = () => {
                   text,
                   startDate,
                   endDate
-                );                
+                );
+                const windows = await getAnomalyWindows(text);                
 
+                setAnomalyWindows(windows);
                 setIsModalVisible(true);
                 setMergeOptionsInModal(MergeOptions(data, downData));
                 setMergeOptions3InModal(MergeOptions(data3, downData3));
@@ -2119,7 +2209,7 @@ export const MyFocusListComponent = () => {
                 setMergeFluidityInModal(MergeFluidity(data3, downData3));
                 setMergeKDJInModal(MergeKDJ(kdjData));
                 setMergeDMIInModal(MergeDMI(dmiData));
-                setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData));
+                setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData, windows));
                 setMergeMAInModal(MergeMA(maData));
                 setMergeDSInModal(MergeDS(dsData));
                 setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
