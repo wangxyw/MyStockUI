@@ -1,8 +1,9 @@
-import React from 'react';
-import { Menu } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Menu, Button, Drawer, Checkbox, Space, message } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
 import { AlarmComponent } from './component/new_alarm';
 import { MyFocusListComponent } from './component/myFocus';
-import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Switch, Route, Link, useHistory, useLocation } from 'react-router-dom';
 import { PlateComponent } from './component/focus_plate';
 import { DataAnalysisCom } from './component/data_analysis';
 import { DAFocusListComponent } from './component/da_focus';
@@ -16,8 +17,9 @@ import { CriticalStocks3Component } from './component/critical_stocks_3';
 import { MyFocus2ListComponent } from './component/myFocus2';
 import { VlogComponent } from './component/vlog';
 import { TopPlatesListComponent } from './component/top_plates_list';
+
 const MENU_ALARM = 'alarm';
-const MENU_FOCUSED = 'my_focus';
+const MENU_FOCUSED1 = 'my_focus1';
 const MENU_ALARM_100 = 'alarm100';
 const MENU_PLATE = 'plate';
 const MENU_DATA_ANA = 'data_analysis';
@@ -33,162 +35,253 @@ const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
 const MENU_FOCUSED2 = 'my_focus2';
 const MENU_VLOG = 'vlog';
-const MENU_TOP_PLATES= 'tops';
+const MENU_TOP_PLATES = 'tops';
 
-function getInitPath() {
-  if (window) {
-    const path = window.location.pathname;
+// 定义所有菜单项 - 注意顺序很重要，更具体的路径应该放在前面
+const ALL_MENU_ITEMS = [
+  { key: MENU_DA_TRENDS, path: '/da_trends', label: 'DA Trends', component: SimpleAlarmTrend, props: {} },
+  { key: MENU_ALARM, path: '/', label: 'Alarm', component: AlarmComponent, props: { from100: false }, exact: true },
+  { key: MENU_ALARM_100, path: '/alarm100', label: 'Alarm100', component: AlarmComponent, props: { from100: true } },
+  { key: MENU_DA_TOTAL_NEW, path: '/da_total_new', label: 'DA Total New', component: TotalDataComNew, props: { isDR: true } },
+  { key: MENU_DA_TOTAL, path: '/da_total', label: 'DA Total', component: TotalDataCom, props: { isDR: true } },
+  { key: MENU_DA_DR, path: '/da_dr', label: 'DA DR', component: DataAnalysisCom, props: { isDR: true } },
+  { key: MENU_DA_ALARM, path: '/da_alarm', label: 'DA Tody Alarm', component: DataAlarmCom, props: { isDR: false } },
+  { key: MENU_DA_FOCUS, path: '/da_focus', label: 'DA Focus', component: DAFocusListComponent, props: {} },
+  { key: MENU_DATA_ANA, path: '/data_analysis', label: 'Data Analysis', component: DataAnalysisCom, props: {} },
+  { key: MENU_CRI_STOCK_3, path: '/cri_stocks_3', label: 'Critical Stocks 3', component: CriticalStocks3Component, props: {} },
+  { key: MENU_CRI_STOCK, path: '/cri_stocks', label: 'Critical Stocks', component: CriticalStocksComponent, props: {} },
+  { key: MENU_FOCUSED1, path: '/my_focus1', label: 'MF1', component: MyFocusListComponent, props: {} },
+  { key: MENU_FOCUSED2, path: '/my_focus2', label: 'MF2', component: MyFocus2ListComponent, props: {} },
+  { key: MENU_VLOG, path: '/vlog', label: 'VLOG', component: VlogComponent, props: {} },
+  { key: MENU_TOP_PLATES, path: '/tops', label: 'TOPS', component: TopPlatesListComponent, props: {} },
+  { key: MENU_DA_PLATE, path: '/da_plate', label: 'DA Plate', component: DAPlatesCom, props: {} },
+  { key: MENU_PLATE, path: '/plate', label: 'Plate List', component: PlateComponent, props: {} },
+];
 
-    if (
-      [
-        MENU_ALARM,
-        MENU_FOCUSED,
-        MENU_ALARM_100,
-        MENU_DATA_ANA,
-        MENU_PLATE,
-        MENU_OLD_ALARM,
-        MENU_DA_FOCUS,
-        MENU_DA_PLATE,
-        MENU_DA_DR,
-        MENU_DA_TOTAL,
-        MENU_DA_TOTAL_NEW,
-        MENU_DA_TRENDS,
-        MENU_DA_ALARM,
-        MENU_CRI_STOCK,
-        MENU_CRI_STOCK_3,
-        MENU_FOCUSED2,
-        MENU_VLOG,
-        MENU_TOP_PLATES,
-      ].find((p) => path.startsWith(`/${p}`))
-    ) {
-      return path.slice(1);
-    } else {
-      return null;
-    }
-  } else {
-    return null;
+// 获取默认显示的菜单
+const DEFAULT_VISIBLE_MENUS = [
+  MENU_DA_TOTAL_NEW,
+  MENU_PLATE,
+  MENU_DA_PLATE,
+  MENU_DA_TRENDS,
+  MENU_CRI_STOCK_3,
+  MENU_FOCUSED1,
+  MENU_FOCUSED2,
+  MENU_TOP_PLATES,
+  MENU_VLOG,  // 添加新菜单到默认显示
+];
+
+const STORAGE_KEY = 'visible_menus';
+
+// 根据路径获取菜单key - 修复匹配逻辑，优先匹配更具体的路径
+function getMenuKeyFromPath(pathname: string): string | null {
+  if (pathname === '/') {
+    return MENU_ALARM;
   }
+  
+  // 按路径长度降序排序，优先匹配更具体的路径（如 /da_total_new 优先于 /da_total）
+  const sortedItems = [...ALL_MENU_ITEMS].sort((a, b) => b.path.length - a.path.length);
+  
+  const found = sortedItems.find((item) => {
+    if (item.key === MENU_ALARM) return false;
+    return pathname.startsWith(item.path);
+  });
+  
+  return found ? found.key : null;
 }
 
-const App = (): JSX.Element => {
-  const [current, setCurrent] = React.useState(getInitPath() || MENU_ALARM);
+function getSavedVisibleMenus(): string[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load menu settings:', e);
+  }
+  return DEFAULT_VISIBLE_MENUS;
+}
+
+function saveVisibleMenus(menus: string[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(menus));
+}
+
+// 内部组件，用于访问路由相关hooks
+const AppContent = (): JSX.Element => {
+  const history = useHistory();
+  const location = useLocation();
+  const [current, setCurrent] = useState<string>(MENU_ALARM);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [visibleMenus, setVisibleMenus] = useState<string[]>(() => getSavedVisibleMenus());
+
+  // 检查当前路径是否在可见菜单中，如果不在则跳转到第一个可见菜单
+  useEffect(() => {
+    const currentMenuKey = getMenuKeyFromPath(location.pathname);
+    console.log('Path check - pathname:', location.pathname, 'currentMenuKey:', currentMenuKey);
+    
+    if (currentMenuKey) {
+      setCurrent(currentMenuKey);
+      if (!visibleMenus.includes(currentMenuKey)) {
+        // 当前页面被隐藏，跳转到第一个可见菜单
+        const firstVisibleMenu = ALL_MENU_ITEMS.find(item => visibleMenus.includes(item.key));
+        if (firstVisibleMenu) {
+          console.log('Current page hidden, redirecting to:', firstVisibleMenu.path);
+          history.replace(firstVisibleMenu.path);
+          setCurrent(firstVisibleMenu.key);
+        }
+      }
+    }
+  }, [location.pathname, visibleMenus, history]);
 
   const handleMenuClick = (evt) => {
+    console.log('Menu clicked:', evt.key);
     setCurrent(evt.key);
   };
 
+  const openDrawer = () => {
+    console.log('=== Button clicked - Opening drawer ===');
+    message.info('打开菜单设置');
+    setDrawerVisible(true);
+  };
+
+  const closeDrawer = () => {
+    console.log('Closing drawer');
+    setDrawerVisible(false);
+  };
+
+  const resetToDefault = () => {
+    console.log('Resetting to default menus');
+    setVisibleMenus(DEFAULT_VISIBLE_MENUS);
+    saveVisibleMenus(DEFAULT_VISIBLE_MENUS);
+    
+    // 检查当前页面是否在默认菜单中
+    const currentMenuKey = getMenuKeyFromPath(location.pathname);
+    if (currentMenuKey && !DEFAULT_VISIBLE_MENUS.includes(currentMenuKey)) {
+      const firstVisibleMenu = ALL_MENU_ITEMS.find(item => DEFAULT_VISIBLE_MENUS.includes(item.key));
+      if (firstVisibleMenu) {
+        history.replace(firstVisibleMenu.path);
+        setCurrent(firstVisibleMenu.key);
+      }
+    }
+    message.success('已恢复默认菜单');
+  };
+
+  const showAll = () => {
+    console.log('Showing all menus');
+    const allKeys = ALL_MENU_ITEMS.map(item => item.key);
+    setVisibleMenus(allKeys);
+    saveVisibleMenus(allKeys);
+    message.success('已显示全部菜单');
+  };
+
+  const handleCheckboxChange = (checkedValues: any[]) => {
+    console.log('Checkbox changed:', checkedValues);
+    setVisibleMenus(checkedValues as string[]);
+    saveVisibleMenus(checkedValues as string[]);
+    
+    // 检查当前页面是否被隐藏
+    const currentMenuKey = getMenuKeyFromPath(location.pathname);
+    if (currentMenuKey && !checkedValues.includes(currentMenuKey)) {
+      const firstVisibleMenu = ALL_MENU_ITEMS.find(item => checkedValues.includes(item.key));
+      if (firstVisibleMenu) {
+        console.log('Current page hidden due to checkbox change, redirecting to:', firstVisibleMenu.path);
+        history.replace(firstVisibleMenu.path);
+        setCurrent(firstVisibleMenu.key);
+      }
+    }
+  };
+
+  const visibleMenuItems = ALL_MENU_ITEMS.filter(item => visibleMenus.includes(item.key));
+
   return (
-    <BrowserRouter forceRefresh={false}>
+    <div style={{ position: 'relative' }}>
       <Menu
         onClick={handleMenuClick}
         selectedKeys={[current]}
         mode="horizontal"
+        style={{ paddingRight: 60 }}
       >
-        <Menu.Item key={MENU_ALARM}>
-          <Link to="/">Alarm</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_ALARM_100}>
-          <Link to="/alarm100">Alarm100</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DATA_ANA}>
-          <Link to="/data_analysis">Data Analysis</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_ALARM}>
-          <Link to="/da_alarm">DA Tody Alarm</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_FOCUS}>
-          <Link to="/da_focus">DA Focus</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_PLATE}>
-          <Link to="/plate">Plate List</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_PLATE}>
-          <Link to="/da_plate">DA Plate</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_DR}>
-          <Link to="/da_dr">DA DR</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_TOTAL}>
-          <Link to="/da_total">DA Total</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_DA_TOTAL_NEW}>
-          <Link to="/da_total_new">DA Total New</Link>
-        </Menu.Item>        
-        <Menu.Item key={MENU_DA_TRENDS}>
-          <Link to="/da_trends">DA Trends</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_CRI_STOCK}>
-          <Link to="/cri_stocks">Critical Stocks</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_CRI_STOCK_3}>
-          <Link to="/cri_stocks_3">Critical Stocks 3</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED}>
-          <Link to="/my_focus">MF1</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED2}>
-          <Link to="/my_focus2">MF2</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_VLOG}>
-          <Link to="/vlog">VLOG</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_TOP_PLATES}>
-          <Link to="/tops">TOPS</Link>
-        </Menu.Item>
+        {visibleMenuItems.map((item) => (
+          <Menu.Item key={item.key}>
+            <Link to={item.path}>{item.label}</Link>
+          </Menu.Item>
+        ))}
       </Menu>
+      <div style={{ position: 'absolute', right: 8, top: 8, zIndex: 999 }}>
+        <Button
+          type="primary"
+          icon={<SettingOutlined />}
+          onClick={openDrawer}
+          size="middle"
+        >
+          菜单设置
+        </Button>
+      </div>
+
+      <Drawer
+        title="菜单设置"
+        placement="right"
+        onClose={closeDrawer}
+        visible={drawerVisible}
+        width={300}
+        closable={true}
+        maskClosable={true}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <div>
+            <Button onClick={resetToDefault} style={{ marginRight: 8 }}>
+              恢复默认
+            </Button>
+            <Button onClick={showAll}>
+              显示全部
+            </Button>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <h4>选择要显示的菜单：</h4>
+            <Checkbox.Group
+              value={visibleMenus}
+              onChange={handleCheckboxChange}
+              style={{ width: '100%' }}
+            >
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                {ALL_MENU_ITEMS.map((item) => (
+                  <div key={item.key} style={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox value={item.key}>{item.label}</Checkbox>
+                  </div>
+                ))}
+              </Space>
+            </Checkbox.Group>
+          </div>
+        </Space>
+      </Drawer>
+
       <Switch>
-        <Route path="/data_analysis" component={DataAnalysisCom}>
-          <DataAnalysisCom />
-        </Route>
-        <Route path="/alarm100" component={AlarmComponent}>
-          <AlarmComponent from100={true} />
-        </Route>
-        <Route path="/plate" component={PlateComponent}>
-          <PlateComponent />
-        </Route>
-        <Route path="/da_focus" component={DAFocusListComponent}>
-          <DAFocusListComponent />
-        </Route>
-        <Route path="/da_plate" component={DAPlatesCom}>
-          <DAPlatesCom />
-        </Route>
-        <Route path="/da_dr">
-          <DataAnalysisCom isDR={true} />
-        </Route>
-        <Route path="/da_total">
-          <TotalDataCom isDR={true} />
-        </Route>
-        <Route path="/da_total_new">
-          <TotalDataComNew isDR={true} />
-        </Route>
-        <Route path="/da_trends">
-          <SimpleAlarmTrend />
-        </Route>
-        <Route path="/da_alarm">
-          <DataAlarmCom isDR={false} />
-        </Route>
-        <Route path="/cri_stocks">
-          <CriticalStocksComponent />
-        </Route>
-        <Route path="/cri_stocks_3">
-          <CriticalStocks3Component />
-        </Route>
-        <Route path="/my_focus" component={MyFocusListComponent}>
-          <MyFocusListComponent />
-        </Route>
-        <Route path="/my_focus2" component={MyFocus2ListComponent}>
-          <MyFocus2ListComponent />
-        </Route> 
-        <Route path="/vlog">
-          <VlogComponent />
-        </Route>
-        <Route path="/tops">
-          <TopPlatesListComponent />
-        </Route>
-        <Route path="/" component={AlarmComponent}>
-          <AlarmComponent from100={false} />
-        </Route>
+        {ALL_MENU_ITEMS.map((item) => {
+          const Component = item.component;
+          const routeProps: any = {
+            key: item.key,
+            path: item.path,
+            exact: item.exact || false,
+          };
+          
+          return (
+            <Route {...routeProps}>
+              <Component {...item.props} />
+            </Route>
+          );
+        })}
       </Switch>
+    </div>
+  );
+};
+
+const App = (): JSX.Element => {
+  return (
+    <BrowserRouter forceRefresh={false}>
+      <AppContent />
     </BrowserRouter>
   );
 };
