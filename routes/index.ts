@@ -862,7 +862,7 @@ router.get('/totaltradevol', function (req, res, next) {
 
 router.get('/stock_anomaly_windows', function (req, res, next) {
   const stock = req.query.stock;
-  let sql = `SELECT anomaly_window FROM focus_stocks WHERE symbol LIKE '%${stock}%';`;
+  let sql = `SELECT anomaly_window FROM stocks_anomaly_window WHERE symbol LIKE '%${stock}%';`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
