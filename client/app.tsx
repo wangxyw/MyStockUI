@@ -2,7 +2,6 @@ import React from 'react';
 import { Menu } from 'antd';
 import { AlarmComponent } from './component/new_alarm';
 import { MyFocusListComponent } from './component/myFocus';
-import { MyFocusExpireListComponent } from './component/myFocusExpire';
 import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
 import { PlateComponent } from './component/focus_plate';
 import { DataAnalysisCom } from './component/data_analysis';
@@ -15,12 +14,10 @@ import { DataAlarmCom } from './component/data_analysis_alarm';
 import { CriticalStocksComponent } from './component/critical_stocks';
 import { CriticalStocks3Component } from './component/critical_stocks_3';
 import { MyFocus2ListComponent } from './component/myFocus2';
-import { MyFocusExpire2ListComponent } from './component/myFocusExpire2';
 import { VlogComponent } from './component/vlog';
 import { TopPlatesListComponent } from './component/top_plates_list';
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED = 'my_focus';
-const MENU_FOCUSED_EXPIRE = 'expire_my_focus';
 const MENU_ALARM_100 = 'alarm100';
 const MENU_PLATE = 'plate';
 const MENU_DATA_ANA = 'data_analysis';
@@ -35,7 +32,6 @@ const MENU_CRI_STOCK = 'cri_stocks';
 const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
 const MENU_FOCUSED2 = 'my_focus2';
-const MENU_FOCUSED_EXPIRE2 = 'expire_my_focus2';
 const MENU_VLOG = 'vlog';
 const MENU_TOP_PLATES= 'tops';
 
@@ -47,7 +43,6 @@ function getInitPath() {
       [
         MENU_ALARM,
         MENU_FOCUSED,
-        MENU_FOCUSED_EXPIRE,
         MENU_ALARM_100,
         MENU_DATA_ANA,
         MENU_PLATE,
@@ -62,7 +57,6 @@ function getInitPath() {
         MENU_CRI_STOCK,
         MENU_CRI_STOCK_3,
         MENU_FOCUSED2,
-        MENU_FOCUSED_EXPIRE2,
         MENU_VLOG,
         MENU_TOP_PLATES,
       ].find((p) => path.startsWith(`/${p}`))
@@ -132,14 +126,8 @@ const App = (): JSX.Element => {
         <Menu.Item key={MENU_FOCUSED}>
           <Link to="/my_focus">MF1</Link>
         </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED_EXPIRE}>
-          <Link to="/expire_my_focus">MF1 Expire</Link>
-        </Menu.Item>
         <Menu.Item key={MENU_FOCUSED2}>
           <Link to="/my_focus2">MF2</Link>
-        </Menu.Item>
-        <Menu.Item key={MENU_FOCUSED_EXPIRE2}>
-          <Link to="/expire_my_focus2">MF2 Expire</Link>
         </Menu.Item>
         <Menu.Item key={MENU_VLOG}>
           <Link to="/vlog">VLOG</Link>
@@ -188,15 +176,9 @@ const App = (): JSX.Element => {
         <Route path="/my_focus" component={MyFocusListComponent}>
           <MyFocusListComponent />
         </Route>
-        <Route path="/expire_my_focus" component={MyFocusExpireListComponent}>
-          <MyFocusExpireListComponent />
-        </Route>
         <Route path="/my_focus2" component={MyFocus2ListComponent}>
           <MyFocus2ListComponent />
-        </Route>
-        <Route path="/expire_my_focus2" component={MyFocusExpire2ListComponent}>
-          <MyFocusExpire2ListComponent />
-        </Route>    
+        </Route> 
         <Route path="/vlog">
           <VlogComponent />
         </Route>

@@ -860,6 +860,16 @@ router.get('/totaltradevol', function (req, res, next) {
   });
 });
 
+router.get('/stock_anomaly_windows', function (req, res, next) {
+  const stock = req.query.stock;
+  let sql = `SELECT anomaly_window FROM focus_stocks WHERE symbol LIKE '%${stock}%';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+
 router.get('/profit_chips', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
