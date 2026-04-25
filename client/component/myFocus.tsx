@@ -1992,7 +1992,7 @@ export const MyFocusListComponent = () => {
   const pageSize = 100;
 
   // 日期排序相关 state
-  const [sortByDate, setSortByDate] = useState(false);
+  const [sortByDate, setSortByDate] = useState(true);
   const [dateSortOrder, setDateSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
   const curDate = new Date();
