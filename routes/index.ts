@@ -9,12 +9,14 @@ import { caculateDate } from './utils';
 import { isEmpty } from 'lodash';
 var express = require('express');
 var router = express.Router();
+import { Request, Response } from 'express';
 const YAML = require('yamljs');
 const fs = require('fs');
 // import { json } from 'express';
 // file为文件所在路径
 // import http from 'http';
 var mysql = require('mysql');
+import sqlite3 from 'sqlite3';
 var mysqlConfig = YAML.parse(
   fs.readFileSync('./config/database.yml').toString()
 );
@@ -39,6 +41,8 @@ let queryDB = function (sql) {
     });
   });
 };
+
+const DB_PATH = '/Users/xywang/mystockdata/info/rss-board-mapper/board_scores.db';
 
 router.get('/stock_info', function (req, res, next) {
   const symbol = req.query.stock_id;
@@ -1302,6 +1306,283 @@ router.post('/qt_realtime', async function (req, res) {
   });
 
   res.json(ret);
+});
+
+// ========== 板块历史数据 API ==========
+
+// 1. 获取所有可用日期
+router.get('/board/available_dates', (req: Request, res: Response) => {
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all('SELECT DISTINCT date FROM daily_board_summary ORDER BY date DESC', (err: Error | null, rows: any[]) => {
+    db.close();
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    const dates = rows.map((row: any) => row.date);
+    res.json({ dates });
+  });
+});
+
+// 2. 获取单日数据
+router.get('/board/daily', (req: Request, res: Response) => {
+  const date = req.query.date as string;
+  
+  if (!date) {
+    res.status(400).json({ error: 'Missing required parameter: date' });
+    return;
+  }
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`
+    SELECT board, total_score, article_count, avg_score
+    FROM daily_board_summary
+    WHERE date = ?
+    ORDER BY total_score DESC
+  `, [date], (err: Error | null, boards: any[]) => {
+    db.close();
+    
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    if (!boards || boards.length === 0) {
+      res.status(404).json({ error: `No data found for date: ${date}` });
+      return;
+    }
+    
+    let totalScore = 0;
+    let totalArticles = 0;
+    for (const board of boards) {
+      totalScore += board.total_score;
+      totalArticles += board.article_count;
+    }
+    
+    res.json({
+      date,
+      boards,
+      total_score: totalScore,
+      total_articles: totalArticles
+    });
+  });
+});
+
+// 3. 获取日期范围数据
+router.get('/board/range', (req: Request, res: Response) => {
+  const start = req.query.start as string;
+  const end = req.query.end as string;
+  
+  if (!start || !end) {
+    res.status(400).json({ error: 'Missing required parameters: start and end' });
+    return;
+  }
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`
+    SELECT date, board, total_score, article_count, avg_score
+    FROM daily_board_summary
+    WHERE date BETWEEN ? AND ?
+    ORDER BY date DESC, total_score DESC
+  `, [start, end], (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    const dailyData: any[] = [];
+    let currentDate = '';
+    let currentBoards: any[] = [];
+    
+    for (const row of rows) {
+      if (row.date !== currentDate) {
+        if (currentBoards.length > 0) {
+          let totalScore = 0;
+          let totalArticles = 0;
+          for (const board of currentBoards) {
+            totalScore += board.total_score;
+            totalArticles += board.article_count;
+          }
+          dailyData.push({
+            date: currentDate,
+            boards: currentBoards,
+            total_score: totalScore,
+            total_articles: totalArticles
+          });
+        }
+        currentDate = row.date;
+        currentBoards = [];
+      }
+      currentBoards.push({
+        board: row.board,
+        total_score: row.total_score,
+        article_count: row.article_count,
+        avg_score: row.avg_score
+      });
+    }
+    
+    if (currentBoards.length > 0) {
+      let totalScore = 0;
+      let totalArticles = 0;
+      for (const board of currentBoards) {
+        totalScore += board.total_score;
+        totalArticles += board.article_count;
+      }
+      dailyData.push({
+        date: currentDate,
+        boards: currentBoards,
+        total_score: totalScore,
+        total_articles: totalArticles
+      });
+    }
+    
+    res.json({ daily_data: dailyData });
+  });
+});
+
+// 4. 获取板块趋势
+router.get('/board/trend', (req: Request, res: Response) => {
+  const board = req.query.board as string;
+  const days = parseInt(req.query.days as string || '30', 10);
+  
+  if (!board) {
+    res.status(400).json({ error: 'Missing required parameter: board' });
+    return;
+  }
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`
+    SELECT date, total_score as score, article_count as count
+    FROM daily_board_summary
+    WHERE board = ?
+    ORDER BY date DESC
+    LIMIT ?
+  `, [board, days], (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    const trend = rows.reverse();
+    
+    res.json({ 
+      board,
+      trend
+    });
+  });
+});
+
+// 5. 获取板块列表
+router.get('/board/list', (req: Request, res: Response) => {
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`SELECT DISTINCT board FROM daily_board_summary WHERE board != '未匹配' ORDER BY board`, (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    const boards = rows.map((row: any) => row.board);
+    res.json({ boards });
+  });
+});
+
+// 6. 获取汇总统计
+router.get('/board/summary', (req: Request, res: Response) => {
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  let boardCount = 0;
+  let totalArticles = 0;
+  let latestDate: string | null = null;
+  let earliestDate: string | null = null;
+  let completed = 0;
+  
+  const checkComplete = () => {
+    completed++;
+    if (completed === 4) {
+      res.json({
+        board_count: boardCount,
+        total_articles: totalArticles,
+        latest_date: latestDate,
+        earliest_date: earliestDate
+      });
+    }
+  };
+  
+  db.get('SELECT COUNT(DISTINCT board) as count FROM daily_board_summary WHERE board != "未匹配"', (err: Error | null, row: any) => {
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    if (row) boardCount = row.count;
+    checkComplete();
+  });
+  
+  db.get('SELECT SUM(article_count) as total FROM daily_board_summary', (err: Error | null, row: any) => {
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    if (row) totalArticles = row.total || 0;
+    checkComplete();
+  });
+  
+  db.get('SELECT MAX(date) as latest FROM daily_board_summary', (err: Error | null, row: any) => {
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    if (row) latestDate = row.latest;
+    checkComplete();
+  });
+  
+  db.get('SELECT MIN(date) as earliest FROM daily_board_summary', (err: Error | null, row: any) => {
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    if (row) earliestDate = row.earliest;
+    checkComplete();
+  });
+});
+
+// 7. 获取指定日期指定板块的文章列表
+router.get('/board/articles', (req: Request, res: Response) => {
+  const date = req.query.date as string;
+  const board = req.query.board as string;
+  
+  if (!date || !board) {
+    res.status(400).json({ error: 'Missing required parameters: date and board' });
+    return;
+  }
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`
+    SELECT article_id, title, score, datetime(article_timestamp, 'unixepoch', 'localtime') as publish_time
+    FROM processed_articles
+    WHERE article_date = ? AND board = ?
+    ORDER BY score DESC, article_timestamp DESC
+  `, [date, board], (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    res.json({ articles: rows || [] });
+  });
 });
 
 /* GET home page. */

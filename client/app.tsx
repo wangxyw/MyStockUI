@@ -17,6 +17,7 @@ import { CriticalStocks3Component } from './component/critical_stocks_3';
 import { MyFocus2ListComponent } from './component/myFocus2';
 import { VlogComponent } from './component/vlog';
 import { TopPlatesListComponent } from './component/top_plates_list';
+import BoardHistory from './component/board_history';
 
 const MENU_ALARM = 'alarm';
 const MENU_FOCUSED1 = 'my_focus1';
@@ -36,6 +37,7 @@ export const MENU_DA_DR = 'da_dr';
 const MENU_FOCUSED2 = 'my_focus2';
 const MENU_VLOG = 'vlog';
 const MENU_TOP_PLATES = 'tops';
+const MENU_BOARD_HISTORY = 'board_history';
 
 // 定义所有菜单项 - 注意顺序很重要，更具体的路径应该放在前面
 const ALL_MENU_ITEMS = [
@@ -56,6 +58,7 @@ const ALL_MENU_ITEMS = [
   { key: MENU_TOP_PLATES, path: '/tops', label: 'TOPS', component: TopPlatesListComponent, props: {} },
   { key: MENU_DA_PLATE, path: '/da_plate', label: 'DA Plate', component: DAPlatesCom, props: {} },
   { key: MENU_PLATE, path: '/plate', label: 'Plate List', component: PlateComponent, props: {} },
+  { key: MENU_BOARD_HISTORY, path: '/board_history', label: 'Board History', component: BoardHistory, props: {} },
 ];
 
 // 获取默认显示的菜单
@@ -68,7 +71,8 @@ const DEFAULT_VISIBLE_MENUS = [
   MENU_FOCUSED1,
   MENU_FOCUSED2,
   MENU_TOP_PLATES,
-  MENU_VLOG,  // 添加新菜单到默认显示
+  MENU_VLOG,  
+  MENU_BOARD_HISTORY,  // 添加新菜单到默认显示
 ];
 
 const STORAGE_KEY = 'visible_menus';
