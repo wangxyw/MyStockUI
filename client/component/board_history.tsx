@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tabs, Table, Tag, Tooltip, Modal, List, Badge, Empty } from 'antd';
+import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tabs, Table, Tag, Tooltip, Modal, List, Badge, Empty, Descriptions, Progress } from 'antd';
 import { 
   LineChartOutlined, 
   BarChartOutlined, 
@@ -8,7 +8,10 @@ import {
   FallOutlined,
   EyeOutlined,
   CalendarOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  StockOutlined,
+  ReloadOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
@@ -44,6 +47,34 @@ interface Article {
   publish_time: string;
 }
 
+interface StockInfo {
+  symbol: string;
+  name: string;
+  business_display_name: string;  // 改为 business_display_name
+  ai_focus?: {
+    is_focused: boolean;
+    datestr?: string;
+    max_240_pct?: number;
+    min_240_pct?: number;
+  };
+}
+
+interface BoardStocksData {
+  board_name: string;
+  keywords: string[];
+  business_names: string[];
+  stocks: StockInfo[];
+  stock_count: number;
+  mapping_count: number;
+}
+
+interface BoardSummary {
+  board_name: string;
+  keyword_count: number;
+  business_count: number;
+  stock_count: number;
+}
+
 const BoardHistory: React.FC = () => {
   // 状态管理
   const [loading, setLoading] = useState<boolean>(false);
@@ -52,12 +83,32 @@ const BoardHistory: React.FC = () => {
   const [trendData, setTrendData] = useState<Record<string, TrendData[]>>({});
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   
+  // 板块统计摘要
+  const [boardsSummary, setBoardsSummary] = useState<BoardSummary[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  
+  // AI关注股票
+  const [aiFocusStocks, setAiFocusStocks] = useState<Record<string, any>>({});
+  const [aiFocusLoading, setAiFocusLoading] = useState<boolean>(false);
+  
   // 文章详情弹窗
   const [articlesModalVisible, setArticlesModalVisible] = useState<boolean>(false);
   const [currentBoard, setCurrentBoard] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
   const [articles, setArticles] = useState<Article[]>([]);
   const [articlesLoading, setArticlesLoading] = useState<boolean>(false);
+  
+  // 股票信息弹窗
+  const [stocksModalVisible, setStocksModalVisible] = useState<boolean>(false);
+  const [stocksLoading, setStocksLoading] = useState<boolean>(false);
+  const [stocksData, setStocksData] = useState<BoardStocksData>({
+    board_name: '',
+    keywords: [],
+    business_names: [],
+    stocks: [],
+    stock_count: 0,
+    mapping_count: 0
+  });
   
   // 查询参数
   const [queryType, setQueryType] = useState<string>('single');
@@ -67,6 +118,49 @@ const BoardHistory: React.FC = () => {
     moment().format('YYYY-MM-DD')
   ]);
   const [selectedBoard, setSelectedBoard] = useState<string>('AI算力');
+
+  // 获取所有板块摘要
+  const fetchBoardsSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const response = await fetch('/api/sentiment/all_boards_summary');
+      const data = await response.json();
+      if (response.ok && !data.error) {
+        setBoardsSummary(data);
+      } else {
+        console.error('获取板块摘要失败:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to fetch boards summary:', error);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  // 获取 AI 关注的股票列表
+  const fetchAiFocusStocks = useCallback(async () => {
+    setAiFocusLoading(true);
+    try {
+      const response = await fetch('/api/focus_stocks_ai_list');
+      const data = await response.json();
+      if (response.ok && data) {
+        const focusMap: Record<string, any> = {};
+        data.forEach((item: any) => {
+          focusMap[item.symbol] = {
+            datestr: item.datestr,
+            max_240_pct: item.max_240_pct,
+            min_240_pct: item.min_240_pct
+          };
+        });
+        setAiFocusStocks(focusMap);
+        console.log('AI关注股票加载完成，共', Object.keys(focusMap).length, '只');
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI focus stocks:', error);
+    } finally {
+      setAiFocusLoading(false);
+    }
+  }, []);
 
   // 获取所有可用日期
   const fetchAvailableDates = useCallback(async () => {
@@ -163,8 +257,6 @@ const BoardHistory: React.FC = () => {
 
   // 获取板块文章详情
   const fetchBoardArticles = async (date: string, board: string) => {
-    console.log('Fetching articles for:', { date, board });
-    
     if (!date || !board) {
       message.error('日期或板块信息无效');
       return;
@@ -179,7 +271,6 @@ const BoardHistory: React.FC = () => {
     try {
       const response = await fetch(`/api/board/articles?date=${date}&board=${encodeURIComponent(board)}`);
       const data = await response.json();
-      console.log('API response:', data);
       
       if (response.ok && data) {
         setArticles(data.articles || []);
@@ -201,11 +292,164 @@ const BoardHistory: React.FC = () => {
     }
   };
 
+  // 获取板块股票信息
+  const fetchBoardStocks = async (board: string) => {
+    if (!board) {
+      message.error('板块信息无效');
+      return;
+    }
+    
+    setStocksModalVisible(true);
+    setCurrentBoard(board);
+    setStocksLoading(true);
+    
+    try {
+      const response = await fetch(`/api/sentiment/board_stocks?board=${encodeURIComponent(board)}`);
+      const data = await response.json();
+      
+      if (response.ok && !data.error) {
+        // 合并 AI 关注信息
+        const stocksWithAiInfo = (data.stocks || []).map((stock: any) => ({
+          ...stock,
+          ai_focus: aiFocusStocks[stock.symbol] ? {
+            is_focused: true,
+            datestr: aiFocusStocks[stock.symbol].datestr,
+            max_240_pct: aiFocusStocks[stock.symbol].max_240_pct,
+            min_240_pct: aiFocusStocks[stock.symbol].min_240_pct
+          } : {
+            is_focused: false
+          }
+        }));
+        
+        setStocksData({
+          board_name: data.board_name,
+          keywords: data.keywords || [],
+          business_names: data.business_names || [],
+          stocks: stocksWithAiInfo,
+          stock_count: data.stock_count || 0,
+          mapping_count: data.mapping_count || 0
+        });
+        message.success(`获取到 ${data.stock_count || 0} 只相关股票`);
+      } else {
+        message.error(data?.error || '获取股票信息失败');
+      }
+    } catch (error) {
+      console.error('Failed to fetch stocks:', error);
+      message.error('获取股票信息失败');
+    } finally {
+      setStocksLoading(false);
+    }
+  };
+
   // 初始加载
   useEffect(() => {
     fetchAvailableDates();
     fetchSingleDayData();
+    fetchBoardsSummary();
+    fetchAiFocusStocks();
   }, []);
+
+  // 股票表格列定义
+  const stockColumns = [
+    {
+      title: '序号',
+      key: 'index',
+      width: 60,
+      render: (_: any, __: any, index: number) => index + 1,
+    },
+    {
+      title: '股票代码',
+      dataIndex: 'symbol',
+      key: 'symbol',
+      width: 130,
+      render: (symbol: string, record: StockInfo) => (
+        <Space>
+          <Tag color="green" style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+            {symbol}
+          </Tag>
+          {record.ai_focus?.is_focused && (
+            <Tooltip title="AI算法推荐关注">
+              <RobotOutlined style={{ color: '#1890ff', fontSize: 14 }} />
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: '股票名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 150,
+      render: (name: string, record: StockInfo) => (
+        <span style={{ 
+          fontWeight: record.ai_focus?.is_focused ? 600 : 'normal',
+          color: record.ai_focus?.is_focused ? '#1890ff' : 'inherit'
+        }}>
+          {name || record.symbol}
+        </span>
+      ),
+    },
+    {
+      title: '所属业务板块',
+      dataIndex: 'business_display_name',  // 改为 business_display_name
+      key: 'business_display_name',
+      width: 180,
+      render: (name: string) => (
+        <Tag color="cyan">{name || '-'}</Tag>
+      ),
+    },
+    {
+      title: 'AI关注信息',
+      key: 'ai_info',
+      width: 220,
+      render: (_: any, record: StockInfo) => {
+        if (record.ai_focus?.is_focused) {
+          const { datestr, max_240_pct, min_240_pct } = record.ai_focus;
+          return (
+            <Tooltip 
+              title={
+                <div>
+                  <div>关注日期: {datestr}</div>
+                  <div>最大涨幅: {max_240_pct !== undefined ? `${max_240_pct}%` : '无数据'}</div>
+                  <div>最大跌幅: {min_240_pct !== undefined ? `${min_240_pct}%` : '无数据'}</div>
+                </div>
+              }
+            >
+              <Tag color="blue" style={{ cursor: 'pointer' }}>
+                <RobotOutlined /> AI关注
+                {max_240_pct > 0 && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>↑{max_240_pct}%</span>}
+                {min_240_pct < 0 && <span style={{ color: '#52c41a', marginLeft: 4 }}>↓{Math.abs(min_240_pct)}%</span>}
+              </Tag>
+            </Tooltip>
+          );
+        }
+        return <span style={{ color: '#999' }}>-</span>;
+      },
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 140,
+      render: (_: any, record: StockInfo) => (
+        <Space>
+          <Button 
+            type="link" 
+            size="small"
+            onClick={() => window.open(`https://xueqiu.com/S/${record.symbol}`, '_blank')}
+          >
+            雪球
+          </Button>
+          <Button 
+            type="link" 
+            size="small"
+            onClick={() => window.open(`https://quote.eastmoney.com/${record.symbol}.html`, '_blank')}
+          >
+            东方财富
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   // 单日查询表格列定义
   const boardColumnsWithDetail = [
@@ -227,7 +471,7 @@ const BoardHistory: React.FC = () => {
       title: '板块',
       dataIndex: 'board',
       key: 'board',
-      width: 120,
+      width: 100,
       render: (board: string) => (
         <Tag color="blue" style={{ fontSize: 14, fontWeight: 500 }}>
           {board}
@@ -238,7 +482,7 @@ const BoardHistory: React.FC = () => {
       title: '综合得分',
       dataIndex: 'total_score',
       key: 'total_score',
-      width: 120,
+      width: 100,
       sorter: (a: BoardScore, b: BoardScore) => a.total_score - b.total_score,
       render: (score: number) => (
         <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
@@ -250,20 +494,20 @@ const BoardHistory: React.FC = () => {
       title: '文章数量',
       dataIndex: 'article_count',
       key: 'article_count',
-      width: 100,
+      width: 90,
       render: (count: number) => `${count} 篇`,
     },
     {
       title: '平均得分',
       dataIndex: 'avg_score',
       key: 'avg_score',
-      width: 100,
+      width: 90,
       render: (score: number) => score.toFixed(2),
     },
     {
       title: '热度',
       key: 'heat',
-      width: 150,
+      width: 120,
       render: (_: any, record: BoardScore) => {
         const heatLevel = Math.min(Math.floor(record.total_score / 20) + 1, 5);
         const stars = '⭐'.repeat(heatLevel);
@@ -273,22 +517,32 @@ const BoardHistory: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 160,
       render: (_: any, record: BoardScore) => (
-        <Button 
-          type="link" 
-          size="small"
-          icon={<FileTextOutlined />}
-          onClick={() => {
-            if (dailyData?.date) {
-              fetchBoardArticles(dailyData.date, record.board);
-            } else {
-              message.error('无法获取当前日期');
-            }
-          }}
-        >
-          查看详情
-        </Button>
+        <Space size="small">
+          <Button 
+            type="link" 
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => {
+              if (dailyData?.date) {
+                fetchBoardArticles(dailyData.date, record.board);
+              } else {
+                message.error('无法获取当前日期');
+              }
+            }}
+          >
+            文章
+          </Button>
+          <Button 
+            type="link" 
+            size="small"
+            icon={<StockOutlined />}
+            onClick={() => fetchBoardStocks(record.board)}
+          >
+            股票
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -313,7 +567,7 @@ const BoardHistory: React.FC = () => {
       title: '板块',
       dataIndex: 'board',
       key: 'board',
-      width: 120,
+      width: 100,
       render: (board: string) => (
         <Tag color="blue" style={{ fontSize: 14, fontWeight: 500 }}>
           {board}
@@ -324,7 +578,7 @@ const BoardHistory: React.FC = () => {
       title: '综合得分',
       dataIndex: 'total_score',
       key: 'total_score',
-      width: 120,
+      width: 100,
       render: (score: number) => (
         <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
           {score.toFixed(2)}
@@ -335,20 +589,20 @@ const BoardHistory: React.FC = () => {
       title: '文章数量',
       dataIndex: 'article_count',
       key: 'article_count',
-      width: 100,
+      width: 90,
       render: (count: number) => `${count} 篇`,
     },
     {
       title: '平均得分',
       dataIndex: 'avg_score',
       key: 'avg_score',
-      width: 100,
+      width: 90,
       render: (score: number) => score.toFixed(2),
     },
     {
       title: '热度',
       key: 'heat',
-      width: 150,
+      width: 120,
       render: (_: any, record: BoardScore) => {
         const heatLevel = Math.min(Math.floor(record.total_score / 20) + 1, 5);
         const stars = '⭐'.repeat(heatLevel);
@@ -358,21 +612,31 @@ const BoardHistory: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 160,
       render: (_: any, record: BoardScore) => (
-        <Button 
-          type="link" 
-          size="small"
-          icon={<FileTextOutlined />}
-          onClick={() => fetchBoardArticles(date, record.board)}
-        >
-          查看详情
-        </Button>
+        <Space size="small">
+          <Button 
+            type="link" 
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => fetchBoardArticles(date, record.board)}
+          >
+            文章
+          </Button>
+          <Button 
+            type="link" 
+            size="small"
+            icon={<StockOutlined />}
+            onClick={() => fetchBoardStocks(record.board)}
+          >
+            股票
+          </Button>
+        </Space>
       ),
     },
   ];
 
-  // 趋势表格列定义（简化版，移除有问题的趋势列）
+  // 趋势表格列定义
   const trendColumns = [
     {
       title: '日期',
@@ -632,6 +896,58 @@ const BoardHistory: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
+      {/* 板块股票统计卡片 */}
+      <Card 
+        title={
+          <span>
+            <StockOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            板块股票统计（舆情映射）
+          </span>
+        }
+        style={{ marginBottom: 20 }}
+        extra={
+          <Button 
+            icon={<ReloadOutlined />} 
+            size="small" 
+            onClick={fetchBoardsSummary}
+            loading={summaryLoading}
+          >
+            刷新
+          </Button>
+        }
+      >
+        <Spin spinning={summaryLoading}>
+          <Row gutter={16}>
+            {boardsSummary.map((board) => (
+              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
+                <Card 
+                  size="small" 
+                  hoverable
+                  onClick={() => fetchBoardStocks(board.board_name)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <Statistic
+                    title={<Tag color="blue">{board.board_name}</Tag>}
+                    value={board.stock_count}
+                    suffix="只股票"
+                    valueStyle={{ color: '#52c41a', fontSize: 20 }}
+                  />
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                    关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个
+                  </div>
+                  <Progress 
+                    percent={Math.min((board.stock_count / 2000) * 100, 100)} 
+                    size="small" 
+                    showInfo={false}
+                    strokeColor="#52c41a"
+                  />
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </Spin>
+      </Card>
+
       {/* 查询面板 */}
       <Card 
         title={
@@ -942,6 +1258,98 @@ const BoardHistory: React.FC = () => {
             />
           ) : (
             !articlesLoading && <Empty description="暂无文章数据" />
+          )}
+        </Spin>
+      </Modal>
+
+      {/* 股票列表弹窗 */}
+      <Modal
+        title={
+          <span>
+            <StockOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+            {stocksData.board_name} 板块 - 相关股票（舆情映射）
+          </span>
+        }
+        visible={stocksModalVisible}
+        onCancel={() => setStocksModalVisible(false)}
+        footer={null}
+        width={1200}
+        destroyOnClose
+      >
+        <Spin spinning={stocksLoading}>
+          {stocksData.stock_count > 0 ? (
+            <>
+              {/* 板块信息 */}
+              <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="板块名称" span={2}>
+                  <Tag color="blue" style={{ fontSize: 14, fontWeight: 500 }}>
+                    {stocksData.board_name}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="相关关键词" span={2}>
+                  {stocksData.keywords.map(kw => (
+                    <Tag key={kw} color="cyan" style={{ marginBottom: 4 }}>
+                      {kw}
+                    </Tag>
+                  ))}
+                </Descriptions.Item>
+                <Descriptions.Item label="映射业务板块">
+                  {stocksData.business_names.map(bn => (
+                    <Tag key={bn} color="purple" style={{ marginBottom: 4 }}>
+                      {bn}
+                    </Tag>
+                  ))}
+                </Descriptions.Item>
+                <Descriptions.Item label="股票数量">
+                  <span style={{ fontSize: 18, fontWeight: 'bold', color: '#52c41a' }}>
+                    {stocksData.stock_count}
+                  </span>
+                  只
+                </Descriptions.Item>
+                <Descriptions.Item label="AI关注股票">
+                  <span style={{ color: '#1890ff' }}>
+                    <RobotOutlined /> {stocksData.stocks.filter(s => s.ai_focus?.is_focused).length} 只
+                  </span>
+                </Descriptions.Item>
+              </Descriptions>
+
+              {/* 股票列表 */}
+              <Divider orientation="left">股票列表</Divider>
+              <div style={{ marginBottom: 16 }}>
+                <Space>
+                  <Tag color="blue">总股票: {stocksData.stock_count}</Tag>
+                  <Tag color="cyan">
+                    <RobotOutlined /> AI关注: {stocksData.stocks.filter(s => s.ai_focus?.is_focused).length}
+                  </Tag>
+                </Space>
+              </div>
+              <Table
+                dataSource={stocksData.stocks}
+                columns={stockColumns}
+                rowKey="symbol"
+                size="small"
+                pagination={{ 
+                  pageSize: 20, 
+                  showSizeChanger: true, 
+                  showTotal: (total) => `共 ${total} 只股票` 
+                }}
+                scroll={{ y: 500 }}
+              />
+            </>
+          ) : (
+            !stocksLoading && (
+              <Empty 
+                description={
+                  <span>
+                    暂无 {stocksData.board_name} 板块的相关股票数据
+                    <br />
+                    <span style={{ fontSize: 12, color: '#999' }}>
+                      请确认舆情映射配置是否正确
+                    </span>
+                  </span>
+                }
+              />
+            )
           )}
         </Spin>
       </Modal>

@@ -850,6 +850,14 @@ router.get('/ai_focus_stocks_trend', function (req, res, next) {
   });
 });
 
+router.get('/focus_stocks_ai_list', function (req, res, next) {
+  let sql = `SELECT symbol, datestr, max_240_pct, min_240_pct FROM focus_stocks_ai WHERE datestr >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY symbol ORDER BY datestr DESC;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/totaltradevol', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
@@ -1582,6 +1590,132 @@ router.get('/board/articles', (req: Request, res: Response) => {
     }
     
     res.json({ articles: rows || [] });
+  });
+});
+
+// ========== 舆情板块股票映射 API ==========
+
+// 获取板块对应的股票列表（从舆情映射表查询）
+router.get('/sentiment/board_stocks', (req: Request, res: Response) => {
+  const boardName = req.query.board as string;
+  
+  if (!boardName) {
+    res.status(400).json({ error: '缺少板块名称参数' });
+    return;
+  }
+  
+  // 第一步：查询板块对应的所有 business_code
+  const mappingSql = `
+    SELECT DISTINCT business_code, business_name
+    FROM sentiment_keyword_mapping
+    WHERE board_name = ?
+  `;
+  
+  pool.query(mappingSql, [boardName], (err: Error | null, mappings: any[]) => {
+    if (err) {
+      console.error('查询映射失败:', err);
+      res.status(500).json({ error: '查询映射失败' });
+      return;
+    }
+    
+    if (!mappings || mappings.length === 0) {
+      res.json({
+        board_name: boardName,
+        keywords: [],
+        business_names: [],
+        stocks: [],
+        stock_count: 0,
+        mapping_count: 0,
+        message: '未找到该板块的映射配置'
+      });
+      return;
+    }
+    
+    // 获取所有映射的 business_code
+    const mappedBusinessCodes = mappings.map(m => m.business_code);
+    const placeholders = mappedBusinessCodes.map(() => '?').join(',');
+    
+    // 第二步：查询股票，并且只返回在映射 business_code 中的业务板块名称
+    // 使用子查询或 INNER JOIN 确保只返回匹配的业务板块
+    const stocksSql = `
+      SELECT DISTINCT 
+        sbs.symbol, 
+        COALESCE(st.name, st_stocks.name, sbs.symbol) as stock_name,
+        b.name as business_display_name,
+        b.code as business_code
+      FROM sw_stock_business sbs
+      INNER JOIN business b ON sbs.business_code = b.code
+      LEFT JOIN stocks st ON sbs.symbol = st.symbol
+      LEFT JOIN st_stocks ON sbs.symbol = st_stocks.symbol
+      WHERE sbs.business_code IN (${placeholders})
+      ORDER BY sbs.symbol
+    `;
+    
+    pool.query(stocksSql, mappedBusinessCodes, (err: Error | null, stocks: any[]) => {
+      if (err) {
+        console.error('查询股票失败:', err);
+        res.status(500).json({ error: '查询股票失败' });
+        return;
+      }
+      
+      // 获取板块关键词列表
+      const keywordsSql = `
+        SELECT DISTINCT keyword
+        FROM sentiment_keyword_mapping
+        WHERE board_name = ?
+        ORDER BY keyword
+      `;
+      
+      pool.query(keywordsSql, [boardName], (err: Error | null, keywords: any[]) => {
+        if (err) {
+          console.error('查询关键词失败:', err);
+          res.status(500).json({ error: '查询关键词失败' });
+          return;
+        }
+        
+        const keywordList = keywords.map(k => k.keyword);
+        // 获取映射的业务板块名称（使用 business.name）
+        const businessNames = [...new Set(mappings.map(m => m.business_name))];
+        
+        res.json({
+          board_name: boardName,
+          keywords: keywordList,
+          business_names: businessNames,
+          stocks: stocks.map((s: any) => ({
+            symbol: s.symbol,
+            name: s.stock_name || s.symbol,
+            business_display_name: s.business_display_name,  // 这是与映射匹配的业务板块名称
+            business_code: s.business_code
+          })),
+          stock_count: stocks.length,
+          mapping_count: mappings.length
+        });
+      });
+    });
+  });
+});
+
+// 获取所有板块摘要（用于统计卡片）
+router.get('/sentiment/all_boards_summary', (req: Request, res: Response) => {
+  const sql = `
+    SELECT 
+      skm.board_name,
+      COUNT(DISTINCT skm.keyword) as keyword_count,
+      COUNT(DISTINCT skm.business_code) as business_count,
+      COUNT(DISTINCT sbs.symbol) as stock_count
+    FROM sentiment_keyword_mapping skm
+    LEFT JOIN sw_stock_business sbs ON skm.business_code = sbs.business_code
+    GROUP BY skm.board_name
+    ORDER BY skm.board_name
+  `;
+  
+  pool.query(sql, (err: Error | null, rows: any[]) => {
+    if (err) {
+      console.error('查询板块摘要失败:', err);
+      res.status(500).json({ error: '查询失败' });
+      return;
+    }
+    res.json(rows);
   });
 });
 
