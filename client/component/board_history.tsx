@@ -308,9 +308,10 @@ const BoardHistory: React.FC = () => {
       const data = await response.json();
       
       if (response.ok && !data.error) {
-        // 合并 AI 关注信息
+        // 合并 AI 关注信息，并按 AI 关注状态排序（AI关注的排前面）
         const stocksWithAiInfo = (data.stocks || []).map((stock: any) => ({
           ...stock,
+          business_display_name: stock.business_display_name,
           ai_focus: aiFocusStocks[stock.symbol] ? {
             is_focused: true,
             datestr: aiFocusStocks[stock.symbol].datestr,
@@ -321,11 +322,18 @@ const BoardHistory: React.FC = () => {
           }
         }));
         
+        // 排序：AI关注的在前面
+        const sortedStocks = stocksWithAiInfo.sort((a: StockInfo, b: StockInfo) => {
+          if (a.ai_focus?.is_focused && !b.ai_focus?.is_focused) return -1;
+          if (!a.ai_focus?.is_focused && b.ai_focus?.is_focused) return 1;
+          return 0;
+        });
+        
         setStocksData({
           board_name: data.board_name,
           keywords: data.keywords || [],
           business_names: data.business_names || [],
-          stocks: stocksWithAiInfo,
+          stocks: sortedStocks,
           stock_count: data.stock_count || 0,
           mapping_count: data.mapping_count || 0
         });
@@ -352,96 +360,101 @@ const BoardHistory: React.FC = () => {
   // 股票表格列定义
   const stockColumns = [
     {
-      title: '序号',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>序号</span>,
       key: 'index',
-      width: 60,
-      render: (_: any, __: any, index: number) => index + 1,
+      width: 70,
+      render: (_: any, __: any, index: number) => (
+        <span style={{ fontSize: 13 }}>{index + 1}</span>
+      ),
     },
     {
-      title: '股票代码',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>股票代码</span>,
       dataIndex: 'symbol',
       key: 'symbol',
-      width: 130,
+      width: 140,
       render: (symbol: string, record: StockInfo) => (
         <Space>
-          <Tag color="green" style={{ fontFamily: 'monospace', fontWeight: 500 }}>
+          <Tag color="green" style={{ fontFamily: 'monospace', fontWeight: 500, fontSize: 13, padding: '4px 8px' }}>
             {symbol}
           </Tag>
           {record.ai_focus?.is_focused && (
             <Tooltip title="AI算法推荐关注">
-              <RobotOutlined style={{ color: '#1890ff', fontSize: 14 }} />
+              <RobotOutlined style={{ color: '#1890ff', fontSize: 16 }} />
             </Tooltip>
           )}
         </Space>
       ),
     },
     {
-      title: '股票名称',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>股票名称</span>,
       dataIndex: 'name',
       key: 'name',
-      width: 150,
+      width: 160,
       render: (name: string, record: StockInfo) => (
         <span style={{ 
           fontWeight: record.ai_focus?.is_focused ? 600 : 'normal',
-          color: record.ai_focus?.is_focused ? '#1890ff' : 'inherit'
+          color: record.ai_focus?.is_focused ? '#1890ff' : 'inherit',
+          fontSize: 14
         }}>
           {name || record.symbol}
         </span>
       ),
     },
     {
-      title: '所属业务板块',
-      dataIndex: 'business_display_name',  // 改为 business_display_name
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>所属业务板块</span>,
+      dataIndex: 'business_display_name',
       key: 'business_display_name',
-      width: 180,
+      width: 200,
       render: (name: string) => (
-        <Tag color="cyan">{name || '-'}</Tag>
+        <Tag color="cyan" style={{ fontSize: 13, padding: '4px 10px' }}>{name || '-'}</Tag>
       ),
     },
     {
-      title: 'AI关注信息',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>AI关注信息</span>,
       key: 'ai_info',
-      width: 220,
+      width: 240,
       render: (_: any, record: StockInfo) => {
         if (record.ai_focus?.is_focused) {
           const { datestr, max_240_pct, min_240_pct } = record.ai_focus;
           return (
             <Tooltip 
               title={
-                <div>
+                <div style={{ fontSize: 13 }}>
                   <div>关注日期: {datestr}</div>
                   <div>最大涨幅: {max_240_pct !== undefined ? `${max_240_pct}%` : '无数据'}</div>
                   <div>最大跌幅: {min_240_pct !== undefined ? `${min_240_pct}%` : '无数据'}</div>
                 </div>
               }
             >
-              <Tag color="blue" style={{ cursor: 'pointer' }}>
+              <Tag color="blue" style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}>
                 <RobotOutlined /> AI关注
-                {max_240_pct > 0 && <span style={{ color: '#ff4d4f', marginLeft: 4 }}>↑{max_240_pct}%</span>}
-                {min_240_pct < 0 && <span style={{ color: '#52c41a', marginLeft: 4 }}>↓{Math.abs(min_240_pct)}%</span>}
+                {max_240_pct > 0 && <span style={{ color: '#ff4d4f', marginLeft: 6, fontSize: 13 }}>↑{max_240_pct}%</span>}
+                {min_240_pct < 0 && <span style={{ color: '#52c41a', marginLeft: 6, fontSize: 13 }}>↓{Math.abs(min_240_pct)}%</span>}
               </Tag>
             </Tooltip>
           );
         }
-        return <span style={{ color: '#999' }}>-</span>;
+        return <span style={{ color: '#999', fontSize: 13 }}>-</span>;
       },
     },
     {
-      title: '操作',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>操作</span>,
       key: 'action',
-      width: 140,
+      width: 160,
       render: (_: any, record: StockInfo) => (
         <Space>
           <Button 
             type="link" 
-            size="small"
+            size="middle"
+            style={{ fontSize: 13 }}
             onClick={() => window.open(`https://xueqiu.com/S/${record.symbol}`, '_blank')}
           >
             雪球
           </Button>
           <Button 
             type="link" 
-            size="small"
+            size="middle"
+            style={{ fontSize: 13 }}
             onClick={() => window.open(`https://quote.eastmoney.com/${record.symbol}.html`, '_blank')}
           >
             东方财富
@@ -1265,7 +1278,7 @@ const BoardHistory: React.FC = () => {
       {/* 股票列表弹窗 */}
       <Modal
         title={
-          <span>
+          <span style={{ fontSize: 18 }}>
             <StockOutlined style={{ marginRight: 8, color: '#52c41a' }} />
             {stocksData.board_name} 板块 - 相关股票（舆情映射）
           </span>
@@ -1273,74 +1286,115 @@ const BoardHistory: React.FC = () => {
         visible={stocksModalVisible}
         onCancel={() => setStocksModalVisible(false)}
         footer={null}
-        width={1200}
+        width="90%"
+        style={{ top: 20 }}
+        bodyStyle={{ height: 'calc(100vh - 150px)', overflowY: 'auto', padding: '20px' }}
         destroyOnClose
       >
         <Spin spinning={stocksLoading}>
           {stocksData.stock_count > 0 ? (
             <>
-              {/* 板块信息 */}
-              <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
-                <Descriptions.Item label="板块名称" span={2}>
-                  <Tag color="blue" style={{ fontSize: 14, fontWeight: 500 }}>
-                    {stocksData.board_name}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="相关关键词" span={2}>
-                  {stocksData.keywords.map(kw => (
-                    <Tag key={kw} color="cyan" style={{ marginBottom: 4 }}>
-                      {kw}
-                    </Tag>
-                  ))}
-                </Descriptions.Item>
-                <Descriptions.Item label="映射业务板块">
-                  {stocksData.business_names.map(bn => (
-                    <Tag key={bn} color="purple" style={{ marginBottom: 4 }}>
-                      {bn}
-                    </Tag>
-                  ))}
-                </Descriptions.Item>
-                <Descriptions.Item label="股票数量">
-                  <span style={{ fontSize: 18, fontWeight: 'bold', color: '#52c41a' }}>
-                    {stocksData.stock_count}
-                  </span>
-                  只
-                </Descriptions.Item>
-                <Descriptions.Item label="AI关注股票">
-                  <span style={{ color: '#1890ff' }}>
-                    <RobotOutlined /> {stocksData.stocks.filter(s => s.ai_focus?.is_focused).length} 只
-                  </span>
-                </Descriptions.Item>
-              </Descriptions>
+              {/* 板块信息统计卡片 */}
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={24}>
+                  <Card size="small">
+                    <Row gutter={16}>
+                      <Col span={6}>
+                        <Statistic 
+                          title={<span style={{ fontSize: 14 }}>板块名称</span>}
+                          value={stocksData.board_name} 
+                          valueStyle={{ fontSize: 18, fontWeight: 'bold', color: '#1890ff' }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic 
+                          title={<span style={{ fontSize: 14 }}>股票总数</span>}
+                          value={stocksData.stock_count} 
+                          valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic 
+                          title={<span style={{ fontSize: 14 }}>AI关注股票</span>}
+                          value={stocksData.stocks.filter(s => s.ai_focus?.is_focused).length}
+                          valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}
+                          prefix={<RobotOutlined style={{ fontSize: 18 }} />}
+                        />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic 
+                          title={<span style={{ fontSize: 14 }}>映射业务板块数</span>}
+                          value={stocksData.business_names.length}
+                          valueStyle={{ fontSize: 18 }}
+                        />
+                      </Col>
+                    </Row>
+                  </Card>
+                </Col>
+              </Row>
+
+              {/* 关键词和映射板块 */}
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col span={12}>
+                  <Card size="small" title={<span style={{ fontSize: 15, fontWeight: 'bold' }}>相关关键词</span>}>
+                    <div style={{ maxHeight: 80, overflowY: 'auto' }}>
+                      {stocksData.keywords.map(kw => (
+                        <Tag key={kw} color="cyan" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>
+                          {kw}
+                        </Tag>
+                      ))}
+                    </div>
+                  </Card>
+                </Col>
+                <Col span={12}>
+                  <Card size="small" title={<span style={{ fontSize: 15, fontWeight: 'bold' }}>映射业务板块</span>}>
+                    <div style={{ maxHeight: 80, overflowY: 'auto' }}>
+                      {stocksData.business_names.map(bn => (
+                        <Tag key={bn} color="purple" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>
+                          {bn}
+                        </Tag>
+                      ))}
+                    </div>
+                  </Card>
+                </Col>
+              </Row>
 
               {/* 股票列表 */}
-              <Divider orientation="left">股票列表</Divider>
-              <div style={{ marginBottom: 16 }}>
+              <Divider orientation="left" style={{ margin: '8px 0', fontSize: 15 }}>
                 <Space>
-                  <Tag color="blue">总股票: {stocksData.stock_count}</Tag>
-                  <Tag color="cyan">
+                  <span style={{ fontSize: 15, fontWeight: 'bold' }}>股票列表</span>
+                  <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>总股票: {stocksData.stock_count}</Tag>
+                  <Tag color="cyan" style={{ fontSize: 13, padding: '4px 10px' }}>
                     <RobotOutlined /> AI关注: {stocksData.stocks.filter(s => s.ai_focus?.is_focused).length}
                   </Tag>
                 </Space>
-              </div>
+              </Divider>
+              
               <Table
                 dataSource={stocksData.stocks}
                 columns={stockColumns}
                 rowKey="symbol"
-                size="small"
+                size="middle"
                 pagination={{ 
-                  pageSize: 20, 
-                  showSizeChanger: true, 
-                  showTotal: (total) => `共 ${total} 只股票` 
+                  pageSize: 100,
+                  showSizeChanger: true,
+                  showTotal: (total) => <span style={{ fontSize: 13 }}>共 {total} 只股票</span>,
+                  pageSizeOptions: ['50', '100', '200', '500'],
+                  itemRender: (page, type, originalElement) => {
+                    if (type === 'page') {
+                      return <span style={{ fontSize: 13 }}>{page}</span>;
+                    }
+                    return originalElement;
+                  }
                 }}
-                scroll={{ y: 500 }}
+                scroll={{ y: 'calc(100vh - 420px)' }}
               />
             </>
           ) : (
             !stocksLoading && (
               <Empty 
                 description={
-                  <span>
+                  <span style={{ fontSize: 14 }}>
                     暂无 {stocksData.board_name} 板块的相关股票数据
                     <br />
                     <span style={{ fontSize: 12, color: '#999' }}>
