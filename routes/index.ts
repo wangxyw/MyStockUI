@@ -851,7 +851,12 @@ router.get('/ai_focus_stocks_trend', function (req, res, next) {
 });
 
 router.get('/focus_stocks_ai_list', function (req, res, next) {
-  let sql = `SELECT symbol, datestr, max_240_pct, min_240_pct FROM focus_stocks_ai WHERE datestr >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY symbol ORDER BY datestr DESC;`;
+  let sql = `SELECT fsa.symbol AS symbol, fsa.datestr AS datestr, fsa.max_240_pct AS max_240_pct, fsa.min_240_pct AS min_240_pct, fs.continuance_BYG AS price_change 
+             FROM focus_stocks_ai fsa 
+             LEFT JOIN focus_stocks fs ON fsa.symbol = fs.symbol 
+             WHERE fsa.datestr >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) 
+             GROUP BY fsa.symbol 
+             ORDER BY fsa.datestr DESC;`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
@@ -1648,6 +1653,7 @@ router.get('/sentiment/board_stocks', (req: Request, res: Response) => {
       LEFT JOIN stocks st ON sbs.symbol = st.symbol
       LEFT JOIN st_stocks ON sbs.symbol = st_stocks.symbol
       WHERE sbs.business_code IN (${placeholders})
+      GROUP BY sbs.symbol
       ORDER BY sbs.symbol
     `;
     

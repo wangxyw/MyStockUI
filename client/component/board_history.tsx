@@ -56,6 +56,7 @@ interface StockInfo {
     datestr?: string;
     max_240_pct?: number;
     min_240_pct?: number;
+    price_change?: string;
   };
 }
 
@@ -149,7 +150,8 @@ const BoardHistory: React.FC = () => {
           focusMap[item.symbol] = {
             datestr: item.datestr,
             max_240_pct: item.max_240_pct,
-            min_240_pct: item.min_240_pct
+            min_240_pct: item.min_240_pct,
+            price_change: item.price_change  // 新增：保存 price_change
           };
         });
         setAiFocusStocks(focusMap);
@@ -308,7 +310,7 @@ const BoardHistory: React.FC = () => {
       const data = await response.json();
       
       if (response.ok && !data.error) {
-        // 合并 AI 关注信息，并按 AI 关注状态排序（AI关注的排前面）
+        // 合并 AI 关注信息
         const stocksWithAiInfo = (data.stocks || []).map((stock: any) => ({
           ...stock,
           business_display_name: stock.business_display_name,
@@ -316,16 +318,28 @@ const BoardHistory: React.FC = () => {
             is_focused: true,
             datestr: aiFocusStocks[stock.symbol].datestr,
             max_240_pct: aiFocusStocks[stock.symbol].max_240_pct,
-            min_240_pct: aiFocusStocks[stock.symbol].min_240_pct
+            min_240_pct: aiFocusStocks[stock.symbol].min_240_pct,
+            price_change: aiFocusStocks[stock.symbol].price_change  // 新增：传递 price_change
           } : {
             is_focused: false
           }
         }));
         
-        // 排序：AI关注的在前面
+        // 排序：AI关注的在前面，其中 price_change 有值的排在更前面
         const sortedStocks = stocksWithAiInfo.sort((a: StockInfo, b: StockInfo) => {
-          if (a.ai_focus?.is_focused && !b.ai_focus?.is_focused) return -1;
-          if (!a.ai_focus?.is_focused && b.ai_focus?.is_focused) return 1;
+          const aFocused = a.ai_focus?.is_focused;
+          const bFocused = b.ai_focus?.is_focused;
+          const aHasPriceChange = aFocused && a.ai_focus?.price_change;
+          const bHasPriceChange = bFocused && b.ai_focus?.price_change;
+          
+          if (aFocused && !bFocused) return -1;
+          if (!aFocused && bFocused) return 1;
+          if (aFocused && bFocused) {
+            // 都有 AI 关注时，price_change 有值的排在前面
+            if (aHasPriceChange && !bHasPriceChange) return -1;
+            if (!aHasPriceChange && bHasPriceChange) return 1;
+            return 0;
+          }
           return 0;
         });
         
@@ -412,26 +426,49 @@ const BoardHistory: React.FC = () => {
     {
       title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>AI关注信息</span>,
       key: 'ai_info',
-      width: 240,
+      width: 320,
       render: (_: any, record: StockInfo) => {
         if (record.ai_focus?.is_focused) {
-          const { datestr, max_240_pct, min_240_pct } = record.ai_focus;
+          const { datestr, max_240_pct, min_240_pct, price_change } = record.ai_focus;
+          
+          // 单独显示 price_change 值
+          let priceChangeDisplay = null;
+          if (price_change) {
+            const changePercent = price_change.split('|')[0]?.trim() || '';
+            const isPositive = changePercent.startsWith('+') || (!changePercent.startsWith('-') && changePercent !== '0.0%');
+            const isNegative = changePercent.startsWith('-');
+            
+            priceChangeDisplay = (
+              <div style={{ marginTop: 4, fontSize: 12, lineHeight: '1.4' }}>
+                <span style={{ 
+                  color: isPositive ? '#ff4d4f' : (isNegative ? '#52c41a' : '#999'),
+                  fontFamily: 'monospace'
+                }}>
+                  {price_change}
+                </span>
+              </div>
+            );
+          }
+          
           return (
-            <Tooltip 
-              title={
-                <div style={{ fontSize: 13 }}>
-                  <div>关注日期: {datestr}</div>
-                  <div>最大涨幅: {max_240_pct !== undefined ? `${max_240_pct}%` : '无数据'}</div>
-                  <div>最大跌幅: {min_240_pct !== undefined ? `${min_240_pct}%` : '无数据'}</div>
-                </div>
-              }
-            >
-              <Tag color="blue" style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}>
-                <RobotOutlined /> AI关注
-                {max_240_pct > 0 && <span style={{ color: '#ff4d4f', marginLeft: 6, fontSize: 13 }}>↑{max_240_pct}%</span>}
-                {min_240_pct < 0 && <span style={{ color: '#52c41a', marginLeft: 6, fontSize: 13 }}>↓{Math.abs(min_240_pct)}%</span>}
-              </Tag>
-            </Tooltip>
+            <div>
+              <Tooltip 
+                title={
+                  <div style={{ fontSize: 13 }}>
+                    <div>关注日期: {datestr}</div>
+                    <div>最大涨幅: {max_240_pct !== undefined ? `${max_240_pct}%` : '无数据'}</div>
+                    <div>最大跌幅: {min_240_pct !== undefined ? `${min_240_pct}%` : '无数据'}</div>
+                  </div>
+                }
+              >
+                <Tag color="blue" style={{ cursor: 'pointer', fontSize: 13, padding: '4px 10px' }}>
+                  <RobotOutlined /> AI关注
+                  {max_240_pct > 0 && <span style={{ color: '#ff4d4f', marginLeft: 6, fontSize: 13 }}>↑{max_240_pct}%</span>}
+                  {min_240_pct < 0 && <span style={{ color: '#52c41a', marginLeft: 6, fontSize: 13 }}>↓{Math.abs(min_240_pct)}%</span>}
+                </Tag>
+              </Tooltip>
+              {priceChangeDisplay}
+            </div>
           );
         }
         return <span style={{ color: '#999', fontSize: 13 }}>-</span>;
