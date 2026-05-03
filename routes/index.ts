@@ -1598,6 +1598,93 @@ router.get('/board/articles', (req: Request, res: Response) => {
   });
 });
 
+// 8. 获取增强版板块详情（从 daily_board_details）
+router.get('/board/enhanced_details', (req: Request, res: Response) => {
+  const date = req.query.date as string;
+  
+  if (!date) {
+    res.status(400).json({ error: 'Missing required parameter: date' });
+    return;
+  }
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  db.all(`
+    SELECT board, rank, news_score, fund_score, total_score, 
+           fund_inflow, article_count, insight
+    FROM daily_board_details
+    WHERE date = ?
+    ORDER BY rank ASC
+  `, [date], (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      console.error('查询增强版详情失败:', err);
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    if (!rows || rows.length === 0) {
+      res.status(404).json({ error: `No enhanced data found for date: ${date}` });
+      return;
+    }
+    
+    // 计算汇总统计
+    let totalScore = 0;
+    let totalArticles = 0;
+    for (const row of rows) {
+      totalScore += row.total_score;
+      totalArticles += row.article_count;
+    }
+    
+    res.json({ 
+      date, 
+      boards: rows,
+      total_score: totalScore,
+      total_articles: totalArticles
+    });
+  });
+});
+
+// 9. 获取板块历史趋势（从 daily_board_details）
+router.get('/board/board_trend', (req: Request, res: Response) => {
+  const board = decodeURIComponent(req.query.board as string);  // 解码 URL 参数
+  const days = parseInt(req.query.days as string || '30', 10);
+  
+  if (!board) {
+    res.status(400).json({ error: 'Missing required parameter: board' });
+    return;
+  }
+  
+  console.log(`查询板块趋势: board=${board}, days=${days}`);
+  
+  const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
+  
+  // 使用参数化查询，直接匹配中文
+  db.all(`
+    SELECT date, rank, total_score, fund_inflow
+    FROM daily_board_details
+    WHERE board = ?
+    ORDER BY date DESC
+    LIMIT ?
+  `, [board, days], (err: Error | null, rows: any[]) => {
+    db.close();
+    
+    if (err) {
+      console.error('查询板块趋势失败:', err);
+      res.status(500).json({ error: 'Query failed' });
+      return;
+    }
+    
+    console.log(`查询结果: ${rows?.length || 0} 条`);
+    
+    // 按时间正序返回
+    const trend = rows ? rows.reverse() : [];
+    
+    res.json({ board, trend });
+  });
+});
+
 // ========== 舆情板块股票映射 API ==========
 
 // 获取板块对应的股票列表（从舆情映射表查询）
