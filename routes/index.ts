@@ -1637,7 +1637,7 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
     // 从新视图查询核心行业数据（包含申万三级和同花顺概念）
     const coreSql = `
       SELECT board_name, sw_code, sw_name, business_type, stock_count, avg_30d_pct
-      FROM v_board_core_sw_industries
+      FROM board_core_sw_industries
       WHERE board_name IN (${placeholders})
       ORDER BY board_name, 
         CASE business_type WHEN 'sw3_hy' THEN 1 ELSE 2 END,
