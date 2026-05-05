@@ -42,9 +42,10 @@ interface EnhancedBoardScore {
   core_industries?: Array<{
     code: string;
     name: string;
-    type: string;  // 'sw3_hy' 或 'ch_gn'
+    type: string;
     stock_count: number;
     avg_pct_30d?: number;
+    heat_count?: number;  // 新增：当天热度
   }>;
 }
 
@@ -780,20 +781,19 @@ const BoardHistory: React.FC = () => {
       key: 'core_industries',
       width: 350,
       render: (_: any, record: EnhancedBoardScore) => {
-        // 优先使用 core_industries
         let industries = (record as any).core_industries || [];
         
         // 降级方案：如果 core_industries 为空，从 boardsSummary 中查找该板块的业务板块信息
         if (industries.length === 0 && boardsSummary.length > 0) {
           const boardSummary = boardsSummary.find(b => b.board_name === record.board);
           if (boardSummary && boardSummary.business_names && boardSummary.business_names.length > 0) {
-            // 将业务板块名称转换为标签格式
             industries = boardSummary.business_names.slice(0, 8).map((name, idx) => ({
               code: `fallback_${idx}`,
               name: name,
               type: 'fallback',
               stock_count: 0,
-              avg_pct_30d: 0
+              avg_pct_30d: 0,
+              heat_count: 0
             }));
           }
         }
@@ -802,10 +802,17 @@ const BoardHistory: React.FC = () => {
           return <span style={{ color: '#999', fontSize: 12 }}>-</span>;
         }
         
-        // 分离不同类型
         const sw3Industries = industries.filter((i: any) => i.type === 'sw3_hy');
         const chgnIndustries = industries.filter((i: any) => i.type === 'ch_gn');
         const fallbackIndustries = industries.filter((i: any) => i.type === 'fallback');
+        
+        // 热度图标（根据数值显示不同图标）
+        const getHeatIcon = (heatCount: number) => {
+          if (heatCount >= 10) return '🔥🔥';
+          if (heatCount >= 5) return '🔥';
+          if (heatCount >= 1) return '📈';
+          return null;
+        };
         
         return (
           <div>
@@ -813,11 +820,22 @@ const BoardHistory: React.FC = () => {
               <div style={{ marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>📊 申万三级</span>
                 <Space wrap size={4}>
-                  {sw3Industries.map((ind: any) => (
-                    <Tag key={ind.code} color="gold" style={{ fontSize: 11, margin: '1px' }}>
-                      {ind.name} ({ind.stock_count})
-                    </Tag>
-                  ))}
+                  {sw3Industries.map((ind: any) => {
+                    const heatIcon = getHeatIcon(ind.heat_count);
+                    return (
+                      <Tooltip key={ind.code} title={`${ind.stock_count} 只股票 | 30日涨幅: ${ind.avg_pct_30d || 0}% | 热度: ${ind.heat_count || 0}`}>
+                        <Tag color="gold" style={{ fontSize: 11, margin: '1px' }}>
+                          {heatIcon && <span style={{ marginRight: 4 }}>{heatIcon}</span>}
+                          {ind.name} ({ind.stock_count})
+                          {ind.heat_count > 0 && (
+                            <span style={{ color: '#faad14', marginLeft: 4, fontWeight: 'bold' }}>
+                              +{ind.heat_count}
+                            </span>
+                          )}
+                        </Tag>
+                      </Tooltip>
+                    );
+                  })}
                 </Space>
               </div>
             )}
@@ -825,11 +843,22 @@ const BoardHistory: React.FC = () => {
               <div style={{ marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>🏷️ 同花顺概念</span>
                 <Space wrap size={4}>
-                  {chgnIndustries.map((ind: any) => (
-                    <Tag key={ind.code} color="blue" style={{ fontSize: 11, margin: '1px' }}>
-                      {ind.name} ({ind.stock_count})
-                    </Tag>
-                  ))}
+                  {chgnIndustries.map((ind: any) => {
+                    const heatIcon = getHeatIcon(ind.heat_count);
+                    return (
+                      <Tooltip key={ind.code} title={`${ind.stock_count} 只股票 | 30日涨幅: ${ind.avg_pct_30d || 0}% | 热度: ${ind.heat_count || 0}`}>
+                        <Tag color="blue" style={{ fontSize: 11, margin: '1px' }}>
+                          {heatIcon && <span style={{ marginRight: 4 }}>{heatIcon}</span>}
+                          {ind.name} ({ind.stock_count})
+                          {ind.heat_count > 0 && (
+                            <span style={{ color: '#faad14', marginLeft: 4, fontWeight: 'bold' }}>
+                              +{ind.heat_count}
+                            </span>
+                          )}
+                        </Tag>
+                      </Tooltip>
+                    );
+                  })}
                 </Space>
               </div>
             )}

@@ -1598,8 +1598,7 @@ router.get('/board/articles', (req: Request, res: Response) => {
   });
 });
 
-// 8. 获取增强版板块详情（从 daily_board_details）
-// 8. 获取增强版板块详情（从 daily_board_details + 核心行业）
+// 8. 获取增强版板块详情（从 daily_board_details + 核心行业 + 子板块热度）
 router.get('/board/enhanced_details', (req: Request, res: Response) => {
   const date = req.query.date as string;
   
@@ -1610,6 +1609,7 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
   
   const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY);
   
+  // 获取基础增强数据
   db.all(`
     SELECT board, rank, news_score, fund_score, total_score, 
            fund_inflow, article_count, insight
@@ -1634,7 +1634,7 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
     const boardNames = rows.map(r => r.board);
     const placeholders = boardNames.map(() => '?').join(',');
     
-    // 从新视图查询核心行业数据（包含申万三级和同花顺概念）
+    // 1. 从 MySQL 查询核心行业数据
     const coreSql = `
       SELECT board_name, sw_code, sw_name, business_type, stock_count, avg_30d_pct
       FROM board_core_sw_industries
@@ -1647,54 +1647,69 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
     pool.query(coreSql, boardNames, (dbErr: Error | null, coreRows: any[]) => {
       if (dbErr) {
         console.error('查询核心行业失败:', dbErr);
-        const result = {
-          date,
-          boards: rows.map(row => ({ ...row, core_industries: [] })),
-          total_score: rows.reduce((sum, r) => sum + r.total_score, 0),
-          total_articles: rows.reduce((sum, r) => sum + r.article_count, 0)
-        };
-        db.close();
-        res.json(result);
-        return;
+        // 降级处理...
       }
       
-      // 按板块分组核心行业
-      const coreMap: Record<string, any[]> = {};
-      for (const core of coreRows || []) {
-        if (!coreMap[core.board_name]) {
-          coreMap[core.board_name] = [];
+      // 2. 从 SQLite 查询当日子板块热度
+      const subBoardSql = `
+        SELECT board_name, sub_board, heat_count
+        FROM sub_board_heat
+        WHERE date = ? AND board_name IN (${placeholders})
+      `;
+      
+      db.all(subBoardSql, [date, ...boardNames], (heatErr: Error | null, heatRows: any[]) => {
+        if (heatErr) {
+          console.error('查询子板块热度失败:', heatErr);
         }
-        coreMap[core.board_name].push({
-          code: core.sw_code,
-          name: core.sw_name,
-          type: core.business_type,  // 'sw3_hy' 或 'ch_gn'
-          stock_count: core.stock_count,
-          avg_pct_30d: core.avg_30d_pct
+        
+        // 构建热度映射：key = "board_name|sub_board"
+        const heatMap: Record<string, number> = {};
+        for (const heat of heatRows || []) {
+          const key = `${heat.board_name}|${heat.sub_board}`;
+          heatMap[key] = heat.heat_count;
+        }
+        
+        // 按板块分组核心行业
+        const coreMap: Record<string, any[]> = {};
+        for (const core of coreRows || []) {
+          if (!coreMap[core.board_name]) {
+            coreMap[core.board_name] = [];
+          }
+          const heatKey = `${core.board_name}|${core.sw_name}`;
+          const heatCount = heatMap[heatKey] || 0;
+          coreMap[core.board_name].push({
+            code: core.sw_code,
+            name: core.sw_name,
+            type: core.business_type,
+            stock_count: core.stock_count,
+            avg_pct_30d: core.avg_30d_pct,
+            heat_count: heatCount  // 新增：当天热度
+          });
+        }
+        
+        // 合并数据
+        const boardsWithCore = rows.map(row => ({
+          board: row.board,
+          rank: row.rank,
+          news_score: row.news_score,
+          fund_score: row.fund_score,
+          total_score: row.total_score,
+          fund_inflow: row.fund_inflow,
+          article_count: row.article_count,
+          insight: row.insight,
+          core_industries: coreMap[row.board] || []
+        }));
+        
+        const totalScore = boardsWithCore.reduce((sum, r) => sum + r.total_score, 0);
+        const totalArticles = boardsWithCore.reduce((sum, r) => sum + r.article_count, 0);
+        
+        db.close();
+        res.json({
+          date,
+          boards: boardsWithCore,
+          total_score: totalScore,
+          total_articles: totalArticles
         });
-      }
-      
-      // 合并数据
-      const boardsWithCore = rows.map(row => ({
-        board: row.board,
-        rank: row.rank,
-        news_score: row.news_score,
-        fund_score: row.fund_score,
-        total_score: row.total_score,
-        fund_inflow: row.fund_inflow,
-        article_count: row.article_count,
-        insight: row.insight,
-        core_industries: coreMap[row.board] || []
-      }));
-      
-      const totalScore = boardsWithCore.reduce((sum, r) => sum + r.total_score, 0);
-      const totalArticles = boardsWithCore.reduce((sum, r) => sum + r.article_count, 0);
-      
-      db.close();
-      res.json({
-        date,
-        boards: boardsWithCore,
-        total_score: totalScore,
-        total_articles: totalArticles
       });
     });
   });
