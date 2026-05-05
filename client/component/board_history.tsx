@@ -39,6 +39,13 @@ interface EnhancedBoardScore {
   fund_inflow: number;
   article_count: number;
   insight: string;
+  core_industries?: Array<{
+    code: string;
+    name: string;
+    type: string;  // 'sw3_hy' 或 'ch_gn'
+    stock_count: number;
+    avg_pct_30d?: number;
+  }>;
 }
 
 interface DailyData {
@@ -753,6 +760,50 @@ const BoardHistory: React.FC = () => {
       },
     },
     {
+      title: '🎯 核心板块',
+      key: 'core_industries',
+      width: 350,
+      render: (_: any, record: EnhancedBoardScore) => {
+        const industries = (record as any).core_industries || [];
+        if (industries.length === 0) {
+          return <span style={{ color: '#999', fontSize: 12 }}>-</span>;
+        }
+        
+        // 分离申万三级和同花顺概念
+        const sw3Industries = industries.filter((i: any) => i.type === 'sw3_hy');
+        const chgnIndustries = industries.filter((i: any) => i.type === 'ch_gn');
+        
+        return (
+          <div>
+            {sw3Industries.length > 0 && (
+              <div style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>📊 申万三级</span>
+                <Space wrap size={4}>
+                  {sw3Industries.map((ind: any) => (
+                    <Tag key={ind.code} color="gold" style={{ fontSize: 11, margin: '1px' }}>
+                      {ind.name} ({ind.stock_count})
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+            )}
+            {chgnIndustries.length > 0 && (
+              <div>
+                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>🏷️ 同花顺概念</span>
+                <Space wrap size={4}>
+                  {chgnIndustries.map((ind: any) => (
+                    <Tag key={ind.code} color="blue" style={{ fontSize: 11, margin: '1px' }}>
+                      {ind.name} ({ind.stock_count})
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       title: '文章数',
       dataIndex: 'article_count',
       key: 'article_count',
@@ -1186,21 +1237,21 @@ const BoardHistory: React.FC = () => {
             }
           >
             <Row gutter={16}>
-              <Col span={12}>
+              <Col span={8}>
                 <ReactEcharts
                   option={viewMode === 'enhanced' ? getEnhancedChartOption(enhancedData!) : getDailyChartOption(dailyData!)}
-                  style={{ height: 450 }}
+                  style={{ height: 520 }}
                   opts={{ renderer: 'canvas' }}
                 />
               </Col>
-              <Col span={12}>
+              <Col span={16}>
                 <Table
                   dataSource={currentDailyData.boards}
                   columns={viewMode === 'enhanced' ? enhancedBoardColumns : boardColumnsWithDetail}
                   rowKey="board"
                   size="small"
                   pagination={false}
-                  scroll={{ y: 400 }}
+                  scroll={{ x: 900 }}
                 />
               </Col>
             </Row>

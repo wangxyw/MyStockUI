@@ -1599,6 +1599,7 @@ router.get('/board/articles', (req: Request, res: Response) => {
 });
 
 // 8. 获取增强版板块详情（从 daily_board_details）
+// 8. 获取增强版板块详情（从 daily_board_details + 核心行业）
 router.get('/board/enhanced_details', (req: Request, res: Response) => {
   const date = req.query.date as string;
   
@@ -1616,32 +1617,85 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
     WHERE date = ?
     ORDER BY rank ASC
   `, [date], (err: Error | null, rows: any[]) => {
-    db.close();
-    
     if (err) {
       console.error('查询增强版详情失败:', err);
+      db.close();
       res.status(500).json({ error: 'Query failed' });
       return;
     }
     
     if (!rows || rows.length === 0) {
+      db.close();
       res.status(404).json({ error: `No enhanced data found for date: ${date}` });
       return;
     }
     
-    // 计算汇总统计
-    let totalScore = 0;
-    let totalArticles = 0;
-    for (const row of rows) {
-      totalScore += row.total_score;
-      totalArticles += row.article_count;
-    }
+    // 获取所有板块名称
+    const boardNames = rows.map(r => r.board);
+    const placeholders = boardNames.map(() => '?').join(',');
     
-    res.json({ 
-      date, 
-      boards: rows,
-      total_score: totalScore,
-      total_articles: totalArticles
+    // 从新视图查询核心行业数据（包含申万三级和同花顺概念）
+    const coreSql = `
+      SELECT board_name, sw_code, sw_name, business_type, stock_count, avg_30d_pct
+      FROM v_board_core_sw_industries
+      WHERE board_name IN (${placeholders})
+      ORDER BY board_name, 
+        CASE business_type WHEN 'sw3_hy' THEN 1 ELSE 2 END,
+        stock_count DESC
+    `;
+    
+    pool.query(coreSql, boardNames, (dbErr: Error | null, coreRows: any[]) => {
+      if (dbErr) {
+        console.error('查询核心行业失败:', dbErr);
+        const result = {
+          date,
+          boards: rows.map(row => ({ ...row, core_industries: [] })),
+          total_score: rows.reduce((sum, r) => sum + r.total_score, 0),
+          total_articles: rows.reduce((sum, r) => sum + r.article_count, 0)
+        };
+        db.close();
+        res.json(result);
+        return;
+      }
+      
+      // 按板块分组核心行业
+      const coreMap: Record<string, any[]> = {};
+      for (const core of coreRows || []) {
+        if (!coreMap[core.board_name]) {
+          coreMap[core.board_name] = [];
+        }
+        coreMap[core.board_name].push({
+          code: core.sw_code,
+          name: core.sw_name,
+          type: core.business_type,  // 'sw3_hy' 或 'ch_gn'
+          stock_count: core.stock_count,
+          avg_pct_30d: core.avg_30d_pct
+        });
+      }
+      
+      // 合并数据
+      const boardsWithCore = rows.map(row => ({
+        board: row.board,
+        rank: row.rank,
+        news_score: row.news_score,
+        fund_score: row.fund_score,
+        total_score: row.total_score,
+        fund_inflow: row.fund_inflow,
+        article_count: row.article_count,
+        insight: row.insight,
+        core_industries: coreMap[row.board] || []
+      }));
+      
+      const totalScore = boardsWithCore.reduce((sum, r) => sum + r.total_score, 0);
+      const totalArticles = boardsWithCore.reduce((sum, r) => sum + r.article_count, 0);
+      
+      db.close();
+      res.json({
+        date,
+        boards: boardsWithCore,
+        total_score: totalScore,
+        total_articles: totalArticles
+      });
     });
   });
 });
