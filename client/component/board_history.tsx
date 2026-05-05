@@ -109,6 +109,7 @@ interface BoardSummary {
   keyword_count: number;
   business_count: number;
   stock_count: number;
+  business_names?: string[];  // 新增：业务板块名称列表
 }
 
 const BoardHistory: React.FC = () => {
@@ -169,7 +170,22 @@ const BoardHistory: React.FC = () => {
       const response = await fetch('/api/sentiment/all_boards_summary');
       const data = await response.json();
       if (response.ok && !data.error) {
-        setBoardsSummary(data);
+        // 同时获取每个板块的业务板块名称
+        const boardsWithNames = await Promise.all(
+          data.map(async (board: BoardSummary) => {
+            try {
+              const stocksRes = await fetch(`/api/sentiment/board_stocks?board=${encodeURIComponent(board.board_name)}`);
+              const stocksData = await stocksRes.json();
+              return {
+                ...board,
+                business_names: stocksData.business_names || []
+              };
+            } catch {
+              return { ...board, business_names: [] };
+            }
+          })
+        );
+        setBoardsSummary(boardsWithNames);
       } else {
         console.error('获取板块摘要失败:', data.error);
       }
@@ -764,14 +780,32 @@ const BoardHistory: React.FC = () => {
       key: 'core_industries',
       width: 350,
       render: (_: any, record: EnhancedBoardScore) => {
-        const industries = (record as any).core_industries || [];
+        // 优先使用 core_industries
+        let industries = (record as any).core_industries || [];
+        
+        // 降级方案：如果 core_industries 为空，从 boardsSummary 中查找该板块的业务板块信息
+        if (industries.length === 0 && boardsSummary.length > 0) {
+          const boardSummary = boardsSummary.find(b => b.board_name === record.board);
+          if (boardSummary && boardSummary.business_names && boardSummary.business_names.length > 0) {
+            // 将业务板块名称转换为标签格式
+            industries = boardSummary.business_names.slice(0, 8).map((name, idx) => ({
+              code: `fallback_${idx}`,
+              name: name,
+              type: 'fallback',
+              stock_count: 0,
+              avg_pct_30d: 0
+            }));
+          }
+        }
+        
         if (industries.length === 0) {
           return <span style={{ color: '#999', fontSize: 12 }}>-</span>;
         }
         
-        // 分离申万三级和同花顺概念
+        // 分离不同类型
         const sw3Industries = industries.filter((i: any) => i.type === 'sw3_hy');
         const chgnIndustries = industries.filter((i: any) => i.type === 'ch_gn');
+        const fallbackIndustries = industries.filter((i: any) => i.type === 'fallback');
         
         return (
           <div>
@@ -788,12 +822,24 @@ const BoardHistory: React.FC = () => {
               </div>
             )}
             {chgnIndustries.length > 0 && (
-              <div>
+              <div style={{ marginBottom: 4 }}>
                 <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>🏷️ 同花顺概念</span>
                 <Space wrap size={4}>
                   {chgnIndustries.map((ind: any) => (
                     <Tag key={ind.code} color="blue" style={{ fontSize: 11, margin: '1px' }}>
                       {ind.name} ({ind.stock_count})
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+            )}
+            {fallbackIndustries.length > 0 && (
+              <div>
+                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>📋 业务板块</span>
+                <Space wrap size={4}>
+                  {fallbackIndustries.map((ind: any) => (
+                    <Tag key={ind.code} color="purple" style={{ fontSize: 11, margin: '1px' }}>
+                      {ind.name}
                     </Tag>
                   ))}
                 </Space>
