@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tabs, Table, Tag, Tooltip, Modal, List, Badge, Empty, Descriptions, Progress, Switch } from 'antd';
 import { 
   LineChartOutlined, 
@@ -129,6 +129,27 @@ const BoardHistory: React.FC = () => {
   // 板块统计摘要
   const [boardsSummary, setBoardsSummary] = useState<BoardSummary[]>([]);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+
+  // 在组件中添加一个计算属性，直接用增强版数据的板块
+  const hotBoardsSummary = useMemo(() => {
+    // 如果有增强版数据，直接用它的板块列表（按总分排序）
+    if (enhancedData && enhancedData.boards && enhancedData.boards.length > 0) {
+      const orderedBoards: BoardSummary[] = [];
+      for (const board of enhancedData.boards) {
+        // 只显示总分 > 0 的板块（过滤掉创新药这种0分的）
+        if (board.total_score <= 0) continue;
+        
+        const summary = boardsSummary.find(b => b.board_name === board.board);
+        if (summary) {
+          orderedBoards.push(summary);
+        }
+      }
+      return orderedBoards;
+    }
+    
+    // 没有增强版数据时，显示前6个作为默认（避免空白）
+    return boardsSummary.slice(0, 6);
+  }, [boardsSummary, enhancedData]);
   
   // AI关注股票
   const [aiFocusStocks, setAiFocusStocks] = useState<Record<string, any>>({});
@@ -276,8 +297,23 @@ const BoardHistory: React.FC = () => {
       const data = await response.json();
       
       if (response.ok && data) {
+        // 过滤掉总分 <= 0 的板块
+        if (data.boards && Array.isArray(data.boards)) {
+          // 1. 先过滤
+          let filteredBoards = data.boards.filter((board: EnhancedBoardScore) => board.total_score > 0);
+          
+          // 2. 按 total_score 降序排序
+          filteredBoards.sort((a: EnhancedBoardScore, b: EnhancedBoardScore) => b.total_score - a.total_score);
+          
+          // 3. 重新计算排名
+          filteredBoards.forEach((board: EnhancedBoardScore, idx: number) => {
+            board.rank = idx + 1;
+          });
+          
+          data.boards = filteredBoards;
+        }
         setEnhancedData(data);
-        message.success(`成功加载 ${selectedDate} 的增强版数据`);
+        message.success(`成功加载 ${selectedDate} 的增强版数据，共 ${data.boards.length} 个热点板块`);
       } else {
         message.error(data?.error || '数据加载失败');
         setEnhancedData(null);
@@ -1197,7 +1233,16 @@ const BoardHistory: React.FC = () => {
       >
         <Spin spinning={summaryLoading}>
           <Row gutter={16}>
-            {boardsSummary.map((board) => (
+{/*            {boardsSummary.map((board) => (
+              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
+                <Card size="small" hoverable onClick={() => fetchBoardStocks(board.board_name)} style={{ cursor: 'pointer' }}>
+                  <Statistic title={<Tag color="blue">{board.board_name}</Tag>} value={board.stock_count} suffix="只股票" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个</div>
+                  <Progress percent={Math.min((board.stock_count / 2000) * 100, 100)} size="small" showInfo={false} strokeColor="#52c41a" />
+                </Card>
+              </Col>
+            ))}*/}
+            {hotBoardsSummary.map((board) => (
               <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
                 <Card size="small" hoverable onClick={() => fetchBoardStocks(board.board_name)} style={{ cursor: 'pointer' }}>
                   <Statistic title={<Tag color="blue">{board.board_name}</Tag>} value={board.stock_count} suffix="只股票" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
