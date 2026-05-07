@@ -752,52 +752,52 @@ const BoardHistory: React.FC = () => {
   // ========== 增强版表格列定义 ==========
   const enhancedBoardColumns = [
     {
-      title: '排名',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>排名</span>,
       key: 'rank',
-      width: 60,
+      width: 70,
       render: (_: any, __: any, index: number) => {
         const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
         const color = index < 3 ? medalColors[index] : '#999';
-        return <span style={{ fontWeight: 600, color }}>{index + 1}</span>;
+        return <span style={{ fontWeight: 700, fontSize: 16, color }}>{index + 1}</span>;
       },
     },
     {
-      title: '板块',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>板块</span>,
       dataIndex: 'board',
       key: 'board',
       width: 100,
       render: (board: string, record: EnhancedBoardScore) => (
         <Tooltip title={record.insight}>
-          <Tag color={record.rank <= 3 ? 'gold' : 'blue'} style={{ fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+          <Tag color={record.rank <= 3 ? 'gold' : 'blue'} style={{ fontSize: 14, fontWeight: 600, padding: '4px 12px', cursor: 'pointer' }}>
             {board}
           </Tag>
         </Tooltip>
       ),
     },
     {
-      title: '总分',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>总分</span>,
       dataIndex: 'total_score',
       key: 'total_score',
       width: 90,
       sorter: (a: EnhancedBoardScore, b: EnhancedBoardScore) => a.total_score - b.total_score,
-      render: (score: number) => <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{score.toFixed(2)}</span>,
+      render: (score: number) => <span style={{ fontWeight: 'bold', fontSize: 15, color: '#1890ff' }}>{score.toFixed(2)}</span>,
     },
     {
-      title: '新闻分',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>新闻分</span>,
       dataIndex: 'news_score',
       key: 'news_score',
       width: 90,
-      render: (score: number) => <span style={{ color: '#52c41a' }}>{score.toFixed(2)}</span>,
+      render: (score: number) => <span style={{ fontSize: 14, color: '#52c41a', fontWeight: 500 }}>{score.toFixed(2)}</span>,
     },
     {
-      title: '资金分',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>资金分</span>,
       dataIndex: 'fund_score',
       key: 'fund_score',
       width: 90,
-      render: (score: number) => <span style={{ color: '#faad14' }}>{score.toFixed(2)}</span>,
+      render: (score: number) => <span style={{ fontSize: 14, color: '#faad14', fontWeight: 500 }}>{score.toFixed(2)}</span>,
     },
     {
-      title: '资金流向',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>资金流向</span>,
       dataIndex: 'fund_inflow',
       key: 'fund_inflow',
       width: 120,
@@ -806,20 +806,19 @@ const BoardHistory: React.FC = () => {
         const color = isPositive ? '#ff4d4f' : '#52c41a';
         const prefix = isPositive ? '↑' : '↓';
         return (
-          <span style={{ color, fontWeight: 500 }}>
+          <span style={{ color, fontWeight: 600, fontSize: 14 }}>
             {prefix} {Math.abs(inflow).toFixed(1)}亿
           </span>
         );
       },
     },
     {
-      title: '🎯 核心板块',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>🎯 核心板块</span>,
       key: 'core_industries',
-      width: 350,
+      width: 400,
       render: (_: any, record: EnhancedBoardScore) => {
         let industries = (record as any).core_industries || [];
         
-        // 降级方案：如果 core_industries 为空，从 boardsSummary 中查找该板块的业务板块信息
         if (industries.length === 0 && boardsSummary.length > 0) {
           const boardSummary = boardsSummary.find(b => b.board_name === record.board);
           if (boardSummary && boardSummary.business_names && boardSummary.business_names.length > 0) {
@@ -835,14 +834,13 @@ const BoardHistory: React.FC = () => {
         }
         
         if (industries.length === 0) {
-          return <span style={{ color: '#999', fontSize: 12 }}>-</span>;
+          return <span style={{ color: '#999', fontSize: 13 }}>-</span>;
         }
         
         const sw3Industries = industries.filter((i: any) => i.type === 'sw3_hy');
         const chgnIndustries = industries.filter((i: any) => i.type === 'ch_gn');
         const fallbackIndustries = industries.filter((i: any) => i.type === 'fallback');
         
-        // 热度图标（根据数值显示不同图标）
         const getHeatIcon = (heatCount: number) => {
           if (heatCount >= 10) return '🔥🔥';
           if (heatCount >= 5) return '🔥';
@@ -853,18 +851,19 @@ const BoardHistory: React.FC = () => {
         return (
           <div>
             {sw3Industries.length > 0 && (
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>📊 申万三级</span>
-                <Space wrap size={4}>
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: '#666', marginRight: 8, fontWeight: 500 }}>📊 申万三级</span>
+                <Space wrap size={6}>
                   {sw3Industries.map((ind: any) => {
                     const heatIcon = getHeatIcon(ind.heat_count);
                     return (
                       <Tooltip key={ind.code} title={`${ind.stock_count} 只股票 | 30日涨幅: ${ind.avg_pct_30d || 0}% | 热度: ${ind.heat_count || 0}`}>
-                        <Tag color="gold" style={{ fontSize: 11, margin: '1px' }}>
-                          {heatIcon && <span style={{ marginRight: 4 }}>{heatIcon}</span>}
-                          {ind.name} ({ind.stock_count})
+                        <Tag color="gold" style={{ fontSize: 12, padding: '4px 10px', margin: '2px' }}>
+                          {heatIcon && <span style={{ marginRight: 6 }}>{heatIcon}</span>}
+                          <span style={{ fontWeight: 500 }}>{ind.name}</span>
+                          <span style={{ fontSize: 11, marginLeft: 4, color: '#666' }}>({ind.stock_count})</span>
                           {ind.heat_count > 0 && (
-                            <span style={{ color: '#faad14', marginLeft: 4, fontWeight: 'bold' }}>
+                            <span style={{ color: '#faad14', marginLeft: 6, fontWeight: 'bold', fontSize: 12 }}>
                               +{ind.heat_count}
                             </span>
                           )}
@@ -876,18 +875,19 @@ const BoardHistory: React.FC = () => {
               </div>
             )}
             {chgnIndustries.length > 0 && (
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>🏷️ 同花顺概念</span>
-                <Space wrap size={4}>
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: '#666', marginRight: 8, fontWeight: 500 }}>🏷️ 同花顺概念</span>
+                <Space wrap size={6}>
                   {chgnIndustries.map((ind: any) => {
                     const heatIcon = getHeatIcon(ind.heat_count);
                     return (
                       <Tooltip key={ind.code} title={`${ind.stock_count} 只股票 | 30日涨幅: ${ind.avg_pct_30d || 0}% | 热度: ${ind.heat_count || 0}`}>
-                        <Tag color="blue" style={{ fontSize: 11, margin: '1px' }}>
-                          {heatIcon && <span style={{ marginRight: 4 }}>{heatIcon}</span>}
-                          {ind.name} ({ind.stock_count})
+                        <Tag color="blue" style={{ fontSize: 12, padding: '4px 10px', margin: '2px' }}>
+                          {heatIcon && <span style={{ marginRight: 6 }}>{heatIcon}</span>}
+                          <span style={{ fontWeight: 500 }}>{ind.name}</span>
+                          <span style={{ fontSize: 11, marginLeft: 4, color: '#666' }}>({ind.stock_count})</span>
                           {ind.heat_count > 0 && (
-                            <span style={{ color: '#faad14', marginLeft: 4, fontWeight: 'bold' }}>
+                            <span style={{ color: '#faad14', marginLeft: 6, fontWeight: 'bold', fontSize: 12 }}>
                               +{ind.heat_count}
                             </span>
                           )}
@@ -900,10 +900,10 @@ const BoardHistory: React.FC = () => {
             )}
             {fallbackIndustries.length > 0 && (
               <div>
-                <span style={{ fontSize: 11, color: '#666', marginRight: 8 }}>📋 业务板块</span>
-                <Space wrap size={4}>
+                <span style={{ fontSize: 12, color: '#666', marginRight: 8, fontWeight: 500 }}>📋 业务板块</span>
+                <Space wrap size={6}>
                   {fallbackIndustries.map((ind: any) => (
-                    <Tag key={ind.code} color="purple" style={{ fontSize: 11, margin: '1px' }}>
+                    <Tag key={ind.code} color="purple" style={{ fontSize: 12, padding: '4px 10px', margin: '2px' }}>
                       {ind.name}
                     </Tag>
                   ))}
@@ -915,34 +915,35 @@ const BoardHistory: React.FC = () => {
       },
     },
     {
-      title: '文章数',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>文章数</span>,
       dataIndex: 'article_count',
       key: 'article_count',
       width: 80,
-      render: (count: number) => `${count}篇`,
+      render: (count: number) => <span style={{ fontSize: 14 }}>{count}篇</span>,
     },
     {
-      title: '解读',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>解读</span>,
       dataIndex: 'insight',
       key: 'insight',
-      width: 280,
+      width: 300,
       ellipsis: true,
       render: (text: string) => (
         <Tooltip title={text}>
-          <span style={{ fontSize: 12, color: '#666' }}>{text}</span>
+          <span style={{ fontSize: 13, color: '#555' }}>{text}</span>
         </Tooltip>
       ),
     },
     {
-      title: '操作',
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>操作</span>,
       key: 'action',
       width: 160,
       render: (_: any, record: EnhancedBoardScore) => (
         <Space size="small">
           <Button 
             type="link" 
-            size="small"
+            size="middle"
             icon={<FileTextOutlined />}
+            style={{ fontSize: 13 }}
             onClick={() => {
               if (enhancedData?.date) {
                 fetchBoardArticles(enhancedData.date, record.board);
@@ -955,8 +956,9 @@ const BoardHistory: React.FC = () => {
           </Button>
           <Button 
             type="link" 
-            size="small"
+            size="middle"
             icon={<StockOutlined />}
+            style={{ fontSize: 13 }}
             onClick={() => fetchBoardStocks(record.board)}
           >
             股票
@@ -1122,15 +1124,37 @@ const BoardHistory: React.FC = () => {
     const names = boards.map(b => b.board);
     
     return {
-      title: { text: `${data.date} 增强版板块热度分布`, left: 'center', top: 0, textStyle: { fontSize: 14, fontWeight: 'bold' } },
+      title: { 
+        text: `${data.date} 增强版板块热度分布`, 
+        left: 'center', 
+        top: 0, 
+        textStyle: { fontSize: 16, fontWeight: 'bold' } 
+      },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { data: ['新闻分', '资金分'], top: 30, left: 'center' },
-      grid: { top: 80, bottom: 30, left: 80, right: 30, containLabel: true },
-      xAxis: { type: 'category', data: names, axisLabel: { rotate: 45, fontSize: 11 } },
-      yAxis: { type: 'value', name: '得分', nameLocation: 'middle', nameGap: 45 },
+      legend: { data: ['新闻分', '资金分'], top: 30, left: 'center', textStyle: { fontSize: 13 } },
+      grid: { top: 80, bottom: 40, left: 80, right: 30, containLabel: true },
+      xAxis: { 
+        type: 'category', 
+        data: names, 
+        axisLabel: { rotate: 45, fontSize: 12, fontWeight: 500 },
+        axisLabel: { rotate: 35, fontSize: 12, fontWeight: 500, interval: 0 }
+      },
+      yAxis: { type: 'value', name: '得分', nameLocation: 'middle', nameGap: 45, nameTextStyle: { fontSize: 13 } },
       series: [
-        { name: '新闻分', type: 'bar', data: newsScores, itemStyle: { color: '#52c41a', borderRadius: [4, 4, 0, 0] }, label: { show: true, position: 'top', fontSize: 10 } },
-        { name: '资金分', type: 'bar', data: fundScores, itemStyle: { color: '#faad14', borderRadius: [4, 4, 0, 0] }, label: { show: true, position: 'top', fontSize: 10 } }
+        { 
+          name: '新闻分', 
+          type: 'bar', 
+          data: newsScores, 
+          itemStyle: { color: '#52c41a', borderRadius: [4, 4, 0, 0] }, 
+          label: { show: true, position: 'top', fontSize: 12, fontWeight: 'bold' } 
+        },
+        { 
+          name: '资金分', 
+          type: 'bar', 
+          data: fundScores, 
+          itemStyle: { color: '#faad14', borderRadius: [4, 4, 0, 0] }, 
+          label: { show: true, position: 'top', fontSize: 12, fontWeight: 'bold' } 
+        }
       ]
     };
   };
