@@ -129,27 +129,76 @@ const BoardHistory: React.FC = () => {
   // 板块统计摘要
   const [boardsSummary, setBoardsSummary] = useState<BoardSummary[]>([]);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const [showAllBoards, setShowAllBoards] = useState<boolean>(false);
 
-  // 在组件中添加一个计算属性，直接用增强版数据的板块
+  // 固定显示的板块（按优先级排序）
+  const FIXED_BOARDS = [
+    'AI算力', '新能源', '半导体', '黄金', '券商', '消费', 
+    '创新药', '银行', '房地产', '汽车零部件', '化工', '军工'
+  ];
+
+  // 计算当天有数据的板块（合并新闻板块 + 资金板块）
   const hotBoardsSummary = useMemo(() => {
-    // 如果有增强版数据，直接用它的板块列表（按总分排序）
+    // 1. 优先从增强版数据获取（包含新闻分和资金分）
+    let allBoards: (BoardSummary & { fund_inflow?: number; fund_score?: number })[] = [];
+    
     if (enhancedData && enhancedData.boards && enhancedData.boards.length > 0) {
-      const orderedBoards: BoardSummary[] = [];
-      for (const board of enhancedData.boards) {
-        // 只显示总分 > 0 的板块（过滤掉创新药这种0分的）
-        if (board.total_score <= 0) continue;
-        
+      // 按总分排序
+      const sortedBoards = [...enhancedData.boards].sort((a, b) => b.total_score - a.total_score);
+      
+      for (const board of sortedBoards) {
         const summary = boardsSummary.find(b => b.board_name === board.board);
         if (summary) {
-          orderedBoards.push(summary);
+          allBoards.push({
+            ...summary,
+            fund_inflow: board.fund_inflow,
+            fund_score: board.fund_score
+          });
+        } else {
+          allBoards.push({
+            board_name: board.board,
+            keyword_count: 0,
+            business_count: 0,
+            stock_count: 0,
+            fund_inflow: board.fund_inflow,
+            fund_score: board.fund_score
+          });
         }
       }
-      return orderedBoards;
+    } 
+    // 2. 降级：从纯新闻版数据获取
+    else if (dailyData && dailyData.boards && dailyData.boards.length > 0) {
+      for (const board of dailyData.boards) {
+        const summary = boardsSummary.find(b => b.board_name === board.board);
+        if (summary) {
+          allBoards.push({
+            ...summary,
+            fund_inflow: 0,
+            fund_score: 0
+          });
+        }
+      }
+    }
+    // 3. 最后降级：显示所有板块
+    else {
+      for (const summary of boardsSummary) {
+        allBoards.push({
+          ...summary,
+          fund_inflow: undefined,
+          fund_score: undefined
+        });
+      }
     }
     
-    // 没有增强版数据时，显示前6个作为默认（避免空白）
-    return boardsSummary.slice(0, 6);
-  }, [boardsSummary, enhancedData]);
+    return allBoards;
+  }, [boardsSummary, enhancedData, dailyData]);
+
+  // 分离核心板块和其他板块
+  const { coreBoards, otherBoards } = useMemo(() => {
+    const core = hotBoardsSummary.filter(board => FIXED_BOARDS.includes(board.board_name));
+    const other = hotBoardsSummary.filter(board => !FIXED_BOARDS.includes(board.board_name));
+    return { coreBoards: core, otherBoards: other };
+  }, [hotBoardsSummary]);
   
   // AI关注股票
   const [aiFocusStocks, setAiFocusStocks] = useState<Record<string, any>>({});
@@ -1122,6 +1171,7 @@ const BoardHistory: React.FC = () => {
     const newsScores = boards.map(b => b.news_score);
     const fundScores = boards.map(b => b.fund_score);
     const names = boards.map(b => b.board);
+    const isLargeDataset = names.length > 8;
     
     return {
       title: { 
@@ -1136,8 +1186,12 @@ const BoardHistory: React.FC = () => {
       xAxis: { 
         type: 'category', 
         data: names, 
-        axisLabel: { rotate: 45, fontSize: 12, fontWeight: 500 },
-        axisLabel: { rotate: 35, fontSize: 12, fontWeight: 500, interval: 0 }
+        axisLabel: { 
+          rotate: isLargeDataset ? 35 : 0,
+          fontSize: 12, 
+          fontWeight: 500,
+          interval: isLargeDataset ? 0 : 0
+        }
       },
       yAxis: { type: 'value', name: '得分', nameLocation: 'middle', nameGap: 45, nameTextStyle: { fontSize: 13 } },
       series: [
@@ -1249,33 +1303,203 @@ const BoardHistory: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
-      {/* 板块股票统计卡片 */}
+      {/* 板块股票统计卡片 - 带资金流向标识 */}
       <Card 
-        title={<span><StockOutlined style={{ marginRight: 8, color: '#1890ff' }} />板块股票统计（舆情映射）</span>}
+        title={
+          <Space>
+            <StockOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            <span>板块股票统计（舆情映射）</span>
+            <Tag color="red" style={{ fontSize: 11 }}>↑ 资金流入</Tag>
+            <Tag color="green" style={{ fontSize: 11 }}>↓ 资金流出</Tag>
+            <Tag color="blue" style={{ fontSize: 11 }}>● 无资金异动</Tag>
+          </Space>
+        }
         style={{ marginBottom: 20 }}
-        extra={<Button icon={<ReloadOutlined />} size="small" onClick={fetchBoardsSummary} loading={summaryLoading}>刷新</Button>}
+        extra={
+          <Space>
+            {otherBoards.length > 0 && (
+              <Button 
+                size="small" 
+                onClick={() => setShowAllBoards(!showAllBoards)}
+              >
+                {showAllBoards ? '收起' : `展开全部 (${otherBoards.length}个)`}
+              </Button>
+            )}
+            <Button icon={<ReloadOutlined />} size="small" onClick={fetchBoardsSummary} loading={summaryLoading}>刷新</Button>
+          </Space>
+        }
       >
         <Spin spinning={summaryLoading}>
-          <Row gutter={16}>
-{/*            {boardsSummary.map((board) => (
-              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
-                <Card size="small" hoverable onClick={() => fetchBoardStocks(board.board_name)} style={{ cursor: 'pointer' }}>
-                  <Statistic title={<Tag color="blue">{board.board_name}</Tag>} value={board.stock_count} suffix="只股票" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个</div>
-                  <Progress percent={Math.min((board.stock_count / 2000) * 100, 100)} size="small" showInfo={false} strokeColor="#52c41a" />
-                </Card>
-              </Col>
-            ))}*/}
-            {hotBoardsSummary.map((board) => (
-              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
-                <Card size="small" hoverable onClick={() => fetchBoardStocks(board.board_name)} style={{ cursor: 'pointer' }}>
-                  <Statistic title={<Tag color="blue">{board.board_name}</Tag>} value={board.stock_count} suffix="只股票" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个</div>
-                  <Progress percent={Math.min((board.stock_count / 2000) * 100, 100)} size="small" showInfo={false} strokeColor="#52c41a" />
-                </Card>
-              </Col>
-            ))}
-          </Row>
+          {/* 核心板块 */}
+          <div style={{ marginBottom: showAllBoards && otherBoards.length > 0 ? 24 : 0 }}>
+            <div style={{ marginBottom: 12, fontSize: 13, color: '#666', fontWeight: 500 }}>
+              📌 核心板块 ({coreBoards.length})
+            </div>
+            <Row gutter={[16, 16]}>
+              {coreBoards.map((board) => {
+                const fundInflow = board.fund_inflow;
+                const hasFundData = fundInflow !== undefined && fundInflow !== null;
+                
+                let borderColor = '#f0f0f0';
+                let borderWidth = '1px';
+                let headerBg = '#fff';
+                let flowIcon = '●';
+                let flowColor = '#999';
+                let flowText = '0.0亿';
+                
+                if (hasFundData) {
+                  if (fundInflow > 0) {
+                    borderColor = '#ff4d4f';
+                    borderWidth = '2px';
+                    headerBg = '#fff1f0';
+                    flowIcon = '↑';
+                    flowColor = '#ff4d4f';
+                    flowText = `${fundInflow.toFixed(1)}亿`;
+                  } else if (fundInflow < 0) {
+                    borderColor = '#52c41a';
+                    borderWidth = '2px';
+                    headerBg = '#f6ffed';
+                    flowIcon = '↓';
+                    flowColor = '#52c41a';
+                    flowText = `${Math.abs(fundInflow).toFixed(1)}亿`;
+                  }
+                }
+                
+                return (
+                  <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
+                    <Card 
+                      size="small" 
+                      hoverable 
+                      onClick={() => fetchBoardStocks(board.board_name)} 
+                      style={{ 
+                        cursor: 'pointer',
+                        borderColor: borderColor,
+                        borderWidth: borderWidth,
+                        borderStyle: 'solid',
+                        transition: 'all 0.3s'
+                      }}
+                      bodyStyle={{ padding: '12px' }}
+                    >
+                      <div style={{ 
+                        background: headerBg, 
+                        margin: '-12px -12px 8px -12px', 
+                        padding: '8px 12px',
+                        borderRadius: '6px 6px 0 0'
+                      }}>
+                        <Tag color={hasFundData && fundInflow > 0 ? 'red' : (hasFundData && fundInflow < 0 ? 'green' : 'blue')} style={{ fontSize: 14, fontWeight: 600, padding: '4px 12px' }}>
+                          {board.board_name}
+                        </Tag>
+                        <span style={{ float: 'right', color: flowColor, fontWeight: 600, fontSize: 13 }}>
+                          {flowIcon} {flowText}
+                        </span>
+                      </div>
+                      <Statistic 
+                        value={board.stock_count} 
+                        suffix="只股票" 
+                        valueStyle={{ color: '#52c41a', fontSize: 20, fontWeight: 'bold' }} 
+                      />
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                        关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个
+                      </div>
+                      <Progress 
+                        percent={Math.min((board.stock_count / 2000) * 100, 100)} 
+                        size="small" 
+                        showInfo={false} 
+                        strokeColor={hasFundData && fundInflow > 0 ? '#ff4d4f' : (hasFundData && fundInflow < 0 ? '#52c41a' : '#1890ff')} 
+                      />
+                    </Card>
+                  </Col>
+                );
+              })}
+            </Row>
+          </div>
+
+          {/* 其他板块（可折叠） */}
+          {showAllBoards && otherBoards.length > 0 && (
+            <div>
+              <Divider style={{ margin: '8px 0 16px 0' }} />
+              <div style={{ marginBottom: 12, fontSize: 13, color: '#666', fontWeight: 500 }}>
+                📂 其他板块 ({otherBoards.length})
+              </div>
+              <Row gutter={[16, 16]}>
+                {otherBoards.map((board) => {
+                  const fundInflow = board.fund_inflow;
+                  const hasFundData = fundInflow !== undefined && fundInflow !== null;
+                  
+                  let borderColor = '#f0f0f0';
+                  let borderWidth = '1px';
+                  let headerBg = '#fff';
+                  let flowIcon = '●';
+                  let flowColor = '#999';
+                  let flowText = '0.0亿';
+                  
+                  if (hasFundData) {
+                    if (fundInflow > 0) {
+                      borderColor = '#ff4d4f';
+                      borderWidth = '2px';
+                      headerBg = '#fff1f0';
+                      flowIcon = '↑';
+                      flowColor = '#ff4d4f';
+                      flowText = `${fundInflow.toFixed(1)}亿`;
+                    } else if (fundInflow < 0) {
+                      borderColor = '#52c41a';
+                      borderWidth = '2px';
+                      headerBg = '#f6ffed';
+                      flowIcon = '↓';
+                      flowColor = '#52c41a';
+                      flowText = `${Math.abs(fundInflow).toFixed(1)}亿`;
+                    }
+                  }
+                  
+                  return (
+                    <Col xs={24} sm={12} md={8} lg={6} xl={4} key={board.board_name} style={{ marginBottom: 16 }}>
+                      <Card 
+                        size="small" 
+                        hoverable 
+                        onClick={() => fetchBoardStocks(board.board_name)} 
+                        style={{ 
+                          cursor: 'pointer',
+                          borderColor: borderColor,
+                          borderWidth: borderWidth,
+                          borderStyle: 'solid',
+                          transition: 'all 0.3s'
+                        }}
+                        bodyStyle={{ padding: '12px' }}
+                      >
+                        <div style={{ 
+                          background: headerBg, 
+                          margin: '-12px -12px 8px -12px', 
+                          padding: '8px 12px',
+                          borderRadius: '6px 6px 0 0'
+                        }}>
+                          <Tag color={hasFundData && fundInflow > 0 ? 'red' : (hasFundData && fundInflow < 0 ? 'green' : 'blue')} style={{ fontSize: 14, fontWeight: 600, padding: '4px 12px' }}>
+                            {board.board_name}
+                          </Tag>
+                          <span style={{ float: 'right', color: flowColor, fontWeight: 600, fontSize: 13 }}>
+                            {flowIcon} {flowText}
+                          </span>
+                        </div>
+                        <Statistic 
+                          value={board.stock_count} 
+                          suffix="只股票" 
+                          valueStyle={{ color: '#52c41a', fontSize: 20, fontWeight: 'bold' }} 
+                        />
+                        <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+                          关键词: {board.keyword_count}个 | 业务板块: {board.business_count}个
+                        </div>
+                        <Progress 
+                          percent={Math.min((board.stock_count / 2000) * 100, 100)} 
+                          size="small" 
+                          showInfo={false} 
+                          strokeColor={hasFundData && fundInflow > 0 ? '#ff4d4f' : (hasFundData && fundInflow < 0 ? '#52c41a' : '#1890ff')} 
+                        />
+                      </Card>
+                    </Col>
+                  );
+                })}
+              </Row>
+            </div>
+          )}
         </Spin>
       </Card>
 
