@@ -342,23 +342,26 @@ const BoardHistory: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}`);
+      // 添加一个随机参数或时间戳，URL 变化会强制请求新数据
+      const cacheBuster = Date.now();
+      // const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`);
+      const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`, {
+        cache: 'no-cache',  // 强制每次请求都去服务器获取
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await response.json();
       
       if (response.ok && data) {
         // 过滤掉总分 <= 0 的板块
         if (data.boards && Array.isArray(data.boards)) {
-          // 1. 先过滤
           let filteredBoards = data.boards.filter((board: EnhancedBoardScore) => board.total_score > 0);
-          
-          // 2. 按 total_score 降序排序
           filteredBoards.sort((a: EnhancedBoardScore, b: EnhancedBoardScore) => b.total_score - a.total_score);
-          
-          // 3. 重新计算排名
           filteredBoards.forEach((board: EnhancedBoardScore, idx: number) => {
             board.rank = idx + 1;
           });
-          
           data.boards = filteredBoards;
         }
         setEnhancedData(data);
