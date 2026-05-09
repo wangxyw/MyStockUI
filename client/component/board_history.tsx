@@ -89,6 +89,8 @@ interface StockInfo {
   symbol: string;
   name: string;
   business_display_name: string;
+  business_display_names?: string;  // 新增：多个业务板块，用 | 分隔
+  business_codes?: string;          // 新增：多个业务代码
   ai_focus?: {
     is_focused: boolean;
     datestr?: string;
@@ -247,16 +249,25 @@ const BoardHistory: React.FC = () => {
     if (!selectedBusinessFilter) {
       return stocksData.stocks;
     }
-    return stocksData.stocks.filter(stock => 
-      stock.business_display_name === selectedBusinessFilter
-    );
+    return stocksData.stocks.filter(stock => {
+      // 检查是否匹配选中的业务板块
+      if (stock.business_display_names && stock.business_display_names.includes('|')) {
+        const businesses = stock.business_display_names.split('|');
+        return businesses.includes(selectedBusinessFilter);
+      }
+      return stock.business_display_name === selectedBusinessFilter;
+    });
   }, [stocksData.stocks, selectedBusinessFilter]);
 
   // 获取业务板块的热度计数（用于显示）
   const getBusinessHeatCount = (businessName: string) => {
-    // 这里可以根据需要从 enhancedData 中获取热度信息
-    // 暂时返回随机热度用于演示，实际应该从后端数据中获取
-    return stocksData.stocks.filter(s => s.business_display_name === businessName).length;
+    return stocksData.stocks.filter(s => {
+      if (s.business_display_names && s.business_display_names.includes('|')) {
+        const businesses = s.business_display_names.split('|');
+        return businesses.includes(businessName);
+      }
+      return s.business_display_name === businessName;
+    }).length;
   };
 
   // 清除业务板块过滤
@@ -589,6 +600,8 @@ const BoardHistory: React.FC = () => {
         const stocksWithAiInfo = (stocksData.stocks || []).map((stock: any) => ({
           ...stock,
           business_display_name: stock.business_display_name,
+          business_display_names: stock.business_display_names,  // 新增
+          business_codes: stock.business_codes,                  // 新增
           ai_focus: aiFocusStocks[stock.symbol] ? {
             is_focused: true,
             datestr: aiFocusStocks[stock.symbol].datestr,
@@ -708,14 +721,41 @@ const BoardHistory: React.FC = () => {
         </span>
       ),
     },
+    // {
+    //   title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>所属业务板块</span>,
+    //   dataIndex: 'business_display_name',
+    //   key: 'business_display_name',
+    //   width: 200,
+    //   render: (name: string) => (
+    //     <Tag color="cyan" style={{ fontSize: 13, padding: '4px 10px' }}>{name || '-'}</Tag>
+    //   ),
+    // },
     {
       title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>所属业务板块</span>,
       dataIndex: 'business_display_name',
       key: 'business_display_name',
       width: 200,
-      render: (name: string) => (
-        <Tag color="cyan" style={{ fontSize: 13, padding: '4px 10px' }}>{name || '-'}</Tag>
-      ),
+      render: (_: any, record: StockInfo) => {
+        // 如果有多个业务板块，显示多个 Tag
+        if (record.business_display_names && record.business_display_names.includes('|')) {
+          const businesses = record.business_display_names.split('|');
+          return (
+            <Space wrap size={4}>
+              {businesses.slice(0, 3).map((biz, idx) => (
+                <Tag key={idx} color="cyan" style={{ fontSize: 12, padding: '2px 8px' }}>
+                  {biz}
+                </Tag>
+              ))}
+              {businesses.length > 3 && (
+                <Tooltip title={businesses.slice(3).join(', ')}>
+                  <Tag color="default" style={{ fontSize: 12 }}>+{businesses.length - 3}</Tag>
+                </Tooltip>
+              )}
+            </Space>
+          );
+        }
+        return <Tag color="cyan" style={{ fontSize: 13, padding: '4px 10px' }}>{record.business_display_name || '-'}</Tag>;
+      },
     },
     {
       title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>AI关注信息</span>,

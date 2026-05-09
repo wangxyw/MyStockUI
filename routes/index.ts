@@ -1634,20 +1634,60 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
     const boardNames = rows.map(r => r.board);
     const placeholders = boardNames.map(() => '?').join(',');
     
-    // 1. 从 MySQL 查询核心行业数据
+    // 1. 从 sentiment_keyword_mapping 查询核心行业数据（统一数据源）
     const coreSql = `
-      SELECT board_name, sw_code, sw_name, business_type, stock_count, avg_30d_pct
-      FROM board_core_sw_industries
-      WHERE board_name IN (${placeholders})
-      ORDER BY board_name, 
-        CASE business_type WHEN 'sw3_hy' THEN 1 ELSE 2 END,
+      SELECT 
+        skm.board_name,
+        b.code as sw_code,
+        skm.business_name as sw_name,
+        CASE 
+          WHEN b.business_type IN ('sw1_hy', 'sw2_hy', 'sw3_hy', 'swhy') THEN 'sw3_hy'
+          WHEN b.business_type IN ('gainianbankuai', 'ch_gn') THEN 'ch_gn'
+          ELSE 'fallback'
+        END as business_type,
+        COUNT(DISTINCT sbs.symbol) as stock_count,
+        0 as avg_30d_pct
+      FROM sentiment_keyword_mapping skm
+      JOIN business b ON skm.business_code = b.code
+      LEFT JOIN sw_stock_business sbs ON b.code = sbs.business_code
+      WHERE skm.board_name IN (${placeholders})
+      GROUP BY skm.board_name, b.code, skm.business_name
+      ORDER BY skm.board_name,
+        CASE 
+          WHEN b.business_type IN ('sw1_hy', 'sw2_hy', 'sw3_hy', 'swhy') THEN 1
+          WHEN b.business_type IN ('gainianbankuai', 'ch_gn') THEN 2
+          ELSE 3
+        END,
         stock_count DESC
     `;
     
     pool.query(coreSql, boardNames, (dbErr: Error | null, coreRows: any[]) => {
       if (dbErr) {
         console.error('查询核心行业失败:', dbErr);
-        // 降级处理...
+        // 降级处理：返回空的核心行业数据
+        const boardsWithCore = rows.map(row => ({
+          board: row.board,
+          rank: row.rank,
+          news_score: row.news_score,
+          fund_score: row.fund_score,
+          total_score: row.total_score,
+          fund_inflow: row.fund_inflow,
+          article_count: row.article_count,
+          insight: row.insight,
+          core_industries: []
+        }));
+        
+        const totalScore = boardsWithCore.reduce((sum, r) => sum + r.total_score, 0);
+        const totalArticles = boardsWithCore.reduce((sum, r) => sum + r.article_count, 0);
+        
+        db.close();
+        res.json({
+          date,
+          boards: boardsWithCore,
+          total_score: totalScore,
+          total_articles: totalArticles
+        });
+        return;
       }
       
       // 2. 从 SQLite 查询当日子板块热度
@@ -1683,7 +1723,7 @@ router.get('/board/enhanced_details', (req: Request, res: Response) => {
             type: core.business_type,
             stock_count: core.stock_count,
             avg_pct_30d: core.avg_30d_pct,
-            heat_count: heatCount  // 新增：当天热度
+            heat_count: heatCount
           });
         }
         
@@ -1796,20 +1836,19 @@ router.get('/sentiment/board_stocks', (req: Request, res: Response) => {
     const mappedBusinessCodes = mappings.map(m => m.business_code);
     const placeholders = mappedBusinessCodes.map(() => '?').join(',');
     
-    // 第二步：查询股票，并且只返回在映射 business_code 中的业务板块名称
-    // 使用子查询或 INNER JOIN 确保只返回匹配的业务板块
+    // 修改：不使用 GROUP BY，返回每只股票的所有业务板块关联
     const stocksSql = `
-      SELECT DISTINCT 
+      SELECT 
         sbs.symbol, 
         COALESCE(st.name, st_stocks.name, sbs.symbol) as stock_name,
-        b.name as business_display_name,
-        b.code as business_code
+        GROUP_CONCAT(DISTINCT b.name ORDER BY b.name SEPARATOR '|') as business_display_names,
+        GROUP_CONCAT(DISTINCT b.code ORDER BY b.name SEPARATOR '|') as business_codes
       FROM sw_stock_business sbs
       INNER JOIN business b ON sbs.business_code = b.code
       LEFT JOIN stocks st ON sbs.symbol = st.symbol
       LEFT JOIN st_stocks ON sbs.symbol = st_stocks.symbol
       WHERE sbs.business_code IN (${placeholders})
-      GROUP BY sbs.symbol
+      GROUP BY sbs.symbol, stock_name
       ORDER BY sbs.symbol
     `;
     
@@ -1846,8 +1885,9 @@ router.get('/sentiment/board_stocks', (req: Request, res: Response) => {
           stocks: stocks.map((s: any) => ({
             symbol: s.symbol,
             name: s.stock_name || s.symbol,
-            business_display_name: s.business_display_name,  // 这是与映射匹配的业务板块名称
-            business_code: s.business_code
+            business_display_names: s.business_display_names,  // 多个业务板块用 | 分隔
+            business_display_name: s.business_display_names?.split('|')[0] || '', // 兼容旧字段
+            business_codes: s.business_codes
           })),
           stock_count: stocks.length,
           mapping_count: mappings.length
