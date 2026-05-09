@@ -13,7 +13,9 @@ import {
   ReloadOutlined,
   RobotOutlined,
   FundOutlined,
-  FileSearchOutlined
+  FileSearchOutlined,
+  FilterOutlined,
+  CloseOutlined
 } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
@@ -45,7 +47,7 @@ interface EnhancedBoardScore {
     type: string;
     stock_count: number;
     avg_pct_30d?: number;
-    heat_count?: number;  // 新增：当天热度
+    heat_count?: number;
   }>;
 }
 
@@ -100,6 +102,13 @@ interface BoardStocksData {
   board_name: string;
   keywords: string[];
   business_names: string[];
+  business_names_with_stats?: Array<{
+    name: string;
+    stock_count: number;
+    heat_count: number;
+    type: string;
+    source: 'core' | 'mapping';
+  }>;
   stocks: StockInfo[];
   stock_count: number;
   mapping_count: number;
@@ -110,7 +119,7 @@ interface BoardSummary {
   keyword_count: number;
   business_count: number;
   stock_count: number;
-  business_names?: string[];  // 新增：业务板块名称列表
+  business_names?: string[];
 }
 
 const BoardHistory: React.FC = () => {
@@ -214,6 +223,7 @@ const BoardHistory: React.FC = () => {
   // 股票信息弹窗
   const [stocksModalVisible, setStocksModalVisible] = useState<boolean>(false);
   const [stocksLoading, setStocksLoading] = useState<boolean>(false);
+  const [selectedBusinessFilter, setSelectedBusinessFilter] = useState<string | null>(null); // 新增：业务板块过滤
   const [stocksData, setStocksData] = useState<BoardStocksData>({
     board_name: '',
     keywords: [],
@@ -232,16 +242,37 @@ const BoardHistory: React.FC = () => {
   ]);
   const [selectedBoard, setSelectedBoard] = useState<string>('AI算力');
 
+  // ========== 过滤后的股票列表 ==========
+  const filteredStocks = useMemo(() => {
+    if (!selectedBusinessFilter) {
+      return stocksData.stocks;
+    }
+    return stocksData.stocks.filter(stock => 
+      stock.business_display_name === selectedBusinessFilter
+    );
+  }, [stocksData.stocks, selectedBusinessFilter]);
+
+  // 获取业务板块的热度计数（用于显示）
+  const getBusinessHeatCount = (businessName: string) => {
+    // 这里可以根据需要从 enhancedData 中获取热度信息
+    // 暂时返回随机热度用于演示，实际应该从后端数据中获取
+    return stocksData.stocks.filter(s => s.business_display_name === businessName).length;
+  };
+
+  // 清除业务板块过滤
+  const clearBusinessFilter = () => {
+    setSelectedBusinessFilter(null);
+  };
+
   // ========== API 调用 ==========
-  
-  // 获取所有板块摘要
+
+  // 获取所有板块摘
   const fetchBoardsSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
       const response = await fetch('/api/sentiment/all_boards_summary');
       const data = await response.json();
       if (response.ok && !data.error) {
-        // 同时获取每个板块的业务板块名称
         const boardsWithNames = await Promise.all(
           data.map(async (board: BoardSummary) => {
             try {
@@ -342,11 +373,9 @@ const BoardHistory: React.FC = () => {
 
     setLoading(true);
     try {
-      // 添加一个随机参数或时间戳，URL 变化会强制请求新数据
       const cacheBuster = Date.now();
-      // const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`);
       const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`, {
-        cache: 'no-cache',  // 强制每次请求都去服务器获取
+        cache: 'no-cache',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
@@ -355,7 +384,6 @@ const BoardHistory: React.FC = () => {
       const data = await response.json();
       
       if (response.ok && data) {
-        // 过滤掉总分 <= 0 的板块
         if (data.boards && Array.isArray(data.boards)) {
           let filteredBoards = data.boards.filter((board: EnhancedBoardScore) => board.total_score > 0);
           filteredBoards.sort((a: EnhancedBoardScore, b: EnhancedBoardScore) => b.total_score - a.total_score);
@@ -504,13 +532,61 @@ const BoardHistory: React.FC = () => {
     setStocksModalVisible(true);
     setCurrentBoard(board);
     setStocksLoading(true);
+    setSelectedBusinessFilter(null);
     
     try {
-      const response = await fetch(`/api/sentiment/board_stocks?board=${encodeURIComponent(board)}`);
-      const data = await response.json();
+      // 并行请求两个数据源：1.股票映射数据 2.增强版数据（包含核心板块）
+      const [stocksRes, enhancedRes] = await Promise.all([
+        fetch(`/api/sentiment/board_stocks?board=${encodeURIComponent(board)}`),
+        fetch(`/api/board/enhanced_details?date=${selectedDate}`)
+      ]);
       
-      if (response.ok && !data.error) {
-        const stocksWithAiInfo = (data.stocks || []).map((stock: any) => ({
+      const stocksData = await stocksRes.json();
+      const enhancedData = await enhancedRes.json();
+      
+      if (stocksRes.ok && !stocksData.error) {
+        // 从增强版数据中获取当前板块的核心行业信息
+        const currentBoardData = enhancedData.boards?.find((b: any) => b.board === board);
+        const coreIndustries = currentBoardData?.core_industries || [];
+        
+        // 构建核心行业映射
+        const coreMap = new Map();
+        coreIndustries.forEach((ind: any) => {
+          coreMap.set(ind.name, {
+            name: ind.name,
+            stock_count: ind.stock_count,
+            heat_count: ind.heat_count,
+            type: ind.type,
+            source: 'core'
+          });
+        });
+        
+        // 获取映射表中的业务板块列表
+        const mappedBusinessNames = stocksData.business_names || [];
+        
+        // 合并：先添加核心行业数据，再补充映射表中独有的
+        const mergedBusinessMap = new Map(coreMap);
+        
+        // 添加映射表中独有的业务板块（不在核心行业中的）
+        mappedBusinessNames.forEach((name: string) => {
+          if (!mergedBusinessMap.has(name)) {
+            const stockCount = stocksData.stocks?.filter((s: any) => s.business_display_name === name).length || 0;
+            mergedBusinessMap.set(name, {
+              name: name,
+              stock_count: stockCount,
+              heat_count: 0,
+              type: 'fallback',
+              source: 'mapping'
+            });
+          }
+        });
+        
+        // 转换为数组并按 stock_count 降序排序
+        const businessNamesWithStats = Array.from(mergedBusinessMap.values())
+          .sort((a, b) => b.stock_count - a.stock_count);
+        
+        // 添加 AI 关注信息并保持排序
+        const stocksWithAiInfo = (stocksData.stocks || []).map((stock: any) => ({
           ...stock,
           business_display_name: stock.business_display_name,
           ai_focus: aiFocusStocks[stock.symbol] ? {
@@ -519,11 +595,10 @@ const BoardHistory: React.FC = () => {
             max_240_pct: aiFocusStocks[stock.symbol].max_240_pct,
             min_240_pct: aiFocusStocks[stock.symbol].min_240_pct,
             price_change: aiFocusStocks[stock.symbol].price_change
-          } : {
-            is_focused: false
-          }
+          } : { is_focused: false }
         }));
         
+        // 保持原有排序：AI关注股票排前面，有价格变化的优先
         const sortedStocks = stocksWithAiInfo.sort((a: StockInfo, b: StockInfo) => {
           const aFocused = a.ai_focus?.is_focused;
           const bFocused = b.ai_focus?.is_focused;
@@ -541,16 +616,18 @@ const BoardHistory: React.FC = () => {
         });
         
         setStocksData({
-          board_name: data.board_name,
-          keywords: data.keywords || [],
-          business_names: data.business_names || [],
+          board_name: stocksData.board_name,
+          keywords: stocksData.keywords || [],
+          business_names: stocksData.business_names || [],
+          business_names_with_stats: businessNamesWithStats,
           stocks: sortedStocks,
-          stock_count: data.stock_count || 0,
-          mapping_count: data.mapping_count || 0
+          stock_count: stocksData.stock_count || 0,
+          mapping_count: stocksData.mapping_count || 0
         });
-        message.success(`获取到 ${data.stock_count || 0} 只相关股票`);
+        
+        message.success(`获取到 ${stocksData.stock_count || 0} 只相关股票`);
       } else {
-        message.error(data?.error || '获取股票信息失败');
+        message.error(stocksData?.error || '获取股票信息失败');
       }
     } catch (error) {
       console.error('Failed to fetch stocks:', error);
@@ -1110,7 +1187,6 @@ const BoardHistory: React.FC = () => {
     { title: '文章数量', dataIndex: 'count', key: 'count', width: 100, render: (count: number) => `${count || 0} 篇` },
   ];
 
-  // 增强版趋势表格列定义
   const enhancedTrendColumns = [
     { title: '日期', dataIndex: 'date', key: 'date', width: 120 },
     {
@@ -1301,7 +1377,6 @@ const BoardHistory: React.FC = () => {
     };
   };
 
-  // 当前使用的数据
   const currentDailyData = viewMode === 'enhanced' ? enhancedData : dailyData;
 
   return (
@@ -1508,7 +1583,6 @@ const BoardHistory: React.FC = () => {
 
       {/* 查询面板 */}
       <Card title={<span><HistoryOutlined style={{ marginRight: 8, color: '#1890ff' }} />板块历史数据查询</span>} bordered={false}>
-        {/* 视图模式切换 */}
         <div style={{ marginBottom: 16, textAlign: 'right' }}>
           <Space>
             <span>视图模式：</span>
@@ -1595,7 +1669,6 @@ const BoardHistory: React.FC = () => {
       </Card>
 
       <Spin spinning={loading} tip="正在加载数据...">
-        {/* 单日数据展示 */}
         {queryType === 'single' && currentDailyData && (
           <Card 
             style={{ marginTop: 20 }}
@@ -1629,7 +1702,6 @@ const BoardHistory: React.FC = () => {
           </Card>
         )}
 
-        {/* 日期范围数据展示 */}
         {queryType === 'range' && rangeData.length > 0 && (
           <>
             <Card style={{ marginTop: 20 }} title={<span><BarChartOutlined style={{ marginRight: 8 }} />{dateRange[0]} 至 {dateRange[1]} 板块热度矩阵</span>} extra={<Statistic title="统计天数" value={rangeData.length} suffix="天" valueStyle={{ fontSize: 14 }} />}>
@@ -1649,7 +1721,6 @@ const BoardHistory: React.FC = () => {
           </>
         )}
 
-        {/* 板块趋势展示 - 纯新闻版 */}
         {queryType === 'trend' && viewMode === 'news' && trendData[selectedBoard] && trendData[selectedBoard].length > 0 && (
           <Card style={{ marginTop: 20 }}>
             <ReactEcharts option={getTrendChartOption(selectedBoard, trendData[selectedBoard])} style={{ height: 450 }} opts={{ renderer: 'canvas' }} />
@@ -1664,7 +1735,6 @@ const BoardHistory: React.FC = () => {
           </Card>
         )}
 
-        {/* 板块趋势展示 - 增强版 */}
         {queryType === 'trend' && viewMode === 'enhanced' && enhancedTrendData[selectedBoard] && enhancedTrendData[selectedBoard].length > 0 && (
           <Card style={{ marginTop: 20 }}>
             <ReactEcharts option={getEnhancedTrendChartOption(selectedBoard, enhancedTrendData[selectedBoard])} style={{ height: 450 }} opts={{ renderer: 'canvas' }} />
@@ -1680,7 +1750,6 @@ const BoardHistory: React.FC = () => {
           </Card>
         )}
 
-        {/* 无数据提示 */}
         {queryType === 'single' && !currentDailyData && !loading && (
           <Card style={{ marginTop: 20, textAlign: 'center', padding: 50 }}>
             <HistoryOutlined style={{ fontSize: 48, color: '#ccc' }} />
@@ -1689,7 +1758,6 @@ const BoardHistory: React.FC = () => {
         )}
       </Spin>
 
-      {/* 文章详情弹窗 */}
       <Modal
         title={<span><FileTextOutlined style={{ marginRight: 8, color: '#1890ff' }} />{currentBoard} 板块 - {currentDate} 文章详情</span>}
         visible={articlesModalVisible}
@@ -1716,11 +1784,14 @@ const BoardHistory: React.FC = () => {
         </Spin>
       </Modal>
 
-      {/* 股票列表弹窗 */}
+      {/* 优化后的股票列表弹窗 */}
       <Modal
         title={<span style={{ fontSize: 18 }}><StockOutlined style={{ marginRight: 8, color: '#52c41a' }} />{stocksData.board_name} 板块 - 相关股票（舆情映射）</span>}
         visible={stocksModalVisible}
-        onCancel={() => setStocksModalVisible(false)}
+        onCancel={() => {
+          setStocksModalVisible(false);
+          setSelectedBusinessFilter(null);
+        }}
         footer={null}
         width="90%"
         style={{ top: 20 }}
@@ -1742,20 +1813,123 @@ const BoardHistory: React.FC = () => {
                   </Card>
                 </Col>
               </Row>
+              
               <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={12}><Card size="small" title="相关关键词"><div style={{ maxHeight: 80, overflowY: 'auto' }}>{stocksData.keywords.map(kw => <Tag key={kw} color="cyan" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>{kw}</Tag>)}</div></Card></Col>
-                <Col span={12}><Card size="small" title="映射业务板块"><div style={{ maxHeight: 80, overflowY: 'auto' }}>{stocksData.business_names.map(bn => <Tag key={bn} color="purple" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>{bn}</Tag>)}</div></Card></Col>
+                <Col span={12}>
+                  <Card size="small" title="相关关键词">
+                    <div style={{ maxHeight: 80, overflowY: 'auto' }}>
+                      {stocksData.keywords.map(kw => <Tag key={kw} color="cyan" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>{kw}</Tag>)}
+                    </div>
+                  </Card>
+                </Col>
+                <Col span={12}>
+                </Col>
               </Row>
+
+              <Card 
+                    size="small" 
+                    title={
+                      <Space>
+                        🎯 核心业务板块
+                        <Tag color="purple">点击可过滤股票</Tag>
+                        {selectedBusinessFilter && (
+                          <Tag 
+                            color="blue" 
+                            closable 
+                            onClose={clearBusinessFilter}
+                            icon={<FilterOutlined />}
+                          >
+                            当前过滤: {selectedBusinessFilter} ({filteredStocks.length})
+                          </Tag>
+                        )}
+                      </Space>
+                    }
+              >
+                <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                      {(stocksData as any).business_names_with_stats?.map((item: any) => {
+                        const stockCount = stocksData.stocks.filter(s => s.business_display_name === item.name).length;
+                        const isActive = selectedBusinessFilter === item.name;
+                        
+                        const getHeatIcon = (heatCount: number) => {
+                          if (heatCount >= 10) return '🔥🔥';
+                          if (heatCount >= 5) return '🔥';
+                          if (heatCount >= 1) return '📈';
+                          return null;
+                        };
+                        
+                        const heatIcon = getHeatIcon(item.heat_count);
+                        
+                        // 根据类型选择颜色
+                        let tagColor = 'purple';
+                        if (item.type === 'sw3_hy') tagColor = 'gold';
+                        else if (item.type === 'ch_gn') tagColor = 'blue';
+                        else if (item.type === 'fallback') tagColor = 'purple';
+                        
+                        return (
+                          <Tooltip 
+                            key={item.name} 
+                            title={`${item.name} - ${item.stock_count} 只股票${item.heat_count > 0 ? ` | 热度: +${item.heat_count}` : ''}`}
+                          >
+                            <Tag 
+                              color={isActive ? 'gold' : tagColor} 
+                              style={{ 
+                                fontSize: 12, 
+                                padding: '4px 10px', 
+                                margin: '2px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                opacity: selectedBusinessFilter && !isActive ? 0.5 : 1,
+                                border: isActive ? '2px solid #faad14' : 'none',
+                                fontWeight: isActive ? 'bold' : 'normal'
+                              }}
+                              onClick={() => {
+                                if (selectedBusinessFilter === item.name) {
+                                  setSelectedBusinessFilter(null);
+                                } else {
+                                  setSelectedBusinessFilter(item.name);
+                                }
+                              }}
+                            >
+                              {heatIcon && <span style={{ marginRight: 4 }}>{heatIcon}</span>}
+                              <span>{item.name}</span>
+                              <span style={{ fontSize: 11, marginLeft: 4, color: '#666' }}>({item.stock_count})</span>
+                              {item.heat_count > 0 && (
+                                <span style={{ color: '#faad14', marginLeft: 6, fontWeight: 'bold', fontSize: 12 }}>
+                                  +{item.heat_count}
+                                </span>
+                              )}
+                            </Tag>
+                          </Tooltip>
+                        );
+                      })}
+                </div>
+              </Card>
+        
               <Divider orientation="left" style={{ margin: '8px 0', fontSize: 15 }}>
-                <Space><span style={{ fontSize: 15, fontWeight: 'bold' }}>股票列表</span><Tag color="blue">总股票: {stocksData.stock_count}</Tag><Tag color="cyan"><RobotOutlined /> AI关注: {stocksData.stocks.filter(s => s.ai_focus?.is_focused).length}</Tag></Space>
+                <Space>
+                  <span style={{ fontSize: 15, fontWeight: 'bold' }}>股票列表</span>
+                  <Tag color="blue">总股票: {filteredStocks.length}</Tag>
+                  {selectedBusinessFilter && (
+                    <Tag color="gold" icon={<FilterOutlined />} closable onClose={clearBusinessFilter}>
+                      筛选: {selectedBusinessFilter}
+                    </Tag>
+                  )}
+                  <Tag color="cyan"><RobotOutlined /> AI关注: {filteredStocks.filter(s => s.ai_focus?.is_focused).length}</Tag>
+                </Space>
               </Divider>
+              
               <Table
-                dataSource={stocksData.stocks}
+                dataSource={filteredStocks}
                 columns={stockColumns}
                 rowKey="symbol"
                 size="middle"
-                pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (total) => <span>共 {total} 只股票</span>, pageSizeOptions: ['50', '100', '200', '500'] }}
-                scroll={{ y: 'calc(100vh - 420px)' }}
+                pagination={{ 
+                  pageSize: 100, 
+                  showSizeChanger: true, 
+                  showTotal: (total) => <span>共 {total} 只股票</span>, 
+                  pageSizeOptions: ['50', '100', '200', '500'] 
+                }}
+                scroll={{ y: 'calc(100vh - 500px)' }}
               />
             </>
           ) : (!stocksLoading && <Empty description={<span>暂无 {stocksData.board_name} 板块的相关股票数据<br /><span style={{ fontSize: 12, color: '#999' }}>请确认舆情映射配置是否正确</span></span>} />)}
