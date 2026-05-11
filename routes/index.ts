@@ -747,6 +747,15 @@ router.get('/ds', function (req, res, next) {
   });
 });
 
+router.get('/boards_of_stock', function (req, res, next) {
+  const stock = req.query.stock;
+  let sql = `SELECT b.* FROM sw_stock_business ssb JOIN business b ON ssb.business_code=b.code WHERE ssb.symbol='${stock}';`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 // routes/index.ts - 串行执行版本
 router.get('/alarm_trends', function (req, res, next) {
   const { days, daysTill } = req.query;

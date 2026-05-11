@@ -2004,6 +2004,9 @@ export const MyFocusListComponent = () => {
   const endDate = moment(`${year}-${month}-${day}`).format(dateFormat);
   const startDate = moment(`${lastYear}-${month}-${day}`).format(dateFormat);
 
+  // 行业信息缓存，避免重复请求
+  const industryCache = new Map<string, string>();
+
   const mainChartRef = useRef<any>();
   const handleClick = useCallback(() => {
     const mainChartInstance = mainChartRef?.current?.getEchartsInstance();
@@ -2100,6 +2103,35 @@ export const MyFocusListComponent = () => {
     }).then(() => {
       handleAllStockData(currentPage);
     });
+  };
+
+  // 行业信息组件
+  const StockIndustry: React.FC<{ symbol: string }> = ({ symbol }) => {
+      const [industry, setIndustry] = useState<string>('加载中...');
+
+      useEffect(() => {
+          if (industryCache.has(symbol)) {
+              setIndustry(industryCache.get(symbol)!);
+              return;
+          }
+
+          get(`/api/boards_of_stock?stock=${symbol}`)
+              .then((res: any[]) => {
+                  // 查找申万一级行业或申万行业
+                  const industryItem = res.find(
+                      (item) => item.business_type === 'sw1_hy' || item.business_type === 'swhy'
+                  );
+                  const industryName = industryItem?.name || '--';
+                  industryCache.set(symbol, industryName);
+                  setIndustry(industryName);
+              })
+              .catch(() => {
+                  industryCache.set(symbol, '--');
+                  setIndustry('--');
+              });
+      }, [symbol]);
+
+      return <span>{industry}</span>;
   };
 
   useEffect(() => {
@@ -2381,6 +2413,13 @@ export const MyFocusListComponent = () => {
         const re = (record.marketvalue / record.finalprice).toFixed(3);
         return <>{re}</>;
       },
+    },
+    // 新增行业列
+    {
+        title: 'Industry',
+        dataIndex: 'symbol',  // 使用 symbol 作为参数传递给 render
+        key: 'industry',
+        render: (symbol: string) => <StockIndustry symbol={symbol} />,
     },
     {
       title: 'MaxPrice',
