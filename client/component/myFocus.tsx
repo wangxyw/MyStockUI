@@ -15,6 +15,7 @@ import React, {
   useRef,
   useContext,
   useCallback,
+  useMemo,
 } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
@@ -2138,7 +2139,7 @@ export const MyFocusListComponent = () => {
     handleAllStockData(1);
   }, []);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       title: 'Symbol',
       dataIndex: 'symbol',
@@ -2478,7 +2479,7 @@ export const MyFocusListComponent = () => {
         </Popconfirm>
       ),
     },
-  ];
+  ], [/* 依赖项数组：通常为空，或者仅包含删除/修改等必要函数 */]);
 
   const components = {
     body: {
