@@ -244,6 +244,9 @@ const BoardHistory: React.FC = () => {
   ]);
   const [selectedBoard, setSelectedBoard] = useState<string>('AI算力');
 
+  const [actualTop10, setActualTop10] = useState<any[]>([]);
+  const [actualTop10Loading, setActualTop10Loading] = useState<boolean>(false);
+
   // ========== 过滤后的股票列表 ==========
   const filteredStocks = useMemo(() => {
     if (!selectedBusinessFilter) {
@@ -383,37 +386,49 @@ const BoardHistory: React.FC = () => {
     }
 
     setLoading(true);
+    setActualTop10Loading(true);
     try {
       const cacheBuster = Date.now();
-      const response = await fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`, {
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
-      const data = await response.json();
-      
-      if (response.ok && data) {
-        if (data.boards && Array.isArray(data.boards)) {
-          let filteredBoards = data.boards.filter((board: EnhancedBoardScore) => board.total_score > 0);
+      const [enhancedRes, top10Res] = await Promise.all([
+        fetch(`/api/board/enhanced_details?date=${selectedDate}&_=${cacheBuster}`, {
+          cache: 'no-cache',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+        }),
+        fetch(`/api/board/top10?date=${selectedDate}`)
+      ]);
+
+      // 处理增强数据
+      const enhancedData = await enhancedRes.json();
+      if (enhancedRes.ok && enhancedData) {
+        if (enhancedData.boards && Array.isArray(enhancedData.boards)) {
+          let filteredBoards = enhancedData.boards.filter((board: EnhancedBoardScore) => board.total_score > 0);
           filteredBoards.sort((a: EnhancedBoardScore, b: EnhancedBoardScore) => b.total_score - a.total_score);
-          filteredBoards.forEach((board: EnhancedBoardScore, idx: number) => {
-            board.rank = idx + 1;
-          });
-          data.boards = filteredBoards;
+          filteredBoards.forEach((board: EnhancedBoardScore, idx: number) => { board.rank = idx + 1; });
+          enhancedData.boards = filteredBoards;
         }
-        setEnhancedData(data);
-        message.success(`成功加载 ${selectedDate} 的增强版数据，共 ${data.boards.length} 个热点板块`);
+        setEnhancedData(enhancedData);
+        message.success(`成功加载 ${selectedDate} 的增强版数据，共 ${enhancedData.boards.length} 个热点板块`);
       } else {
-        message.error(data?.error || '数据加载失败');
+        message.error(enhancedData?.error || '数据加载失败');
         setEnhancedData(null);
+      }
+
+      // 处理top10数据
+      if (top10Res.ok) {
+        const top10Data = await top10Res.json();
+        setActualTop10(top10Data);
+      } else {
+        console.error('获取实际涨幅top10失败');
+        setActualTop10([]);
       }
     } catch (error) {
       console.error('Failed to fetch enhanced data:', error);
       message.error('数据加载失败，请检查网络连接');
+      setEnhancedData(null);
+      setActualTop10([]);
     } finally {
       setLoading(false);
+      setActualTop10Loading(false);
     }
   }, [selectedDate]);
 
@@ -1727,6 +1742,50 @@ const BoardHistory: React.FC = () => {
                   style={{ height: 520 }}
                   opts={{ renderer: 'canvas' }}
                 />
+                {viewMode === 'enhanced' && (
+                  <Card 
+                    title={<span><RiseOutlined style={{ marginRight: 8, color: '#ff4d4f' }} />实际涨幅 TOP10（市值加权）</span>}
+                    size="small"
+                    style={{ marginTop: 16 }}
+                    loading={actualTop10Loading}
+                  >
+                    {actualTop10.length > 0 ? (
+                      <Table
+                        dataSource={actualTop10}
+                        rowKey="board_name"
+                        size="small"
+                        pagination={false}
+                        columns={[
+                          { 
+                            title: '排名', 
+                            key: 'rank', 
+                            width: 60,
+                            render: (_: any, __: any, idx: number) => {
+                              const colors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+                              return <span style={{ fontWeight: 'bold', color: idx < 3 ? colors[idx] : '#999' }}>{idx + 1}</span>;
+                            }
+                          },
+                          { title: '板块', dataIndex: 'board_name', key: 'board_name', width: 120 },
+                          { 
+                            title: '涨跌幅', 
+                            dataIndex: 'weighted_avg_change', 
+                            key: 'weighted_avg_change', 
+                            width: 100,
+                            render: (val: number) => (
+                              <span style={{ color: val >= 0 ? '#ff4d4f' : '#52c41a', fontWeight: 500 }}>
+                                {val > 0 ? `+${val.toFixed(2)}%` : `${val.toFixed(2)}%`}
+                              </span>
+                            )
+                          },
+                          { title: '成分股数', dataIndex: 'stock_count', key: 'stock_count', width: 80 }
+                        ]}
+                        scroll={{ x: 400 }}
+                      />
+                    ) : (
+                      !actualTop10Loading && <Empty description="暂无实际涨幅数据" />
+                    )}
+                  </Card>
+                )}
               </Col>
               <Col span={16}>
                 <Table

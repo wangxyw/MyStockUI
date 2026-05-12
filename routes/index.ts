@@ -1930,6 +1930,32 @@ router.get('/sentiment/all_boards_summary', (req: Request, res: Response) => {
   });
 });
 
+router.get('/board/top10', function (req, res, next) {
+  const date = req.query.date as string;
+  let sql = `SELECT 
+                m.board_name,
+                ROUND(SUM(sc.pricechangepct * sc.marketvalue) / SUM(sc.marketvalue), 2) AS weighted_avg_change,
+                COUNT(DISTINCT sc.symbol) AS stock_count
+            FROM sentiment_keyword_mapping m
+            JOIN sw_stock_business sb ON m.business_code = sb.business_code
+            JOIN stock_day_common_data sc ON sb.symbol = sc.symbol
+            LEFT JOIN st_stocks st ON sb.symbol = st.symbol
+            WHERE m.business_code IS NOT NULL 
+              AND m.business_code != ''
+              AND sc.datestr = '${date}'          -- 指定日期
+              AND sc.pricechangepct IS NOT NULL
+              AND sc.marketvalue > 0
+              AND st.symbol IS NULL                  -- 排除 ST 股票
+            GROUP BY m.board_name
+            ORDER BY weighted_avg_change DESC
+            LIMIT 10;`;
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+
 /* GET home page. */
 router.get('*', function (req, res, next) {
   res.render('index', { title: 'Express' });
