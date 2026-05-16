@@ -2479,7 +2479,7 @@ export const MyFocusListComponent = () => {
         </Popconfirm>
       ),
     },
-  ], [/* 依赖项数组：通常为空，或者仅包含删除/修改等必要函数 */]);
+  ], [sortByDate, dateSortOrder, handleDateSort/* 依赖项数组：通常为空，或者仅包含删除/修改等必要函数 */]);
 
   const components = {
     body: {
