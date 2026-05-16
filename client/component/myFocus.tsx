@@ -51,7 +51,6 @@ export const focusStatusMap = {
 
 // 通用工具函数：为图表添加异常时间窗口标记
 const addMarkAreaToOption = (option, anomalyWindows) => {
-  // 如果没有异常窗口数据，直接返回原配置
   if (!anomalyWindows || anomalyWindows.length === 0 || !option) return option;
   
   const markAreaData = anomalyWindows.map(window => [
@@ -90,7 +89,6 @@ const addMarkAreaToOption = (option, anomalyWindows) => {
     animation: false,
   };
 
-  // 给所有系列添加
   if (option.series) {
     option.series = option.series.map(series => ({
       ...series,
@@ -1960,6 +1958,36 @@ const EditableCell: React.FC<EditableCellProps> = ({
   return <td {...restProps}>{childNode}</td>;
 };
 
+// ========== 批量行业信息 ==========
+async function fetchBatchIndustry(symbols: string[]): Promise<Map<string, string>> {
+  if (!symbols.length) return new Map();
+  try {
+    const stocksParam = symbols.map(s => `'${s}'`).join(',');
+    const response = await post(`/api/boards_of_stock?stocks=${stocksParam}`, {});
+    const industryMap = new Map<string, string>();
+    (response as any[]).forEach(item => {
+      if ((item.business_type === 'sw1_hy' || item.business_type === 'swhy') && item.symbol) {
+        if (!industryMap.has(item.symbol)) {
+          industryMap.set(item.symbol, item.name);
+        }
+      }
+    });
+    return industryMap;
+  } catch (error) {
+    console.error('批量获取行业信息失败', error);
+    return new Map();
+  }
+}
+
+const IndustryContext = React.createContext<{ industryMap: Map<string, string> }>({ industryMap: new Map() });
+
+const StockIndustry: React.FC<{ symbol: string }> = ({ symbol }) => {
+  const { industryMap } = useContext(IndustryContext);
+  const industry = industryMap.get(symbol);
+  if (industry) return <span>{industry}</span>;
+  return <span>--</span>;
+};
+
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
@@ -1983,7 +2011,6 @@ export const MyFocusListComponent = () => {
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
 
-  // 新增：存储异常窗口数据（仅用于 ProfitChips）
   const [anomalyWindows, setAnomalyWindows] = useState<any[]>([]);
 
   // 分页相关 state
@@ -1996,6 +2023,9 @@ export const MyFocusListComponent = () => {
   const [sortByDate, setSortByDate] = useState(true);
   const [dateSortOrder, setDateSortOrder] = useState<'ASC' | 'DESC'>('DESC');
 
+  // 行业信息状态
+  const [industryMap, setIndustryMap] = useState<Map<string, string>>(new Map());
+
   const curDate = new Date();
   const year = curDate.getFullYear();
   const lastYear = curDate.getFullYear() - 2;
@@ -2004,9 +2034,6 @@ export const MyFocusListComponent = () => {
   const dateFormat = 'YYYY-MM-DD';
   const endDate = moment(`${year}-${month}-${day}`).format(dateFormat);
   const startDate = moment(`${lastYear}-${month}-${day}`).format(dateFormat);
-
-  // 行业信息缓存，避免重复请求
-  const industryCache = new Map<string, string>();
 
   const mainChartRef = useRef<any>();
   const handleClick = useCallback(() => {
@@ -2019,7 +2046,6 @@ export const MyFocusListComponent = () => {
   const [selectStatus, setSelectStatus] = useState<any>(null);
   const [curAnaMap, setAnaMap] = useState();
 
-  // 修改 handleAllStockData 函数
   const handleAllStockData = useCallback(async (page = 1, sortDate?: boolean, order?: 'ASC' | 'DESC') => {
     setTableLoading(true);
     try {
@@ -2027,19 +2053,30 @@ export const MyFocusListComponent = () => {
       const currentOrder = order !== undefined ? order : dateSortOrder;
       
       const response = await getAllFocusedStocks(page, pageSize, shouldSortByDate, currentOrder);
-      const stockData = response.data || [];
-      const rateByCur = stockData?.filter(
+      let stockData = response.data || [];
+
+      // 前端兜底排序（当后端不支持排序或排序失效时）
+      if (shouldSortByDate && stockData.length) {
+        stockData = [...stockData].sort((a, b) => {
+          const dateA = new Date(a.datestr).getTime();
+          const dateB = new Date(b.datestr).getTime();
+          return currentOrder === 'ASC' ? dateA - dateB : dateB - dateA;
+        });
+      }
+
+      // 计算率
+      const rateByCurVal = stockData?.filter(
         (i) =>
           (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
           (i.currentPrice < i.finalprice && i.predict === 'Down')
       ).length;
-      const rateByMax = stockData?.filter(
+      const rateByMaxVal = stockData?.filter(
         (i) =>
           (i.maxPriceDiff > 0 && i.predict === 'Up') ||
           (i.maxPriceDiff === 0 && i.predict === 'Down')
       )?.length;
-      setRateByCur(`${rateByCur}/${stockData.length}` as any);
-      setRateByMax(`${rateByMax}/${stockData.length}` as any);
+      setRateByCur(`${rateByCurVal}/${stockData.length}` as any);
+      setRateByMax(`${rateByMaxVal}/${stockData.length}` as any);
       setData(
         selectStatus
           ? stockData.filter(
@@ -2049,6 +2086,14 @@ export const MyFocusListComponent = () => {
           : stockData
       );
       setTotal(response.total || 0);
+
+      // 批量获取行业信息（不阻塞数据渲染）
+      const symbols = stockData.map((item: any) => item.symbol);
+      if (symbols.length) {
+        fetchBatchIndustry(symbols).then(map => {
+          setIndustryMap(prev => new Map([...prev, ...map]));
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -2056,10 +2101,8 @@ export const MyFocusListComponent = () => {
     }
   }, [selectStatus, sortByDate, dateSortOrder, pageSize]);
 
-  // 处理日期列排序
-  const handleDateSort = (order: 'ascend' | 'descend' | null) => {
+  const handleDateSort = useCallback((order: 'ascend' | 'descend' | null) => {
     if (order === null) {
-      // 取消排序，恢复默认
       setSortByDate(false);
       handleAllStockData(1, false, 'DESC');
     } else {
@@ -2068,7 +2111,7 @@ export const MyFocusListComponent = () => {
       setDateSortOrder(newOrder);
       handleAllStockData(1, true, newOrder);
     }
-  };
+  }, [handleAllStockData]);
 
   const onClickMenu = (item, tableIndex, datestr) => {
     post('/api/edit_focus_status', {
@@ -2098,46 +2141,25 @@ export const MyFocusListComponent = () => {
     });
   };
 
-  const handleSave = (row: any) => {
+  const handleSave = useCallback((row: any) => {
     post('/api/edit_focus', {
       body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
     }).then(() => {
       handleAllStockData(currentPage);
     });
-  };
-
-  // 行业信息组件
-  const StockIndustry: React.FC<{ symbol: string }> = ({ symbol }) => {
-      const [industry, setIndustry] = useState<string>('加载中...');
-
-      useEffect(() => {
-          if (industryCache.has(symbol)) {
-              setIndustry(industryCache.get(symbol)!);
-              return;
-          }
-
-          get(`/api/boards_of_stock?stock=${symbol}`)
-              .then((res: any[]) => {
-                  // 查找申万一级行业或申万行业
-                  const industryItem = res.find(
-                      (item) => item.business_type === 'sw1_hy' || item.business_type === 'swhy'
-                  );
-                  const industryName = industryItem?.name || '--';
-                  industryCache.set(symbol, industryName);
-                  setIndustry(industryName);
-              })
-              .catch(() => {
-                  industryCache.set(symbol, '--');
-                  setIndustry('--');
-              });
-      }, [symbol]);
-
-      return <span>{industry}</span>;
-  };
+  }, [currentPage, handleAllStockData]);
 
   useEffect(() => {
     handleAllStockData(1);
   }, []);
+
+  // 稳定 components
+  const components = useMemo(() => ({
+    body: {
+      row: EditableRow,
+      cell: EditableCell,
+    },
+  }), []);
 
   const columns = useMemo(() => [
     {
@@ -2415,10 +2437,9 @@ export const MyFocusListComponent = () => {
         return <>{re}</>;
       },
     },
-    // 新增行业列
     {
         title: 'Industry',
-        dataIndex: 'symbol',  // 使用 symbol 作为参数传递给 render
+        dataIndex: 'symbol',
         key: 'industry',
         render: (symbol: string) => <StockIndustry symbol={symbol} />,
     },
@@ -2479,236 +2500,233 @@ export const MyFocusListComponent = () => {
         </Popconfirm>
       ),
     },
-  ], [sortByDate, dateSortOrder, handleDateSort/* 依赖项数组：通常为空，或者仅包含删除/修改等必要函数 */]);
+  ], [sortByDate, dateSortOrder, handleDateSort, handleAllStockData, currentPage]);
 
-  const components = {
-    body: {
-      row: EditableRow,
-      cell: EditableCell,
-    },
-  };
-  const mergedColumns: any = columns.map((col) => {
-    if (!col.editable) {
-      return col;
-    }
-    return {
-      ...col,
-      onCell: (record) => ({
-        record,
-        editable: col.editable,
-        dataIndex: col.dataIndex,
-        title: col.title,
-        handleSave: handleSave,
-      }),
-    };
-  });
+  const mergedColumns = useMemo(() => 
+    columns.map((col) => {
+      if (!col.editable) return col;
+      return {
+        ...col,
+        onCell: (record) => ({
+          record,
+          editable: col.editable,
+          dataIndex: col.dataIndex,
+          title: col.title,
+          handleSave,
+        }),
+      };
+    }),
+    [columns, handleSave]
+  );
 
   return (
-    <div style={{ padding: '20px' }}>
-      Filter By Status:
-      <Dropdown
-        overlay={
-          <Menu onClick={(ob) => {
-            setSelectStatus(ob.key);
-            setCurrentPage(1);
-            handleAllStockData(1);
-          }}>
-            {Object.keys(focusStatusMap)
-              .map((i) => (
-                <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
-              ))
-              .concat(<Menu.Item key={'0'}>{'未标注'}</Menu.Item>)}
-          </Menu>
-        }
-      >
-        <Tag color={focusStatusMap[selectStatus]?.color}>
-          {selectStatus === '0'
-            ? '未标注'
-            : focusStatusMap[selectStatus]?.name || 'All'}
-        </Tag>
-      </Dropdown>
-      <Table
-        loading={tableLoading}
-        pagination={{ 
-          current: currentPage,
-          total: total,
-          pageSize: pageSize,
-          onChange: (page) => {
-            setCurrentPage(page);
-            handleAllStockData(page);
-          },
-          showSizeChanger: false,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 条记录`
-        }}
-        columns={mergedColumns}
-        dataSource={data}
-        components={components}
-        rowKey="symbol"
-      />
-      <Modal
-        title={`Charts: ${curText}`}
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={[
-          <Button onClick={() => setIsModalVisible(false)} type="primary">
-            OK
-          </Button>,
-        ]}
-        width={1500}
-      >
-        5 DAYs:
-        <img src={img} style={{ width: '200px' }} />
-        {!isEmpty(mergeOptionsInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeOptionsInModal}
-          />
-        )}
-        3 DAYs
-        {!isEmpty(mergeOptions3InModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeOptions3InModal}
-          />
-        )}
-        3 DAYs ProfitChips:
-        {!isEmpty(mergeProfitChips3InModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeProfitChips3InModal}
-            ref={mainChartRef}
-            onEvents={{
-              click: async (info) => {
-                const res = await post(`/api/get_price_from_common_data`, {
-                  body: JSON.stringify({
-                    stocks: [`'${curSymbol}'`],
-                    today: info.name,
-                  }),
-                });
-                setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-              },
-            }}
-          />
-        )}
-        MA:
-        {!isEmpty(mergeMAInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeMAInModal}
-          />
-        )}  
-        TotalTradeVol:
-        {!isEmpty(mergeTotalTradeVolInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeTotalTradeVolInModal}
-          />
-        )}  
-        ProfitChips:
-        {!isEmpty(mergeContinuousProfitChipsInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeContinuousProfitChipsInModal}
-          />
-        )}   
-        3 DAYs BigOrderPct:
-        {!isEmpty(bigOrderPctInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={bigOrderPctInModal}
-          />
-        )}  
-        Fluidity(流动性):
-        {!isEmpty(mergeFluidityInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeFluidityInModal}
-          />
-        )}  
-        3 DAYs QuantityRelativeRatios:
-        {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeQuantityRelativeRatiosInModal}
-          />
-        )}        
-        KDJ:
-        {!isEmpty(mergeKDJInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeKDJInModal}
-          />
-        )}  
-        DMI:
-        {!isEmpty(mergeDMIInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeDMIInModal}
-          />
-        )}
-        DS:
-        {!isEmpty(mergeDSInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeDSInModal}
-          />
-        )}       
-        {!isEmpty(curAnaMap) && (
-          <div className="table">
-            <div className="col">
-              <p>Before</p>
-              {Object.keys(curAnaMap?.before).map((i) => {
-                if (i === '7-days' || i === '15-days') {
-                  return (
-                    <p>
-                      {curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
-                    </p>
-                  );
-                } else {
-                  return (
-                    <p>
-                      <b>{curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
-                    </p>
-                  );
-                }
-              })}
+    <IndustryContext.Provider value={{ industryMap }}>
+      <div style={{ padding: '20px' }}>
+        Filter By Status:
+        <Dropdown
+          overlay={
+            <Menu onClick={(ob) => {
+              setSelectStatus(ob.key);
+              setCurrentPage(1);
+              handleAllStockData(1);
+            }}>
+              {Object.keys(focusStatusMap)
+                .map((i) => (
+                  <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
+                ))
+                .concat(<Menu.Item key={'0'}>{'未标注'}</Menu.Item>)}
+            </Menu>
+          }
+        >
+          <Tag color={focusStatusMap[selectStatus]?.color}>
+            {selectStatus === '0'
+              ? '未标注'
+              : focusStatusMap[selectStatus]?.name || 'All'}
+          </Tag>
+        </Dropdown>
+        <Table
+          loading={tableLoading}
+          pagination={{ 
+            current: currentPage,
+            total: total,
+            pageSize: pageSize,
+            onChange: (page) => {
+              setCurrentPage(page);
+              handleAllStockData(page);
+            },
+            showSizeChanger: false,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条记录`
+          }}
+          columns={mergedColumns}
+          dataSource={data}
+          components={components}
+          rowKey="symbol"
+        />
+        <Modal
+          title={`Charts: ${curText}`}
+          visible={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+          footer={[
+            <Button onClick={() => setIsModalVisible(false)} type="primary">
+              OK
+            </Button>,
+          ]}
+          width={1500}
+        >
+          5 DAYs:
+          <img src={img} style={{ width: '200px' }} />
+          {!isEmpty(mergeOptionsInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeOptionsInModal}
+            />
+          )}
+          3 DAYs
+          {!isEmpty(mergeOptions3InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeOptions3InModal}
+            />
+          )}
+          3 DAYs ProfitChips:
+          {!isEmpty(mergeProfitChips3InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeProfitChips3InModal}
+              ref={mainChartRef}
+              onEvents={{
+                click: async (info) => {
+                  const res = await post(`/api/get_price_from_common_data`, {
+                    body: JSON.stringify({
+                      stocks: [`'${curSymbol}'`],
+                      today: info.name,
+                    }),
+                  });
+                  setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
+                },
+              }}
+            />
+          )}
+          MA:
+          {!isEmpty(mergeMAInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeMAInModal}
+            />
+          )}  
+          TotalTradeVol:
+          {!isEmpty(mergeTotalTradeVolInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeTotalTradeVolInModal}
+            />
+          )}  
+          ProfitChips:
+          {!isEmpty(mergeContinuousProfitChipsInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeContinuousProfitChipsInModal}
+            />
+          )}   
+          3 DAYs BigOrderPct:
+          {!isEmpty(bigOrderPctInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={bigOrderPctInModal}
+            />
+          )}  
+          Fluidity(流动性):
+          {!isEmpty(mergeFluidityInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeFluidityInModal}
+            />
+          )}  
+          3 DAYs QuantityRelativeRatios:
+          {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeQuantityRelativeRatiosInModal}
+            />
+          )}        
+          KDJ:
+          {!isEmpty(mergeKDJInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeKDJInModal}
+            />
+          )}  
+          DMI:
+          {!isEmpty(mergeDMIInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeDMIInModal}
+            />
+          )}
+          DS:
+          {!isEmpty(mergeDSInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeDSInModal}
+            />
+          )}       
+          {!isEmpty(curAnaMap) && (
+            <div className="table">
+              <div className="col">
+                <p>Before</p>
+                {Object.keys(curAnaMap?.before).map((i) => {
+                  if (i === '7-days' || i === '15-days') {
+                    return (
+                      <p>
+                        {curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
+                      </p>
+                    );
+                  } else {
+                    return (
+                      <p>
+                        <b>{curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
+                      </p>
+                    );
+                  }
+                })}
+              </div>
+              <div className="col">
+                <p>After</p>
+                {Object.keys(curAnaMap?.after).map((i) => (
+                  <p>
+                    {curAnaMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
+                  </p>
+                ))}
+              </div>
             </div>
-            <div className="col">
-              <p>After</p>
-              {Object.keys(curAnaMap?.after).map((i) => (
-                <p>
-                  {curAnaMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
+          )}
+        </Modal>
+      </div>
+    </IndustryContext.Provider>
   );
 };

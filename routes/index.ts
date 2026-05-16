@@ -747,9 +747,9 @@ router.get('/ds', function (req, res, next) {
   });
 });
 
-router.get('/boards_of_stock', function (req, res, next) {
-  const stock = req.query.stock;
-  let sql = `SELECT b.* FROM sw_stock_business ssb JOIN business b ON ssb.business_code=b.code WHERE ssb.symbol='${stock}';`;
+router.post('/boards_of_stock', function (req, res, next) {
+  const stocks = req.query.stocks;
+  let sql = `SELECT ssb.symbol, b.name, b.business_type FROM sw_stock_business ssb JOIN business b ON ssb.business_code=b.code WHERE ssb.symbol IN (${stocks});`;
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
