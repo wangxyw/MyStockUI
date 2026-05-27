@@ -1443,6 +1443,257 @@ const MergeTotalTradeVol = (totaltradevolData) => {
   };
 };
 
+const MergeSCR = (scrData) => {
+  // 按日期升序排列，并将 datestr 转换为 YYYY-MM-DD 格式
+  const orderedData = orderBy(scrData, 'datestr').map((item) => ({
+    ...item,
+    datestr: moment(item.datestr).format('YYYY-MM-DD'),
+  }));
+  const allDataDate = orderedData.map((i) => i.datestr);
+
+  // 获利盘比例（%）
+  const profitChip = orderedData.map((i) => i.tencent_profit_chip);
+
+  return {
+    title: {
+      text: '腾讯筹码分布趋势',
+      left: 'center',
+    },
+    legend: {
+      data: [
+        '获利盘比例(%)',
+      ],
+      left: 'left',
+      selected: {
+        '获利盘比例(%)': true,
+        '90%成本集中度(%)': true,
+        '90%成本区间下沿': false,
+        '90%成本区间上沿': false,
+      },
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+    },
+    toolbox: {
+      show: true,
+      orient: 'vertical',
+      left: 'right',
+      top: 'center',
+      feature: {
+        mark: { show: true },
+        magicType: { show: true, type: ['line', 'bar'] },
+        restore: { show: true },
+        saveAsImage: { show: true },
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { show: true, interval: 0, rotate: 45 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '数值 (%)',
+    },
+    series: [
+      {
+        name: '获利盘比例(%)',
+        type: 'line',
+        data: profitChip,
+        smooth: true,
+        lineStyle: { color: '#5470c6', width: 2 },
+        symbol: 'circle',
+        symbolSize: 6,
+        label: { show: true, position: 'top', formatter: '{c}' },
+      },
+    ],
+  };
+};
+
+const MergeSCRDetails1 = (scrData) => {
+  const orderedData = orderBy(scrData, 'datestr').map((item) => ({
+    ...item,
+    datestr: moment(item.datestr).format('YYYY-MM-DD'),
+  }));
+  const allDataDate = orderedData.map((i) => i.datestr);
+
+  const priceRangeLow90 = orderedData.map((i) => {
+    const parts = i.tencent_price_range_90?.split(',');
+    return parts ? parseFloat(parts[0]) : null;
+  });
+  const priceRangeHigh90 = orderedData.map((i) => {
+    const parts = i.tencent_price_range_90?.split(',');
+    return parts ? parseFloat(parts[1]) : null;
+  });
+  const priceRangeLow70 = orderedData.map((i) => {
+    const parts = i.tencent_price_range_70?.split(',');
+    return parts ? parseFloat(parts[0]) : null;
+  });
+  const priceRangeHigh70 = orderedData.map((i) => {
+    const parts = i.tencent_price_range_70?.split(',');
+    return parts ? parseFloat(parts[1]) : null;
+  });
+
+  const rangeWidth90 = priceRangeHigh90.map((high, idx) => 
+    high && priceRangeLow90[idx] ? high - priceRangeLow90[idx] : null
+  );
+  const rangeWidth70 = priceRangeHigh70.map((high, idx) => 
+    high && priceRangeLow70[idx] ? high - priceRangeLow70[idx] : null
+  );
+
+  return {
+    title: { text: '筹码成本分布区间', left: 'center' },
+    legend: {
+      data: ['90%成本区间', '70%成本区间'],  // 图例只显示两个
+      left: 'left',
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: function(params) {
+        let res = params[0].axisValue + '<br/>';
+        params.forEach(p => {
+          if (p.seriesName === '90%成本区间') {
+            const low = priceRangeLow90[p.dataIndex];
+            const high = priceRangeHigh90[p.dataIndex];
+            const width = rangeWidth90[p.dataIndex];
+            res += `${p.marker} 90%成本区间: ${low?.toFixed(2)} ~ ${high?.toFixed(2)} 元 (宽度 ${width?.toFixed(2)} 元)<br/>`;
+          } else if (p.seriesName === '70%成本区间') {
+            const low = priceRangeLow70[p.dataIndex];
+            const high = priceRangeHigh70[p.dataIndex];
+            const width = rangeWidth70[p.dataIndex];
+            res += `${p.marker} 70%成本区间: ${low?.toFixed(2)} ~ ${high?.toFixed(2)} 元 (宽度 ${width?.toFixed(2)} 元)<br/>`;
+          }
+        });
+        return res;
+      },
+    },
+    toolbox: {
+      show: true,
+      feature: { saveAsImage: { show: true }, magicType: { show: true, type: ['line', 'bar'] } },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { rotate: 45, interval: 10, fontSize: 10 },
+    },
+    yAxis: { type: 'value', name: '价格 (元)' },
+    series: [
+      {
+        name: '90%成本区间',       // 上沿同名
+        type: 'line',
+        data: priceRangeHigh90,
+        lineStyle: { color: '#ee6666', width: 2, type: 'solid' },
+        symbol: 'circle',
+        symbolSize: 6,
+        areaStyle: { color: 'rgba(238, 102, 102, 0.1)', origin: 'start' },
+        connectNulls: false,
+        step: false,
+        label: { show: false },
+      },
+      {
+        name: '90%成本区间',       // 下沿同名 → 图例合并
+        type: 'line',
+        data: priceRangeLow90,
+        lineStyle: { color: '#ee6666', width: 2, type: 'solid' },
+        symbol: 'circle',
+        symbolSize: 6,
+        connectNulls: false,
+        step: false,
+        label: { show: false },
+        tooltip: { show: false },   // 避免重复提示
+      },
+      {
+        name: '70%成本区间',
+        type: 'line',
+        data: priceRangeHigh70,
+        lineStyle: { color: '#3ba272', width: 2, type: 'solid' },
+        symbol: 'diamond',
+        symbolSize: 6,
+        areaStyle: { color: 'rgba(59, 162, 114, 0.1)', origin: 'start' },
+        connectNulls: false,
+        label: { show: false },
+      },
+      {
+        name: '70%成本区间',
+        type: 'line',
+        data: priceRangeLow70,
+        lineStyle: { color: '#3ba272', width: 2, type: 'solid' },
+        symbol: 'diamond',
+        symbolSize: 6,
+        connectNulls: false,
+        tooltip: { show: false },
+      },
+    ],
+  };
+};
+
+const MergeSCRDetails2 = (scrData) => {
+  const orderedData = orderBy(scrData, 'datestr').map((item) => ({
+    ...item,
+    datestr: moment(item.datestr).format('YYYY-MM-DD'),
+  }));
+  const allDataDate = orderedData.map((i) => i.datestr);
+  const concentration90 = orderedData.map((i) => i.tencent_concentration_90);
+  const concentration70 = orderedData.map((i) => i.tencent_concentration_70);
+
+  return {
+    title: { text: '筹码成本集中度趋势', left: 'center' },
+    legend: {
+      data: ['90%成本集中度(%)', '70%成本集中度(%)'],
+      left: 'left',
+    },
+    tooltip: { trigger: 'axis' },
+    toolbox: {
+      show: true,
+      feature: { saveAsImage: { show: true }, magicType: { show: true, type: ['line', 'bar'] } },
+    },
+    xAxis: {
+      type: 'category',
+      data: allDataDate,
+      axisLabel: { rotate: 45, interval: 10, fontSize: 10 },
+    },
+    yAxis: { type: 'value', name: '集中度 (%)', min: 0 },
+    series: [
+      {
+        name: '90%成本集中度(%)',
+        type: 'line',
+        data: concentration90,
+        smooth: true,
+        lineStyle: { color: '#fac858', width: 3, type: 'solid' }, // 加粗线宽
+        symbol: 'circle',
+        symbolSize: 8,
+        label: {
+          show: true,
+          position: 'top',
+          formatter: '{c}',
+          fontSize: 10,
+          offset: [0, -5],
+        },
+        areaStyle: { opacity: 0.1, color: '#fac858' }, // 添加轻微填充
+      },
+      {
+        name: '70%成本集中度(%)',
+        type: 'line',
+        data: concentration70,
+        smooth: true,
+        lineStyle: { color: '#73c0de', width: 3, type: 'solid' },
+        symbol: 'diamond',
+        symbolSize: 8,
+        label: {
+          show: true,
+          position: 'bottom',
+          formatter: '{c}',
+          fontSize: 10,
+          offset: [0, 5],
+        },
+        areaStyle: { opacity: 0.1, color: '#73c0de' },
+      },
+    ],
+  };
+};
+
 async function getAllCriStocks(
   startDate: any = null,
   endDate: any = 0,
@@ -1574,6 +1825,28 @@ async function getAllFocusedStocks(page = 1, pageSize = 50, sortByDate = false, 
   }
   
   return response;
+}
+
+async function getSCR(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/stock_chip_result?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
+}
+
+async function getAllSCR(
+  stock,
+  startDate: any = null,
+  endDate: any = 0
+) {
+  const stockData = await get(
+    `/api/all_stock_chip_result?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
+  );
+  return stockData;
 }
 
 // 获取异常时间窗口数据
@@ -2010,6 +2283,11 @@ export const MyFocusListComponent = () => {
   const [mergeMAInModal, setMergeMAInModal] = useState({});
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
+  const [mergeSCRInModal, setMergeSCRInModal] = useState({});
+  const [mergeSCRD1InModal, setMergeSCRD1InModal] = useState({});
+  const [mergeSCRD2InModal, setMergeSCRD2InModal] = useState({});
+  const [mergeAllSCRD1InModal, setMergeAllSCRD1InModal] = useState({});
+  const [mergeAllSCRD2InModal, setMergeAllSCRD2InModal] = useState({});
 
   const [anomalyWindows, setAnomalyWindows] = useState<any[]>([]);
 
@@ -2252,6 +2530,16 @@ export const MyFocusListComponent = () => {
                   startDate,
                   endDate
                 );
+                const scrData = await getSCR(
+                  text,
+                  startDate,
+                  endDate
+                );
+                const allSCRData = await getAllSCR(
+                  text,
+                  startDate,
+                  endDate
+                );
                 const windows = await getAnomalyWindows(text);                
 
                 setAnomalyWindows(windows);
@@ -2268,6 +2556,11 @@ export const MyFocusListComponent = () => {
                 setMergeMAInModal(MergeMA(maData));
                 setMergeDSInModal(MergeDS(dsData));
                 setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
+                setMergeSCRInModal(MergeSCR(scrData))
+                setMergeSCRD1InModal(MergeSCRDetails1(scrData))
+                setMergeSCRD2InModal(MergeSCRDetails2(scrData))
+                setMergeAllSCRD1InModal(MergeSCRDetails1(allSCRData))
+                setMergeAllSCRD2InModal(MergeSCRDetails2(allSCRData))
                 setIsLoading(false);
                 setCurText(`${text} - ${record?.name}`);
                 setCurSymbol(record?.symbol);
@@ -2614,6 +2907,33 @@ export const MyFocusListComponent = () => {
               }}
             />
           )}
+          SCR:
+          {!isEmpty(mergeSCRInModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeSCRInModal}
+            />
+          )}
+          SCR Details1:
+          {!isEmpty(mergeSCRD1InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeSCRD1InModal}
+            />
+          )}
+          SCR Details2:
+          {!isEmpty(mergeSCRD2InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeSCRD2InModal}
+            />
+          )}          
           MA:
           {!isEmpty(mergeMAInModal) && (
             <ReactEcharts
@@ -2640,7 +2960,25 @@ export const MyFocusListComponent = () => {
               lazyUpdate={true}
               option={mergeContinuousProfitChipsInModal}
             />
-          )}   
+          )} 
+          All SCR Details1:
+          {!isEmpty(mergeAllSCRD1InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeAllSCRD1InModal}
+            />
+          )}
+          All SCR Details2:
+          {!isEmpty(mergeAllSCRD2InModal) && (
+            <ReactEcharts
+              style={{ height: 250, width: 1450 }}
+              notMerge={true}
+              lazyUpdate={true}
+              option={mergeAllSCRD2InModal}
+            />
+          )}
           3 DAYs BigOrderPct:
           {!isEmpty(bigOrderPctInModal) && (
             <ReactEcharts

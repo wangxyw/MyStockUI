@@ -886,6 +886,20 @@ router.get('/totaltradevol', function (req, res, next) {
   });
 });
 
+router.get('/stock_chip_result', function (req, res, next) {
+  const stock = req.query.stock;
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  let sql = `select scr.* from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr where rc3.symbol LIKE '%${stock}%' and scr.datestr >= '${startDateStr}' and scr.datestr <= '${endDateStr}' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+  if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+    sql = `select scr.* from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr where rc3.symbol LIKE '%${stock}%' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
 router.get('/stock_anomaly_windows', function (req, res, next) {
   const stock = req.query.stock;
   let sql = `SELECT anomaly_window FROM stocks_anomaly_window WHERE symbol LIKE '%${stock}%';`;
@@ -904,6 +918,20 @@ router.get('/profit_chips', function (req, res, next) {
   if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
     let intervalMonth = 24;
     sql = `SELECT datestr, profit_chip, turnoverrate FROM stock_day_common_data WHERE symbol LIKE '%${stock}%' AND datestr >= DATE_SUB(CURDATE(), INTERVAL ${intervalMonth} MONTH) ORDER BY datestr DESC;`;
+  }
+  pool.query(sql, function (err, rows, fields) {
+    if (err) throw err;
+    res.json(rows);
+  });
+});
+
+router.get('/all_stock_chip_result', function (req, res, next) {
+  const stock = req.query.stock;
+  const startDateStr = req.query.start_date;
+  const endDateStr = req.query.end_date;
+  let sql = `select * from stock_chip_result where symbol LIKE '%${stock}%' and datestr >= '${startDateStr}' and datestr <= '${endDateStr}' GROUP BY datestr ORDER BY datestr DESC;`;
+  if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
+    sql = `select * from stock_chip_result where symbol LIKE '%${stock}%' GROUP BY datestr ORDER BY datestr DESC;`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
