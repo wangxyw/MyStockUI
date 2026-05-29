@@ -433,25 +433,85 @@ router.get('/all_focus_stock', function (req, res, next) {
   });
 });
 
+// router.get('/all_focus_stock2', function (req, res, next) {
+//   const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks2 a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
+//   pool.query(sql, function (err, rows, fields) {
+//     if (err) throw err;
+//     //res.json(rows);
+//     let batchSql = '';
+//     rows?.forEach(
+//       (i) =>
+//         (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
+//     );
+//     pool.query(batchSql, function (newerr, newrows, newfields) {
+//       if (err) throw err;
+//       //...newrows.forEach(i => {})
+//       const newResult = rows?.map((item, key) => ({
+//         ...item,
+//         //recentTen: newrows?.flat()?.filter((i) => i.symbol === item.symbol),
+//         recentTen: newrows[key],
+//       }));
+//       res.json(newResult);
+//     });
+//   });
+// });
 router.get('/all_focus_stock2', function (req, res, next) {
-  const sql = `SELECT a.*, b.*, a.updated_at as last_updated_at  FROM focus_stocks2 a join stock_day_common_data b on a.symbol = b.symbol and a.datestr=b.datestr;`;
-  pool.query(sql, function (err, rows, fields) {
-    if (err) throw err;
-    //res.json(rows);
-    let batchSql = '';
-    rows?.forEach(
-      (i) =>
-        (batchSql += `SELECT * from stock_big_data where symbol = '${i.symbol}' and datestr <= '${i.datestr}' order by datestr DESC limit 10;`)
-    );
-    pool.query(batchSql, function (newerr, newrows, newfields) {
-      if (err) throw err;
-      //...newrows.forEach(i => {})
-      const newResult = rows?.map((item, key) => ({
-        ...item,
-        //recentTen: newrows?.flat()?.filter((i) => i.symbol === item.symbol),
-        recentTen: newrows[key],
-      }));
-      res.json(newResult);
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 50;
+  const offset = (page - 1) * pageSize;
+
+  const sortByDate = req.query.sortByDate === 'true';
+  const dateSortOrder = req.query.dateSortOrder === 'ASC' ? 'ASC' : 'DESC';
+
+  // 获取总记录数
+  const countSql = `SELECT COUNT(*) as total FROM focus_stocks2`;
+  pool.query(countSql, function (countErr, countRows) {
+    if (countErr) {
+      console.error(countErr);
+      return res.status(500).json({ error: countErr.message });
+    }
+    const total = countRows[0].total;
+
+    let sql;
+    if (sortByDate) {
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+             FROM focus_stocks2 a 
+             JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             ORDER BY a.datestr ${dateSortOrder}
+             LIMIT ? OFFSET ?`;
+    } else {
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+             FROM focus_stocks2 a 
+             JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             ORDER BY a.updated_at DESC
+             LIMIT ? OFFSET ?`;
+    }
+
+    pool.query(sql, [pageSize, offset], function (err, rows) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (!rows || rows.length === 0) {
+        return res.json({ data: [], total: total });
+      }
+
+      // 批量获取 recentTen 数据
+      let batchSql = '';
+      rows.forEach((item) => {
+        batchSql += `SELECT * FROM stock_big_data WHERE symbol = '${item.symbol}' AND datestr <= '${item.datestr}' ORDER BY datestr DESC LIMIT 10;`;
+      });
+      pool.query(batchSql, function (newerr, newrows) {
+        if (newerr) {
+          console.error(newerr);
+          return res.status(500).json({ error: newerr.message });
+        }
+        const newResult = rows.map((item, idx) => ({
+          ...item,
+          recentTen: newrows[idx] || [],
+        }));
+        res.json({ data: newResult, total: total });
+      });
     });
   });
 });

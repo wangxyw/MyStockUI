@@ -15,6 +15,7 @@ import React, {
   useRef,
   useContext,
   useCallback,
+  useMemo,
 } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { get, post } from '../lib';
@@ -22,428 +23,71 @@ import img from './mark.jpg';
 import { uniqBy, isEmpty, orderBy, includes } from 'lodash';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
-import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  ConsoleSqlOutlined,
-} from '@ant-design/icons';
 import { caculateAfterDate, caculateDate, today } from './alarm';
+
 export const focusStatusMap = {
-  '1': {
-    name: '下跌中-1',
-    color: 'blue',
-  },
-  '2': {
-    name: '未到买点-2',
-    color: 'yellow',
-  },
-  '3': {
-    name: '已到买点-3',
-    color: 'green',
-  },
-  '4': {
-    name: '买点已过-4',
-    color: 'grey',
-  },
+  '1': { name: '下跌中-1', color: 'blue' },
+  '2': { name: '未到买点-2', color: 'yellow' },
+  '3': { name: '已到买点-3', color: 'green' },
+  '4': { name: '买点已过-4', color: 'grey' },
 };
 
-// 通用工具函数：为图表添加异常时间窗口标记
+// ======================= 通用工具函数 =======================
 const addMarkAreaToOption = (option, anomalyWindows) => {
-  // 如果没有异常窗口数据，直接返回原配置
   if (!anomalyWindows || anomalyWindows.length === 0 || !option) return option;
-  
   const markAreaData = anomalyWindows.map(window => [
     {
       name: '异常窗口',
       xAxis: window.start_date,
-      itemStyle: {
-        color: 'rgba(255, 99, 132, 0.25)',
-        borderColor: '#ff4444',
-        borderWidth: 1,
-        borderType: 'dashed',
-      },
-      label: {
-        show: true,
-        position: 'insideTop',
-        formatter: `⚠️ ${window.start_date} ~ ${window.end_date}`,
-        color: '#ff4444',
-        fontWeight: 'bold',
-        fontSize: 10,
-        rotate: 0,
-      },
-      tooltip: {
-        show: true,
-        formatter: () => `异常时间窗口<br/>${window.start_date} 至 ${window.end_date}`,
-      },
+      itemStyle: { color: 'rgba(255, 99, 132, 0.25)', borderColor: '#ff4444', borderWidth: 1, borderType: 'dashed' },
+      label: { show: true, position: 'insideTop', formatter: `⚠️ ${window.start_date} ~ ${window.end_date}`, color: '#ff4444', fontWeight: 'bold', fontSize: 10, rotate: 0 },
+      tooltip: { show: true, formatter: () => `异常时间窗口<br/>${window.start_date} 至 ${window.end_date}` },
     },
-    {
-      xAxis: window.end_date,
-    },
+    { xAxis: window.end_date },
   ]);
-
-  const markAreaConfig = {
-    silent: false,
-    label: { show: true },
-    data: markAreaData,
-    animation: false,
-  };
-
-  // 给所有系列添加
+  const markAreaConfig = { silent: false, label: { show: true }, data: markAreaData, animation: false };
   if (option.series) {
-    option.series = option.series.map(series => ({
-      ...series,
-      markArea: markAreaConfig,
-    }));
+    option.series = option.series.map(series => ({ ...series, markArea: markAreaConfig }));
   }
-  
   return option;
 };
 
 const MergeOptions = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-
-  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(
-    (i) => i.datestr
-  );
-
-  const xAxis = orderedData?.map((i) => i.datestr);
-  const maxT = orderedData?.map((i) => ({
-    value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const minT = orderedData?.map((i) => ({
-    value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const maxDownT = orderedDownData?.map((i) => ({
-    value: i?.turnoverrates_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const minDownT = orderedDownData?.map((i) => ({
-    value: i?.turnoverrates_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a)),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const avgT = orderedData?.map((i) => ({
-    value: i?.turnoverrates_str
-      ?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const avgDownT = orderedDownData?.map((i) => ({
-    value: i?.turnoverrates_str
-      ?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.turnoverrates_str?.split('|')?.length?.toFixed(2),
-    datestr: i.datestr,
-    haveLimit: i?.have_limit,
-  }));
-
-  const maxTValues = allData?.map((i) =>
-    maxT?.find((m) => m.datestr === i)
-      ? maxT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const maxTValuesMap = allData?.map((i) =>
-    maxT?.find((m) => m.datestr === i)
-      ? {
-          value: maxT?.find((m) => m.datestr === i).value,
-          haveLimit: maxT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-  const minTValues = allData?.map((i) =>
-    minT?.find((m) => m.datestr === i)
-      ? minT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const minTValuesMap = allData?.map((i) =>
-    minT?.find((m) => m.datestr === i)
-      ? {
-          value: minT?.find((m) => m.datestr === i).value,
-          haveLimit: minT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-
-  const maxDownValues = allData?.map((i) =>
-    maxDownT?.find((m) => m.datestr === i)
-      ? maxDownT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const maxDownValuesMap = allData?.map((i) =>
-    maxDownT?.find((m) => m.datestr === i)
-      ? {
-          value: maxDownT?.find((m) => m.datestr === i).value,
-          haveLimit: maxDownT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-
-  const minDownValues = allData?.map((i) =>
-    minDownT?.find((m) => m.datestr === i)
-      ? minDownT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const minDownValuesMap = allData?.map((i) =>
-    minDownT?.find((m) => m.datestr === i)
-      ? {
-          value: minDownT?.find((m) => m.datestr === i).value,
-          haveLimit: minDownT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-
-  const avgValues = allData?.map((i) =>
-    avgT?.find((m) => m.datestr === i)
-      ? avgT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const avgValuesMap = allData?.map((i) =>
-    avgT?.find((m) => m.datestr === i)
-      ? {
-          value: avgT?.find((m) => m.datestr === i).value,
-          haveLimit: avgT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-
-  const avgDownValues = allData?.map((i) =>
-    avgDownT?.find((m) => m.datestr === i)
-      ? avgDownT?.find((m) => m.datestr === i).value
-      : '-'
-  );
-  const avgDownValuesMap = allData?.map((i) =>
-    avgDownT?.find((m) => m.datestr === i)
-      ? {
-          value: avgDownT?.find((m) => m.datestr === i).value,
-          haveLimit: avgDownT?.find((m) => m.datestr === i).haveLimit,
-        }
-      : '-'
-  );
-
+  const allData = orderBy([...orderedData, ...orderedDownData], 'datestr')?.map(i => i.datestr);
+  const maxT = orderedData?.map(i => ({ value: i.turnoverrates_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b), datestr: i.datestr, haveLimit: i.have_limit }));
+  const minT = orderedData?.map(i => ({ value: i.turnoverrates_str?.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?b:a), datestr: i.datestr, haveLimit: i.have_limit }));
+  const maxDownT = orderedDownData?.map(i => ({ value: i.turnoverrates_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b), datestr: i.datestr, haveLimit: i.have_limit }));
+  const minDownT = orderedDownData?.map(i => ({ value: i.turnoverrates_str?.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?b:a), datestr: i.datestr, haveLimit: i.have_limit }));
+  const avgT = orderedData?.map(i => ({ value: i.turnoverrates_str?.split('|')?.reduce((a,b)=>parseFloat(a)+parseFloat(b)) / i.turnoverrates_str?.split('|')?.length, datestr: i.datestr, haveLimit: i.have_limit }));
+  const avgDownT = orderedDownData?.map(i => ({ value: i.turnoverrates_str?.split('|')?.reduce((a,b)=>parseFloat(a)+parseFloat(b)) / i.turnoverrates_str?.split('|')?.length, datestr: i.datestr, haveLimit: i.have_limit }));
+  const maxTValues = allData?.map(i => maxT?.find(m=>m.datestr===i)?.value ?? '-');
+  const maxTValuesMap = allData?.map(i => maxT?.find(m=>m.datestr===i) ? { value: maxT.find(m=>m.datestr===i).value, haveLimit: maxT.find(m=>m.datestr===i).haveLimit } : '-');
+  const minTValues = allData?.map(i => minT?.find(m=>m.datestr===i)?.value ?? '-');
+  const minTValuesMap = allData?.map(i => minT?.find(m=>m.datestr===i) ? { value: minT.find(m=>m.datestr===i).value, haveLimit: minT.find(m=>m.datestr===i).haveLimit } : '-');
+  const maxDownValues = allData?.map(i => maxDownT?.find(m=>m.datestr===i)?.value ?? '-');
+  const maxDownValuesMap = allData?.map(i => maxDownT?.find(m=>m.datestr===i) ? { value: maxDownT.find(m=>m.datestr===i).value, haveLimit: maxDownT.find(m=>m.datestr===i).haveLimit } : '-');
+  const minDownValues = allData?.map(i => minDownT?.find(m=>m.datestr===i)?.value ?? '-');
+  const minDownValuesMap = allData?.map(i => minDownT?.find(m=>m.datestr===i) ? { value: minDownT.find(m=>m.datestr===i).value, haveLimit: minDownT.find(m=>m.datestr===i).haveLimit } : '-');
+  const avgValues = allData?.map(i => avgT?.find(m=>m.datestr===i)?.value ?? '-');
+  const avgValuesMap = allData?.map(i => avgT?.find(m=>m.datestr===i) ? { value: avgT.find(m=>m.datestr===i).value, haveLimit: avgT.find(m=>m.datestr===i).haveLimit } : '-');
+  const avgDownValues = allData?.map(i => avgDownT?.find(m=>m.datestr===i)?.value ?? '-');
+  const avgDownValuesMap = allData?.map(i => avgDownT?.find(m=>m.datestr===i) ? { value: avgDownT.find(m=>m.datestr===i).value, haveLimit: avgDownT.find(m=>m.datestr===i).haveLimit } : '-');
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: [
-        'MaxOverRate',
-        'MinOverRate',
-        'DownMaxOverRate',
-        'DownMinOverRate',
-        'AVGOverRate',
-        'AVGDownOverRate',
-      ],
-      selected:{
-        'MaxOverRate': false,
-        'MinOverRate': false,
-        'DownMaxOverRate': false,
-        'DownMinOverRate': false,
-        'AVGOverRate': true,
-        'AVGDownOverRate': true,
-      },
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allData,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['MaxOverRate','MinOverRate','DownMaxOverRate','DownMinOverRate','AVGOverRate','AVGDownOverRate'], selected: { 'MaxOverRate':false, 'MinOverRate':false, 'DownMaxOverRate':false, 'DownMinOverRate':false, 'AVGOverRate':true, 'AVGDownOverRate':true } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allData, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'MaxOverRate',
-        type: 'line',
-        data: maxTValues,
-        symbol: (v, params) => {
-          var colorList;
-          if (maxTValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (maxTValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        symbolSize: 10,
-        itemStyle: {
-          normal: {
-            color: '#FF0000',
-          },
-        },
-        label: {
-          position: 'top',
-        },
-      },
-      {
-        name: 'MinOverRate',
-        type: 'line',
-        // symbol: 'diamond',
-        symbolSize: 10,
-        symbol: (v, params) => {
-          var colorList;
-          if (minTValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (minTValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        itemStyle: {
-          normal: {
-            color: '#FFC0CB',
-          },
-        },
-        data: minTValues,
-      },
-      {
-        name: 'DownMaxOverRate',
-        type: 'line',
-        // symbol: 'diamond',
-        symbol: (v, params) => {
-          var colorList;
-          if (maxDownValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (maxDownValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        symbolSize: 10,
-        data: maxDownValues,
-        itemStyle: {
-          normal: {
-            color: '#00FF00',
-          },
-        },
-      },
-      {
-        name: 'DownMinOverRate',
-        type: 'line',
-        // symbol: 'diamond',
-        symbol: (v, params) => {
-          var colorList;
-          if (minDownValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (minDownValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        symbolSize: 10,
-        data: minDownValues,
-        itemStyle: {
-          normal: {
-            color: '#7CFC00',
-          },
-        },
-      },
-      {
-        name: 'AVGOverRate',
-        type: 'line',
-        // symbol: 'diamond',
-        symbol: (v, params) => {
-          var colorList;
-          if (avgValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        symbolSize: 10,
-        data: avgValues,
-        itemStyle: {
-          normal: {
-            color: '#FFFF00',
-          },
-        },
-      },
-      {
-        name: 'AVGDownOverRate',
-        type: 'line',
-        // symbol: 'diamond',
-        symbol: (v, params) => {
-          var colorList;
-          if (avgDownValuesMap[params.dataIndex]?.haveLimit == '1') {
-            colorList = 'arrow';
-          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '-1') {
-            colorList = 'circle';
-          } else if (avgValuesMap[params.dataIndex]?.haveLimit == '2') {
-            colorList = 'pin';
-          } else {
-            colorList = 'diamond';
-          }
-          return colorList;
-        },
-        symbolSize: 10,
-        data: avgDownValues,
-        itemStyle: {
-          normal: {
-            color: '#A020F0',
-          },
-        },
-      },
+      { name: 'MaxOverRate', type: 'line', data: maxTValues, symbol: (v,params)=> { if(maxTValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(maxTValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(maxTValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, symbolSize: 10, itemStyle: { normal: { color: '#FF0000' } }, label: { position: 'top' } },
+      { name: 'MinOverRate', type: 'line', symbolSize: 10, symbol: (v,params)=> { if(minTValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(minTValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(minTValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, itemStyle: { normal: { color: '#FFC0CB' } }, data: minTValues },
+      { name: 'DownMaxOverRate', type: 'line', symbol: (v,params)=> { if(maxDownValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(maxDownValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(maxDownValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, symbolSize: 10, data: maxDownValues, itemStyle: { normal: { color: '#00FF00' } } },
+      { name: 'DownMinOverRate', type: 'line', symbol: (v,params)=> { if(minDownValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(minDownValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(minDownValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, symbolSize: 10, data: minDownValues, itemStyle: { normal: { color: '#7CFC00' } } },
+      { name: 'AVGOverRate', type: 'line', symbol: (v,params)=> { if(avgValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(avgValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(avgValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, symbolSize: 10, data: avgValues, itemStyle: { normal: { color: '#FFFF00' } } },
+      { name: 'AVGDownOverRate', type: 'line', symbol: (v,params)=> { if(avgDownValuesMap[params.dataIndex]?.haveLimit=='1') return 'arrow'; if(avgValuesMap[params.dataIndex]?.haveLimit=='-1') return 'circle'; if(avgValuesMap[params.dataIndex]?.haveLimit=='2') return 'pin'; return 'diamond'; }, symbolSize: 10, data: avgDownValues, itemStyle: { normal: { color: '#A020F0' } } },
     ],
   };
 };
@@ -451,260 +95,47 @@ const MergeOptions = (data, downData) => {
 const MergeQuantityRelativeRatios = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-
   const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
-  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
-    (i) => i.datestr
-  );
-
-  const quantityRelativeRatios = allData?.map((i) =>
-    i?.quantity_relative_ratio
-  );
-
+  const allDataDate = allData?.map(i => i.datestr);
+  const quantityRelativeRatios = allData?.map(i => i?.quantity_relative_ratio);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['QuantityRelativeRatios'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
-    series: [
-      {
-        name: 'QuantityRelativeRatios',
-        type: 'line',
-        data: quantityRelativeRatios,
-        label: {
-          position: 'top',
-        },
-      },
-    ],
+    title: { text: '', left: 0 },
+    legend: { data: ['QuantityRelativeRatios'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
+    series: [ { name: 'QuantityRelativeRatios', type: 'line', data: quantityRelativeRatios, label: { position: 'top' } } ],
   };
 };
 
 const MergeBigOrderPct = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
-  const allUpDataDate = orderedData.map((i) => i.datestr);
+  const allUpDataDate = orderedData.map(i => i.datestr);
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-  const allDownDataDate = orderedDownData.map((i) => i.datestr);
-
-  const allData = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  );
-  const allDataDate = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  )?.map((i) => i.datestr);
-
-  const maxBigOrderPct = allData?.map((i) => ({
-    value: i?.big_order_pcts_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
-  }));
-  const minBigOrderPct = allData?.map((i) => ({
-    value: i?.big_order_pcts_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)),
-    datestr: i.datestr,
-  }));
-  const avgBigOrderPct = allData?.map((i) => ({
-    value: i?.big_order_pcts_str
-      ?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2),
-    datestr: i.datestr,
-  }));
-
-  const avgUpBigOrderPct = allData?.map((i) => ({
-    value: includes(allUpDataDate, i.datestr)? i?.big_order_pcts_str?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2) : null,
-    datestr: i.datestr,
-  }));
-
-  const avgDownBigOrderPct = allData?.map((i) => ({
-    value: includes(allDownDataDate, i.datestr)? i?.big_order_pcts_str?.split('|')
-      ?.reduce((a, b) => (parseFloat(a) + parseFloat(b))) / i?.big_order_pcts_str?.split('|')?.length?.toFixed(2) : null,
-    datestr: i.datestr,
-  }));
-
-  const sourcesMap = allData?.map(
-    (i) => i?.source
-  );  
-  const statusMap = allData?.map(
-    (i) => i?.status
-  );
-
+  const allDownDataDate = orderedDownData.map(i => i.datestr);
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = allData?.map(i => i.datestr);
+  const maxBigOrderPct = allData?.map(i => ({ value: i.big_order_pcts_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b), datestr: i.datestr }));
+  const minBigOrderPct = allData?.map(i => ({ value: i.big_order_pcts_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b), datestr: i.datestr }));
+  const avgBigOrderPct = allData?.map(i => ({ value: i.big_order_pcts_str?.split('|')?.reduce((a,b)=>parseFloat(a)+parseFloat(b)) / i.big_order_pcts_str?.split('|')?.length, datestr: i.datestr }));
+  const avgUpBigOrderPct = allData?.map(i => ({ value: includes(allUpDataDate, i.datestr) ? i.big_order_pcts_str?.split('|')?.reduce((a,b)=>parseFloat(a)+parseFloat(b)) / i.big_order_pcts_str?.split('|')?.length : null, datestr: i.datestr }));
+  const avgDownBigOrderPct = allData?.map(i => ({ value: includes(allDownDataDate, i.datestr) ? i.big_order_pcts_str?.split('|')?.reduce((a,b)=>parseFloat(a)+parseFloat(b)) / i.big_order_pcts_str?.split('|')?.length : null, datestr: i.datestr }));
+  const sourcesMap = allData?.map(i => i?.source);
+  const statusMap = allData?.map(i => i?.status);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['MaxBigOrderPct', 'MinBigOrderPct', 'AvgBigOrderPct', 'AvgUpBigOrderPct', 'AvgDownBigOrderPct'],
-      selected:{
-        'MaxBigOrderPct': false,
-        'MinBigOrderPct': false,
-        'AvgBigOrderPct': true,
-        'AvgUpBigOrderPct': true,
-        'AvgDownBigOrderPct': true,
-      },
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-      onclick: (e) => {
-        console.log(e);
-      },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['MaxBigOrderPct','MinBigOrderPct','AvgBigOrderPct','AvgUpBigOrderPct','AvgDownBigOrderPct'], selected: { 'MaxBigOrderPct':false, 'MinBigOrderPct':false, 'AvgBigOrderPct':true, 'AvgUpBigOrderPct':true, 'AvgDownBigOrderPct':true } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 }, onclick: (e) => console.log(e) },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'MaxBigOrderPct',
-        type: 'line',
-        data: maxBigOrderPct,
-      },
-      {
-        name: 'MinBigOrderPct',
-        type: 'line',
-        data: minBigOrderPct,
-      },
-      {
-        name: 'AvgBigOrderPct',
-        type: 'line',
-        data: avgBigOrderPct,
-      },
-      {
-        name: 'AvgUpBigOrderPct',
-        type: 'scatter',
-        color: 'red',
-        data: avgUpBigOrderPct,
-        label: {
-          show: true,
-          position: 'top',
-          fontSize: 14,
-          fontWeight: 'bold',
-          formatter: function(d) {
-            var sourceLabel;
-            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
-              sourceLabel = '4s';
-            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
-              sourceLabel = '1w';
-            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
-              sourceLabel = '1s';
-            } else {
-              sourceLabel = 'nil';
-            }
-
-            var udstatus;
-            if (statusMap[d.dataIndex] == 'up') {
-               return '{up|' + sourceLabel + '}';
-            } else {
-               return '{down|' + sourceLabel + '}';
-            }
-          },
-          rich: {
-            up: {
-              color: 'red',
-            },
-            down: {
-              color: 'green',
-            },
-          },
-        },
-      },
-      {
-        name: 'AvgDownBigOrderPct',
-        type: 'scatter',
-        color: 'green',
-        data: avgDownBigOrderPct,
-        label: {
-          show: true,
-          position: 'top',
-          fontSize: 14,
-          fontWeight: 'bold',
-          formatter: function(d) {
-            var sourceLabel;
-            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
-              sourceLabel = '4s';
-            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
-              sourceLabel = '1w';
-            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
-              sourceLabel = '1s';
-            } else {
-              sourceLabel = 'nil';
-            }
-
-            var udstatus;
-            if (statusMap[d.dataIndex] == 'up') {
-               return '{up|' + sourceLabel + '}';
-            } else {
-               return '{down|' + sourceLabel + '}';
-            }
-          },
-          rich: {
-            up: {
-              color: 'red',
-            },
-            down: {
-              color: 'green',
-            },
-          },
-        },
-      },
+      { name: 'MaxBigOrderPct', type: 'line', data: maxBigOrderPct },
+      { name: 'MinBigOrderPct', type: 'line', data: minBigOrderPct },
+      { name: 'AvgBigOrderPct', type: 'line', data: avgBigOrderPct },
+      { name: 'AvgUpBigOrderPct', type: 'scatter', color: 'red', data: avgUpBigOrderPct, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold', formatter: function(d) { let sourceLabel = (sourcesMap[d.dataIndex]=='400s'||sourcesMap[d.dataIndex]=='dr_400s')?'4s':((sourcesMap[d.dataIndex]=='100w'||sourcesMap[d.dataIndex]=='dr_100w')?'1w':(sourcesMap[d.dataIndex]=='dr_100s'?'1s':'nil')); return statusMap[d.dataIndex]=='up' ? `{up|${sourceLabel}}` : `{down|${sourceLabel}}`; }, rich: { up: { color: 'red' }, down: { color: 'green' } } } },
+      { name: 'AvgDownBigOrderPct', type: 'scatter', color: 'green', data: avgDownBigOrderPct, label: { show: true, position: 'top', fontSize: 14, fontWeight: 'bold', formatter: function(d) { let sourceLabel = (sourcesMap[d.dataIndex]=='400s'||sourcesMap[d.dataIndex]=='dr_400s')?'4s':((sourcesMap[d.dataIndex]=='100w'||sourcesMap[d.dataIndex]=='dr_100w')?'1w':(sourcesMap[d.dataIndex]=='dr_100s'?'1s':'nil')); return statusMap[d.dataIndex]=='up' ? `{up|${sourceLabel}}` : `{down|${sourceLabel}}`; }, rich: { up: { color: 'red' }, down: { color: 'green' } } } },
     ],
   };
 };
@@ -712,139 +143,26 @@ const MergeBigOrderPct = (data, downData) => {
 const MergeProfitChips = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-
-  const allData = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  );
-  const allDataDate = orderBy(
-    uniqBy([...orderedData, ...orderedDownData], 'datestr'),
-    'datestr'
-  )?.map((i) => i.datestr);
-
-  const maxProfitChips = allData?.map((i) =>
-    i?.profit_chips_str
-      .split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b))
-  );
-  const minProfitChips = allData?.map((i) =>
-    i?.profit_chips_str
-      ?.split('|')
-      .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
-  );
-  const dProfitChips = allData?.map(
-    (i) =>
-      i?.profit_chips_str
-        .split('|')
-        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? a : b)) -
-      i?.profit_chips_str
-        ?.split('|')
-        .reduce((a, b) => (parseFloat(a) > parseFloat(b) ? b : a))
-  );
-  const sourcesMap = allData?.map(
-    (i) => i?.source
-  );  
-  const statusMap = allData?.map(
-    (i) => i?.status
-  );  
-  const continueDays= allData?.map(
-    (i) => i?.days + "days"
-  ); 
-
+  const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
+  const allDataDate = allData?.map(i => i.datestr);
+  const maxProfitChips = allData?.map(i => i.profit_chips_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b));
+  const minProfitChips = allData?.map(i => i.profit_chips_str?.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?b:a));
+  const dProfitChips = allData?.map(i => i.profit_chips_str.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?a:b) - i.profit_chips_str?.split('|').reduce((a,b)=>parseFloat(a)>parseFloat(b)?b:a));
+  const sourcesMap = allData?.map(i => i?.source);
+  const statusMap = allData?.map(i => i?.status);
+  const continueDays = allData?.map(i => i?.days + "days");
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['MaxProfitChips', 'MinProfitChips', 'DProfitChips'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-      onclick: (e) => {
-        console.log(e);
-      },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['MaxProfitChips','MinProfitChips','DProfitChips'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 }, onclick: (e) => console.log(e) },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'MaxProfitChips',
-        type: 'line',
-        data: maxProfitChips,
-        label: {
-          show: true,
-          position: 'top',
-          // color: "black",
-          fontSize: 12,
-          formatter: function(d) {
-            var sourceLabel;
-            if (sourcesMap[d.dataIndex] == '400s' || sourcesMap[d.dataIndex] == 'dr_400s') {
-              sourceLabel = '4s';
-            } else if (sourcesMap[d.dataIndex] == '100w' || sourcesMap[d.dataIndex] == 'dr_100w') {
-              sourceLabel = '1w';
-            } else if (sourcesMap[d.dataIndex] == 'dr_100s') {
-              sourceLabel = '1s';
-            } else {
-              sourceLabel = 'nil';
-            }
-
-            var udstatus;
-            if (statusMap[d.dataIndex] == 'up') {
-               return '{up|' + sourceLabel + '}';
-            } else {
-               return '{down|' + sourceLabel + '}';
-            }
-          },
-          rich: {
-            up: {
-              color: 'red',
-            },
-            down: {
-              color: 'green',
-            },
-          },
-        },
-      },
-      {
-        name: 'MinProfitChips',
-        type: 'line',
-        data: minProfitChips,
-      },
-      {
-        name: 'DProfitChips',
-        type: 'line',
-        data: dProfitChips,
-      },
-      {
-        name: 'ContinueDays',
-        type: 'line',
-        data: continueDays,
-      },
+      { name: 'MaxProfitChips', type: 'line', data: maxProfitChips, label: { show: true, position: 'top', fontSize: 12, formatter: function(d) { let sourceLabel = (sourcesMap[d.dataIndex]=='400s'||sourcesMap[d.dataIndex]=='dr_400s')?'4s':((sourcesMap[d.dataIndex]=='100w'||sourcesMap[d.dataIndex]=='dr_100w')?'1w':(sourcesMap[d.dataIndex]=='dr_100s'?'1s':'nil')); return statusMap[d.dataIndex]=='up' ? `{up|${sourceLabel}}` : `{down|${sourceLabel}}`; }, rich: { up: { color: 'red' }, down: { color: 'green' } } } },
+      { name: 'MinProfitChips', type: 'line', data: minProfitChips },
+      { name: 'DProfitChips', type: 'line', data: dProfitChips },
+      { name: 'ContinueDays', type: 'line', data: continueDays },
     ],
   };
 };
@@ -852,720 +170,258 @@ const MergeProfitChips = (data, downData) => {
 const MergeFluidity = (data, downData) => {
   const orderedData = orderBy(uniqBy(data, 'datestr'), 'datestr');
   const orderedDownData = orderBy(uniqBy(downData, 'datestr'), 'datestr');
-
   const allData = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr');
-  const allDataDate = orderBy(uniqBy([...orderedData, ...orderedDownData], 'datestr'), 'datestr')?.map(
-    (i) => i.datestr
-  );
-
-  const fluidity = allData?.map((i) =>
-    i?.totaltradevol / (i?.marketvalue / i?.finalprice * 1000000)
-  );
-
+  const allDataDate = allData?.map(i => i.datestr);
+  const fluidity = allData?.map(i => i.totaltradevol / (i.marketvalue / i.finalprice * 1000000));
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['Fluidity'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
-    series: [
-      {
-        name: 'Fluidity',
-        type: 'line',
-        data: fluidity,
-        label: {
-          position: 'top',
-        },
-      },
-    ],
+    title: { text: '', left: 0 },
+    legend: { data: ['Fluidity'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
+    series: [ { name: 'Fluidity', type: 'line', data: fluidity, label: { position: 'top' } } ],
   };
 };
 
 const MergeKDJ = (kdjData) => {
   const orderedData = orderBy(kdjData, 'datestr');
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const k = orderedData?.map((i) =>
-    i?.k
-  );
-  const d = orderedData?.map((i) =>
-    i?.d
-  );
-  const j = orderedData?.map((i) =>
-    i?.j
-  );
-
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const k = orderedData?.map(i => i?.k);
+  const d = orderedData?.map(i => i?.d);
+  const j = orderedData?.map(i => i?.j);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['k', 'd', 'j'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['k','d','j'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'k',
-        type: 'line',
-        data: k,
-        label: {
-          position: 'top',
-        },
-      },
-      {
-        name: 'd',
-        type: 'line',
-        data: d,
-        label: {
-          position: 'top',
-        },
-      },
-      {
-        name: 'j',
-        type: 'line',
-        data: j,
-        label: {
-          position: 'top',
-        },
-      },
+      { name: 'k', type: 'line', data: k, label: { position: 'top' } },
+      { name: 'd', type: 'line', data: d, label: { position: 'top' } },
+      { name: 'j', type: 'line', data: j, label: { position: 'top' } },
     ],
   };
 };
 
 const MergeDMI = (dmiData) => {
   const orderedData = orderBy(dmiData, 'datestr');
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const pdi = orderedData?.map((i) =>
-    i?.pdi
-  );
-  const mdi = orderedData?.map((i) =>
-    i?.mdi
-  );
-  const adx = orderedData?.map((i) =>
-    i?.adx
-  );
-
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const pdi = orderedData?.map(i => i?.pdi);
+  const mdi = orderedData?.map(i => i?.mdi);
+  const adx = orderedData?.map(i => i?.adx);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['pdi', 'mdi', 'adx'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['pdi','mdi','adx'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'pdi',
-        type: 'line',
-        data: pdi,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#FF0000', // 修改为红色
-          },
-        },        
-      },
-      {
-        name: 'mdi',
-        type: 'line',
-        data: mdi,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#00FF00', // 纯绿色
-          },
-        },
-      },
-      {
-        name: 'adx',
-        type: 'line',
-        data: adx,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#800080', // 纯绿色
-          },
-        },
-      },
+      { name: 'pdi', type: 'line', data: pdi, label: { position: 'top' }, itemStyle: { normal: { color: '#FF0000' } } },
+      { name: 'mdi', type: 'line', data: mdi, label: { position: 'top' }, itemStyle: { normal: { color: '#00FF00' } } },
+      { name: 'adx', type: 'line', data: adx, label: { position: 'top' }, itemStyle: { normal: { color: '#800080' } } },
     ],
   };
 };
 
-// 修改 MergeContinuousProfitChips 函数，添加异常窗口参数
 const MergeContinuousProfitChips = (profitChipsData, anomalyWindows = []) => {
   const orderedData = orderBy(profitChipsData, 'datestr');
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const pc = orderedData?.map((i) =>
-    i?.profit_chip
-  );
-  const tr = orderedData?.map((i) =>
-    (i?.turnoverrate < 0 || i?.turnoverrate > 100) ? 0 : i?.turnoverrate
-  );
-
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const pc = orderedData?.map(i => i?.profit_chip);
+  const tr = orderedData?.map(i => (i?.turnoverrate < 0 || i?.turnoverrate > 100) ? 0 : i?.turnoverrate);
   const option = {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['profit_chip', 'turnoverrate'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: false, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['profit_chip','turnoverrate'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: false, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'profit_chip',
-        type: 'line',
-        data: pc,
-        label: {
-          position: 'top',
-        },
-      },
-      {
-        name: 'turnoverrate',
-        type: 'line',
-        data: tr,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          color: '#ff0000'
-        },
-      },
+      { name: 'profit_chip', type: 'line', data: pc, label: { position: 'top' } },
+      { name: 'turnoverrate', type: 'line', data: tr, label: { position: 'top' }, itemStyle: { color: '#ff0000' } },
     ],
   };
-  
-  // 添加异常窗口标记
   return addMarkAreaToOption(option, anomalyWindows);
 };
 
 const MergeMA = (maData) => {
   const orderedData = orderBy(maData, 'datestr');
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const ma5 = orderedData?.map((i) =>
-    i?.ma5
-  );
-  const ma10 = orderedData?.map((i) =>
-    i?.ma10
-  );
-  const ma20 = orderedData?.map((i) =>
-    i?.ma20
-  );
-  const ma60 = orderedData?.map((i) =>
-    i?.ma60
-  );
-
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const ma5 = orderedData?.map(i => i?.ma5);
+  const ma10 = orderedData?.map(i => i?.ma10);
+  const ma20 = orderedData?.map(i => i?.ma20);
+  const ma60 = orderedData?.map(i => i?.ma60);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['ma5', 'ma10', 'ma20', 'ma60'],
-      selected:{
-        'ma5': true,
-        'ma10': false,
-        'ma20': false,
-        'ma60': true,
-      },
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['ma5','ma10','ma20','ma60'], selected: { 'ma5':true, 'ma10':false, 'ma20':false, 'ma60':true } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'ma5',
-        type: 'line',
-        data: ma5,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#800080', // 修改为红色
-          },
-        },        
-      },
-      {
-        name: 'ma10',
-        type: 'line',
-        data: ma10,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#FFFF00', // 纯绿色
-          },
-        },
-      },
-      {
-        name: 'ma20',
-        type: 'line',
-        data: ma20,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#0000FF', // 纯蓝色
-          },
-        },
-      },
-      {
-        name: 'ma60',
-        type: 'line',
-        data: ma60,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#ff0000', // 纯红色
-          },
-        },
-      },
+      { name: 'ma5', type: 'line', data: ma5, label: { position: 'top' }, itemStyle: { normal: { color: '#800080' } } },
+      { name: 'ma10', type: 'line', data: ma10, label: { position: 'top' }, itemStyle: { normal: { color: '#FFFF00' } } },
+      { name: 'ma20', type: 'line', data: ma20, label: { position: 'top' }, itemStyle: { normal: { color: '#0000FF' } } },
+      { name: 'ma60', type: 'line', data: ma60, label: { position: 'top' }, itemStyle: { normal: { color: '#ff0000' } } },
     ],
   };
 };
 
 const MergeDS = (dsData) => {
   const orderedData = orderBy(dsData, 'datestr');
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const perDynamic = orderedData?.map((i) =>
-    i?.per_dynamic
-  );
-  const perStatic = orderedData?.map((i) =>
-    i?.per_static
-  );
-  const differences = orderedData?.map((i) => 
-    Math.abs((i?.per_dynamic || 0) - (i?.per_static || 0))
-  );
-
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const perDynamic = orderedData?.map(i => i?.per_dynamic);
+  const perStatic = orderedData?.map(i => i?.per_static);
+  const differences = orderedData?.map(i => Math.abs((i?.per_dynamic||0) - (i?.per_static||0)));
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['dynamic', 'static', 'difference'],
-      selected:{
-        'dynamic': true,
-        'static': true,
-        'difference': true,
-      },
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['dynamic','static','difference'], selected: { 'dynamic':true, 'static':true, 'difference':true } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
     series: [
-      {
-        name: 'dynamic',
-        type: 'line',
-        data: perDynamic,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#800080', // 修改为红色
-          },
-        },        
-      },
-      {
-        name: 'static',
-        type: 'line',
-        data: perStatic,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#ff0000', // 纯红色
-          },
-        },
-      },
-      {
-        name: 'difference',
-        type: 'line',
-        data: differences,
-        label: {
-          position: 'top',
-        },
-        itemStyle: {
-          normal: {
-            color: '#000000', // 黑色
-          },
-        },
-      },
+      { name: 'dynamic', type: 'line', data: perDynamic, label: { position: 'top' }, itemStyle: { normal: { color: '#800080' } } },
+      { name: 'static', type: 'line', data: perStatic, label: { position: 'top' }, itemStyle: { normal: { color: '#ff0000' } } },
+      { name: 'difference', type: 'line', data: differences, label: { position: 'top' }, itemStyle: { normal: { color: '#000000' } } },
     ],
   };
 };
 
 const MergeTotalTradeVol = (totaltradevolData) => {
-  const orderedData = orderBy(totaltradevolData, 'datestr'); // 注意：这里应该是 totaltradevolData，不是 maData
-  const allDataDate = orderedData?.map(
-    (i) => i.datestr
-  );
-  const totaltradevol = orderedData?.map((i) =>
-    i?.totaltradevol
-  );
-
+  const orderedData = orderBy(totaltradevolData, 'datestr');
+  const allDataDate = orderedData?.map(i => i.datestr);
+  const totaltradevol = orderedData?.map(i => i?.totaltradevol);
   return {
-    title: {
-      text: '',
-      left: 0,
-    },
-    legend: {
-      data: ['totaltradevol'],
-    },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow', // 柱状图适合用shadow类型
-      },
-    },
-    toolbox: {
-      show: true,
-      orient: 'vertical',
-      left: 'right',
-      top: 'center',
-      feature: {
-        mark: { show: true },
-        magicType: {
-          show: true,
-          type: ['line', 'bar', 'stack', 'tiled'],
-        },
-        restore: { show: true },
-        saveAsImage: { show: true },
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: allDataDate,
-      axisLabel: { show: true, interval: 0, rotate: 45 },
-    },
-    yAxis: {
-      type: 'value',
-    },
+    title: { text: '', left: 0 },
+    legend: { data: ['totaltradevol'] },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar','stack','tiled'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value' },
+    series: [ { name: 'totaltradevol', type: 'bar', data: totaltradevol, label: { position: 'top', show: false }, itemStyle: { color: '#800080' }, barWidth: '60%' } ],
+  };
+};
+
+const MergeSCR = (scrData) => {
+  const orderedData = orderBy(scrData, 'datestr').map(item => ({ ...item, datestr: moment(item.datestr).format('YYYY-MM-DD') }));
+  const allDataDate = orderedData.map(i => i.datestr);
+  const profitChip = orderedData.map(i => i.tencent_profit_chip);
+  return {
+    title: { text: '腾讯筹码分布趋势', left: 'center' },
+    legend: { data: ['获利盘比例(%)'], left: 'left', selected: { '获利盘比例(%)': true, '90%成本集中度(%)': true, '90%成本区间下沿': false, '90%成本区间上沿': false } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    toolbox: { show: true, orient: 'vertical', left: 'right', top: 'center', feature: { mark: { show: true }, magicType: { show: true, type: ['line','bar'] }, restore: { show: true }, saveAsImage: { show: true } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { show: true, interval: 0, rotate: 45 } },
+    yAxis: { type: 'value', name: '数值 (%)' },
+    series: [ { name: '获利盘比例(%)', type: 'line', data: profitChip, smooth: true, lineStyle: { color: '#5470c6', width: 2 }, symbol: 'circle', symbolSize: 6, label: { show: true, position: 'top', formatter: '{c}' } } ],
+  };
+};
+
+const MergeSCRDetails1 = (scrData) => {
+  const orderedData = orderBy(scrData, 'datestr').map(item => ({ ...item, datestr: moment(item.datestr).format('YYYY-MM-DD') }));
+  const allDataDate = orderedData.map(i => i.datestr);
+  const priceRangeLow90 = orderedData.map(i => { const parts = i.tencent_price_range_90?.split(','); return parts ? parseFloat(parts[0]) : null; });
+  const priceRangeHigh90 = orderedData.map(i => { const parts = i.tencent_price_range_90?.split(','); return parts ? parseFloat(parts[1]) : null; });
+  const priceRangeLow70 = orderedData.map(i => { const parts = i.tencent_price_range_70?.split(','); return parts ? parseFloat(parts[0]) : null; });
+  const priceRangeHigh70 = orderedData.map(i => { const parts = i.tencent_price_range_70?.split(','); return parts ? parseFloat(parts[1]) : null; });
+  const rangeWidth90 = priceRangeHigh90.map((high,idx) => high && priceRangeLow90[idx] ? high - priceRangeLow90[idx] : null);
+  const rangeWidth70 = priceRangeHigh70.map((high,idx) => high && priceRangeLow70[idx] ? high - priceRangeLow70[idx] : null);
+  return {
+    title: { text: '筹码成本分布区间', left: 'center' },
+    legend: { data: ['90%成本区间','70%成本区间'], left: 'left' },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+      let res = params[0].axisValue + '<br/>';
+      params.forEach(p => {
+        if(p.seriesName === '90%成本区间') {
+          const low = priceRangeLow90[p.dataIndex], high = priceRangeHigh90[p.dataIndex], width = rangeWidth90[p.dataIndex];
+          res += `${p.marker} 90%成本区间: ${low?.toFixed(2)} ~ ${high?.toFixed(2)} 元 (宽度 ${width?.toFixed(2)} 元)<br/>`;
+        } else if(p.seriesName === '70%成本区间') {
+          const low = priceRangeLow70[p.dataIndex], high = priceRangeHigh70[p.dataIndex], width = rangeWidth70[p.dataIndex];
+          res += `${p.marker} 70%成本区间: ${low?.toFixed(2)} ~ ${high?.toFixed(2)} 元 (宽度 ${width?.toFixed(2)} 元)<br/>`;
+        }
+      });
+      return res;
+    } },
+    toolbox: { show: true, feature: { saveAsImage: { show: true }, magicType: { show: true, type: ['line','bar'] } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { rotate: 45, interval: 10, fontSize: 10 } },
+    yAxis: { type: 'value', name: '价格 (元)' },
     series: [
-      {
-        name: 'totaltradevol',
-        type: 'bar', // 主要修改：将 'line' 改为 'bar'
-        data: totaltradevol,
-        label: {
-          position: 'top',
-          show: false, // 添加show属性确保标签显示
-        },
-        itemStyle: {
-          color: '#800080', // 简化颜色设置
-        },
-        // 可选：添加柱状图特定配置
-        barWidth: '60%', // 控制柱状图宽度
-      },
+      { name: '90%成本区间', type: 'line', data: priceRangeHigh90, lineStyle: { color: '#ee6666', width: 2, type: 'solid' }, symbol: 'circle', symbolSize: 6, areaStyle: { color: 'rgba(238,102,102,0.1)', origin: 'start' }, connectNulls: false, step: false, label: { show: false } },
+      { name: '90%成本区间', type: 'line', data: priceRangeLow90, lineStyle: { color: '#ee6666', width: 2, type: 'solid' }, symbol: 'circle', symbolSize: 6, connectNulls: false, step: false, label: { show: false }, tooltip: { show: false } },
+      { name: '70%成本区间', type: 'line', data: priceRangeHigh70, lineStyle: { color: '#3ba272', width: 2, type: 'solid' }, symbol: 'diamond', symbolSize: 6, areaStyle: { color: 'rgba(59,162,114,0.1)', origin: 'start' }, connectNulls: false, label: { show: false } },
+      { name: '70%成本区间', type: 'line', data: priceRangeLow70, lineStyle: { color: '#3ba272', width: 2, type: 'solid' }, symbol: 'diamond', symbolSize: 6, connectNulls: false, tooltip: { show: false } },
     ],
   };
 };
 
-async function getAllCriStocks(
-  startDate: any = null,
-  endDate: any = 0,
-  from: any = false,
-  stock,
-  isFocused,
-  isDown = false
-) {
-  const stockData = await get(
-    `/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
-  );
-  return stockData;
+const MergeSCRDetails2 = (scrData) => {
+  const orderedData = orderBy(scrData, 'datestr').map(item => ({ ...item, datestr: moment(item.datestr).format('YYYY-MM-DD') }));
+  const allDataDate = orderedData.map(i => i.datestr);
+  const concentration90 = orderedData.map(i => i.tencent_concentration_90);
+  const concentration70 = orderedData.map(i => i.tencent_concentration_70);
+  return {
+    title: { text: '筹码成本集中度趋势', left: 'center' },
+    legend: { data: ['90%成本集中度(%)','70%成本集中度(%)'], left: 'left' },
+    tooltip: { trigger: 'axis' },
+    toolbox: { show: true, feature: { saveAsImage: { show: true }, magicType: { show: true, type: ['line','bar'] } } },
+    xAxis: { type: 'category', data: allDataDate, axisLabel: { rotate: 45, interval: 10, fontSize: 10 } },
+    yAxis: { type: 'value', name: '集中度 (%)', min: 0 },
+    series: [
+      { name: '90%成本集中度(%)', type: 'line', data: concentration90, smooth: true, lineStyle: { color: '#fac858', width: 3, type: 'solid' }, symbol: 'circle', symbolSize: 8, label: { show: true, position: 'top', formatter: '{c}', fontSize: 10, offset: [0,-5] }, areaStyle: { opacity: 0.1, color: '#fac858' } },
+      { name: '70%成本集中度(%)', type: 'line', data: concentration70, smooth: true, lineStyle: { color: '#73c0de', width: 3, type: 'solid' }, symbol: 'diamond', symbolSize: 8, label: { show: true, position: 'bottom', formatter: '{c}', fontSize: 10, offset: [0,5] }, areaStyle: { opacity: 0.1, color: '#73c0de' } },
+    ],
+  };
+};
+
+// ======================= API 调用函数 =======================
+async function getAllFocusedStocks2(page = 1, pageSize = 50, sortByDate = false, dateSortOrder: 'ASC' | 'DESC' = 'DESC') {
+  const response = await get(`/api/all_focus_stock2?page=${page}&pageSize=${pageSize}&sortByDate=${sortByDate}&dateSortOrder=${dateSortOrder}`);
+  return response; // { data, total }
 }
 
-async function getAllCriStocks3(
-  startDate: any = null,
-  endDate: any = 0,
-  from: any = false,
-  stock,
-  isFocused,
-  isDown = false
-) {
-  const stockData = await get(
-    `/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`
-  );
-  return stockData;
+async function getAllCriStocks(startDate, endDate, from, stock, isFocused, isDown = false) {
+  return await get(`/api/critical_data?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`);
 }
-
-async function getKDJ(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const stockData = await get(
-    `/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return stockData;
+async function getAllCriStocks3(startDate, endDate, from, stock, isFocused, isDown = false) {
+  return await get(`/api/critical_data3?start_date=${startDate}&end_date=${endDate}&from=${from}&stock=${stock}&isFocused=${isFocused}&isDown=${isDown}`);
 }
-
-async function getDMI(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const stockData = await get(
-    `/api/dmi?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return stockData;
+async function getKDJ(stock, startDate, endDate) {
+  return await get(`/api/kdj?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
 }
-
-async function getContinuousProfitChips(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const profitChipsData = await get(
-    `/api/profit_chips?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return profitChipsData;
+async function getDMI(stock, startDate, endDate) {
+  return await get(`/api/dmi?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
 }
-
-async function getMA(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const stockData = await get(
-    `/api/ma?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return stockData;
+async function getContinuousProfitChips(stock, startDate, endDate) {
+  return await get(`/api/profit_chips?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
 }
-
-async function getDS(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const stockData = await get(
-    `/api/ds?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return stockData;
+async function getMA(stock, startDate, endDate) {
+  return await get(`/api/ma?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
 }
-
-async function getTotalTradeVol(
-  stock,
-  startDate: any = null,
-  endDate: any = 0
-) {
-  const stockData = await get(
-    `/api/totaltradevol?stock=${stock}&start_date=${startDate}&end_date=${endDate}`
-  );
-  return stockData;
+async function getDS(stock, startDate, endDate) {
+  return await get(`/api/ds?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
 }
-
-// 获取异常时间窗口数据
+async function getTotalTradeVol(stock, startDate, endDate) {
+  return await get(`/api/totaltradevol?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
+}
+async function getSCR(stock, startDate, endDate) {
+  return await get(`/api/stock_chip_result?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
+}
+async function getAllSCR(stock, startDate, endDate) {
+  return await get(`/api/all_stock_chip_result?stock=${stock}&start_date=${startDate}&end_date=${endDate}`);
+}
 async function getAnomalyWindows(stock) {
   try {
     const response = await get(`/api/stock_anomaly_windows?stock=${stock}`);
-
-    // 处理返回的数据格式: [{ anomaly_window: "[{...},{...}]" }]
     if (response && Array.isArray(response) && response.length > 0) {
       const firstItem = response[0];
       if (firstItem && firstItem.anomaly_window) {
-        const anomalyWindowStr = firstItem.anomaly_window;
-        // 解析 JSON 字符串
-        const parsedWindows = JSON.parse(anomalyWindowStr);
-        console.log('Parsed anomaly windows:', parsedWindows);
-        return parsedWindows || [];
+        return JSON.parse(firstItem.anomaly_window) || [];
       }
     }
-    
-    // 如果响应直接是数组格式（没有嵌套 anomaly_window 字段）
-    if (response && Array.isArray(response) && response.length > 0 && response[0].start_date) {
-      return response;
-    }
-    
+    if (response && Array.isArray(response) && response.length > 0 && response[0].start_date) return response;
     return [];
   } catch (error) {
     console.error('获取异常窗口失败:', error);
@@ -1573,15 +429,7 @@ async function getAnomalyWindows(stock) {
   }
 }
 
-interface Item {
-  key: string;
-  name: string;
-  age: string;
-  address: string;
-}
-interface EditableRowProps {
-  index: number;
-}
+// ======================= 价格计算辅助函数 =======================
 export const caculateMaxPrice = (priceByDayData) => {
   let maxPrice = priceByDayData[0]?.finalprice;
   let maxPriceDay = 0;
@@ -1594,32 +442,6 @@ export const caculateMaxPrice = (priceByDayData) => {
     }
   });
   return { maxPrice, maxPriceDay, maxPriceDate };
-};
-export const caculateMinVol = (priceByDayData) => {
-  let minVol = priceByDayData[0]?.totaltradevol;
-  let minVolDate = priceByDayData[0]?.datestr;
-  let minVolDay = 0;
-  priceByDayData.forEach((i, k) => {
-    if (i.totaltradevol && i.totaltradevol < minVol) {
-      minVol = i.totaltradevol;
-      minVolDay = k;
-      minVolDate = i.datestr;
-    }
-  });
-  return { minVol, minVolDay, minVolDate };
-};
-export const caculateMaxVol = (priceByDayData) => {
-  let maxVol = priceByDayData[0]?.totaltradevol;
-  let maxVolDay = 0;
-  let maxVolDate = priceByDayData[0]?.datestr;
-  priceByDayData.forEach((i, k) => {
-    if (i.totaltradevol && i.totaltradevol > maxVol) {
-      maxVol = i.totaltradevol;
-      maxVolDay = k;
-      maxVolDate = i.datestr;
-    }
-  });
-  return { maxVol, maxVolDay, maxVolDate };
 };
 
 export const caculateMinPrice = (priceByDayData) => {
@@ -1636,6 +458,34 @@ export const caculateMinPrice = (priceByDayData) => {
   return { minPrice, minPriceDay, minPriceDate };
 };
 
+export const caculateMinVol = (priceByDayData) => {
+  let minVol = priceByDayData[0]?.totaltradevol;
+  let minVolDate = priceByDayData[0]?.datestr;
+  let minVolDay = 0;
+  priceByDayData.forEach((i, k) => {
+    if (i.totaltradevol && i.totaltradevol < minVol) {
+      minVol = i.totaltradevol;
+      minVolDay = k;
+      minVolDate = i.datestr;
+    }
+  });
+  return { minVol, minVolDay, minVolDate };
+};
+
+export const caculateMaxVol = (priceByDayData) => {
+  let maxVol = priceByDayData[0]?.totaltradevol;
+  let maxVolDay = 0;
+  let maxVolDate = priceByDayData[0]?.datestr;
+  priceByDayData.forEach((i, k) => {
+    if (i.totaltradevol && i.totaltradevol > maxVol) {
+      maxVol = i.totaltradevol;
+      maxVolDay = k;
+      maxVolDate = i.datestr;
+    }
+  });
+  return { maxVol, maxVolDay, maxVolDate };
+};
+
 export const caculatePriceData = (
   stockData,
   stockPriceByDay,
@@ -1644,7 +494,6 @@ export const caculatePriceData = (
 ) => {
   const yesterday = caculateDate(simulateDate ?? today, 1);
   const priceData = stockData.map((i) => {
-    //i.datestr is addDate
     const todayData =
       stockPriceByDay?.find(
         (e) => e.symbol === i.symbol && e.datestr === simulateDate
@@ -1692,10 +541,8 @@ export const caculatePriceData = (
 
     const { maxPrice: maxPrice40, maxPriceDate: maxPriceDate40 } =
       caculateMaxPrice(before10inBefore40);
-
     const { maxPrice: max20Price40, maxPriceDate: max20PriceDate40 } =
       caculateMaxPrice(before20inBefore40);
-
     const kBefore40 = ((maxPrice40 - minPrice40) / maxPrice40).toFixed(2);
     const k20Before40 = ((max20Price40 - minPrice40) / max20Price40).toFixed(2);
 
@@ -1841,9 +688,9 @@ export const caculatePriceData = (
   return priceData;
 };
 
+// ======================= 可编辑表格组件 =======================
 const EditableContext = React.createContext<FormInstance<any> | null>(null);
-
-const EditableRow: React.FC<EditableRowProps> = ({ index, ...props }) => {
+const EditableRow: React.FC<{ index: number }> = ({ index, ...props }) => {
   const [form] = Form.useForm();
   return (
     <Form form={form} component={false}>
@@ -1853,106 +700,80 @@ const EditableRow: React.FC<EditableRowProps> = ({ index, ...props }) => {
     </Form>
   );
 };
-
 interface EditableCellProps {
   title: React.ReactNode;
   editable: boolean;
   children: React.ReactNode;
-  dataIndex: keyof Item;
-  record: Item;
-  handleSave: (record: Item) => void;
+  dataIndex: string;
+  record: any;
+  handleSave: (record: any) => void;
 }
-
-const EditableCell: React.FC<EditableCellProps> = ({
-  title,
-  editable,
-  children,
-  dataIndex,
-  record,
-  handleSave,
-  ...restProps
-}) => {
+const EditableCell: React.FC<EditableCellProps> = ({ title, editable, children, dataIndex, record, handleSave, ...restProps }) => {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<Input>(null);
   const form = useContext(EditableContext)!;
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current!.focus();
-    }
-  }, [editing]);
-
-  const toggleEdit = () => {
-    setEditing(!editing);
-    form.setFieldsValue({ [dataIndex]: record[dataIndex] });
-  };
-
-  const save = async () => {
-    try {
-      const values = await form.validateFields();
-      toggleEdit();
-      handleSave({ ...record, ...values });
-    } catch (errInfo) {
-      console.log('Save failed:', errInfo);
-    }
-  };
-
+  useEffect(() => { if (editing) inputRef.current!.focus(); }, [editing]);
+  const toggleEdit = () => { setEditing(!editing); form.setFieldsValue({ [dataIndex]: record[dataIndex] }); };
+  const save = async () => { try { const values = await form.validateFields(); toggleEdit(); handleSave({ ...record, ...values }); } catch (errInfo) { console.log('Save failed:', errInfo); } };
   let childNode = children;
-
   if (editable) {
     childNode = editing ? (
-      <Form.Item
-        style={{ margin: 0 }}
-        name={dataIndex}
-        rules={[
-          {
-            required: true,
-            message: `${title} is required.`,
-          },
-        ]}
-      >
+      <Form.Item style={{ margin: 0 }} name={dataIndex} rules={[{ required: true, message: `${title} is required.` }]}>
         <Input ref={inputRef} onPressEnter={save} onBlur={save} />
       </Form.Item>
     ) : (
-      <div
-        className="editable-cell-value-wrap"
-        style={{ paddingRight: 24 }}
-        onClick={toggleEdit}
-      >
+      <div className="editable-cell-value-wrap" style={{ paddingRight: 24 }} onClick={toggleEdit}>
         {children}
       </div>
     );
   }
-
   return <td {...restProps}>{childNode}</td>;
 };
 
-async function getAllFocusedStocks2() {
-  const stockData = await get('/api/all_focus_stock2');
-  const symbols = stockData.map((d) => d.symbol);
-  const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
-    body: JSON.stringify({
-      stocks: symbols.map((i) => `'${i}'`).join(',')
-    }),
-  });
-  //caculate stock price
-  const stockPriceData = caculatePriceData(
-    stockData,
-    stockPriceByDay,
-    '不限'
-  );
-
-  return stockPriceData;
+// ======================= 批量行业信息获取 =======================
+async function fetchBatchIndustry(symbols: string[]): Promise<Map<string, string>> {
+  if (!symbols.length) return new Map();
+  try {
+    const stocksParam = symbols.map(s => `'${s}'`).join(',');
+    const response = await post(`/api/boards_of_stock?stocks=${stocksParam}`, {});
+    const industryMap = new Map<string, string>();
+    (response as any[]).forEach(item => {
+      if ((item.business_type === 'sw1_hy' || item.business_type === 'swhy') && item.symbol) {
+        if (!industryMap.has(item.symbol)) industryMap.set(item.symbol, item.name);
+      }
+    });
+    return industryMap;
+  } catch (error) {
+    console.error('批量获取行业信息失败', error);
+    return new Map();
+  }
 }
 
+const IndustryContext = React.createContext<{ industryMap: Map<string, string> }>({ industryMap: new Map() });
+const StockIndustry: React.FC<{ symbol: string }> = ({ symbol }) => {
+  const { industryMap } = useContext(IndustryContext);
+  const industry = industryMap.get(symbol);
+  return <span>{industry || '--'}</span>;
+};
+
+// ======================= 主组件 =======================
 export const MyFocus2ListComponent = () => {
   const [data, setData] = useState([]);
-  const [rateByCur, setRateByCur] = useState();
-  const [rateByMax, setRateByMax] = useState();
+  const [rateByCur, setRateByCur] = useState<string>();
+  const [rateByMax, setRateByMax] = useState<string>();
 
-  const [mergeOptions, setMergeOptions] = useState({});
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  // 分页和排序
+  const [currentPage, setCurrentPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [tableLoading, setTableLoading] = useState(false);
+  const pageSize = 100;
+  const [sortByDate, setSortByDate] = useState(true);
+  const [dateSortOrder, setDateSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+
+  // 行业信息
+  const [industryMap, setIndustryMap] = useState<Map<string, string>>(new Map());
+
+  // 图表相关状态
   const [mergeOptionsInModal, setMergeOptionsInModal] = useState({});
   const [mergeOptions3InModal, setMergeOptions3InModal] = useState({});
   const [mergeProfitChips3InModal, setMergeProfitChips3InModal] = useState({});
@@ -1967,676 +788,280 @@ export const MyFocus2ListComponent = () => {
   const [mergeMAInModal, setMergeMAInModal] = useState({});
   const [mergeDSInModal, setMergeDSInModal] = useState({});
   const [mergeTotalTradeVolInModal, setMergeTotalTradeVolInModal] = useState({});
-
-  // 新增：存储异常窗口数据（仅用于 ProfitChips）
+  const [mergeSCRInModal, setMergeSCRInModal] = useState({});
+  const [mergeSCRD1InModal, setMergeSCRD1InModal] = useState({});
+  const [mergeSCRD2InModal, setMergeSCRD2InModal] = useState({});
+  const [mergeAllSCRD1InModal, setMergeAllSCRD1InModal] = useState({});
+  const [mergeAllSCRD2InModal, setMergeAllSCRD2InModal] = useState({});
   const [anomalyWindows, setAnomalyWindows] = useState<any[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectStatus, setSelectStatus] = useState<any>(null);
+  const [curAnaMap, setAnaMap] = useState();
 
-  const curDate = new Date();
-  const year = curDate.getFullYear();
-  const lastYear = curDate.getFullYear() - 2;
-  const month = curDate.getMonth() + 1;
-  const day = curDate.getDate();
-  const dateFormat = 'YYYY-MM-DD';
-  const endDate = moment(`${year}-${month}-${day}`).format(dateFormat);
-  const startDate = moment(`${lastYear}-${month}-${day}`).format(dateFormat);
-
+  const curDateObj = new Date();
+  const year = curDateObj.getFullYear();
+  const lastYear = curDateObj.getFullYear() - 2;
+  const month = curDateObj.getMonth() + 1;
+  const day = curDateObj.getDate();
+  const endDate = moment(`${year}-${month}-${day}`).format('YYYY-MM-DD');
+  const startDate = moment(`${lastYear}-${month}-${day}`).format('YYYY-MM-DD');
   const mainChartRef = useRef<any>();
-  const handleClick = useCallback(() => {
-    const mainChartInstance = mainChartRef?.current?.getEchartsInstance();
-    mainChartInstance.on('click', (x) => {
-      console.log(x);
-    });
-  }, []);
-  const onClickMenu = (item, tableIndex, datestr) => {
-    post('/api/edit_focus2_status', {
-      body: JSON.stringify({
-        symbol: tableIndex,
-        status: item.key,
-        datestr: datestr,
-      }),
-    }).then(() => {
-      if (item.key === '3') {
-        post('/api/edit_focus2_datestr', {
-          body: JSON.stringify({
-            symbol: tableIndex,
-            status: item.key,
-            datestr: datestr,
-            newDatestr: caculateDate(today, 0),
-          }),
-        }).then((i) => {
-          if (i.code) {
-            alert(i.sqlMessage);
-          }
+
+  // 数据获取（含价格计算补充）
+  const handleAllStockData = useCallback(async (page = 1, sortDate?: boolean, order?: 'ASC' | 'DESC') => {
+    setTableLoading(true);
+    try {
+      const shouldSortByDate = sortDate !== undefined ? sortDate : sortByDate;
+      const currentOrder = order !== undefined ? order : dateSortOrder;
+      let response = await getAllFocusedStocks2(page, pageSize, shouldSortByDate, currentOrder);
+      let stockData = response.data || [];
+      let totalRecords = response.total || 0;
+
+      // 前端兜底排序
+      if (shouldSortByDate && stockData.length) {
+        stockData = [...stockData].sort((a, b) => {
+          const dateA = new Date(a.datestr).getTime();
+          const dateB = new Date(b.datestr).getTime();
+          return currentOrder === 'ASC' ? dateA - dateB : dateB - dateA;
         });
       }
-      async function handleAllStockData() {
-        const data = await getAllFocusedStocks2();
-        setData(
-          selectStatus
-            ? data.filter(
-                (i) =>
-                  i.focus_status ===
-                  (selectStatus === '0' ? null : selectStatus)
-              )
-            : data
-        );
-      }
-      handleAllStockData();
-    });
-  };
 
-  const columns = [
+      // 补充价格计算（如果后端未返回 maxPriceDiff 等字段）
+      if (stockData.length > 0 && stockData[0].maxPriceDiff === undefined) {
+        const symbols = stockData.map(d => d.symbol);
+        const stockPriceByDay = await post(`/api/get_price_from_common_data`, {
+          body: JSON.stringify({ stocks: symbols.map(i => `'${i}'`).join(',') }),
+        });
+        const calculatedData = caculatePriceData(stockData, stockPriceByDay, '不限');
+        // 合并 recentTen（因为 caculatePriceData 不会保留 recentTen）
+        const dataWithRecentTen = calculatedData.map((item, index) => ({
+          ...item,
+          recentTen: stockData[index]?.recentTen || []
+        }));
+        stockData = dataWithRecentTen;
+      }
+
+      // 计算准确率
+      const rateByCurVal = stockData.filter(i =>
+        (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
+        (i.currentPrice < i.finalprice && i.predict === 'Down')
+      ).length;
+      const rateByMaxVal = stockData.filter(i =>
+        (i.maxPriceDiff > 0 && i.predict === 'Up') ||
+        (i.maxPriceDiff === 0 && i.predict === 'Down')
+      ).length;
+      setRateByCur(`${rateByCurVal}/${stockData.length}`);
+      setRateByMax(`${rateByMaxVal}/${stockData.length}`);
+
+      // 状态过滤
+      const filteredData = selectStatus
+        ? stockData.filter(i => i.focus_status === (selectStatus === '0' ? null : selectStatus))
+        : stockData;
+      setData(filteredData);
+      setTotal(totalRecords);
+
+      // 批量获取行业信息
+      const symbols = stockData.map((item: any) => item.symbol);
+      if (symbols.length) {
+        const map = await fetchBatchIndustry(symbols);
+        setIndustryMap(prev => new Map([...prev, ...map]));
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setTableLoading(false);
+    }
+  }, [selectStatus, sortByDate, dateSortOrder, pageSize]);
+
+  const handleDateSort = useCallback((order: 'ascend' | 'descend' | null) => {
+    if (order === null) {
+      setSortByDate(false);
+      handleAllStockData(1, false, 'DESC');
+    } else {
+      const newOrder = order === 'ascend' ? 'ASC' : 'DESC';
+      setSortByDate(true);
+      setDateSortOrder(newOrder);
+      handleAllStockData(1, true, newOrder);
+    }
+  }, [handleAllStockData]);
+
+  const handleSave = useCallback(async (row: any) => {
+    await post('/api/edit_focus2', { body: JSON.stringify({ symbol: row.symbol, comments: row.comments }) });
+    handleAllStockData(currentPage);
+  }, [currentPage, handleAllStockData]);
+
+  const handleDelete = useCallback(async (symbol: string, datestr: string) => {
+    await post('/api/delete_focus2', { body: JSON.stringify({ symbol, datestr }) });
+    handleAllStockData(currentPage);
+  }, [currentPage, handleAllStockData]);
+
+  const onClickMenu = useCallback((item: any, symbol: string, datestr: string) => {
+    post('/api/edit_focus2_status', { body: JSON.stringify({ symbol, status: item.key, datestr }) }).then(() => {
+      if (item.key === '3') {
+        post('/api/edit_focus2_datestr', { body: JSON.stringify({ symbol, status: item.key, datestr, newDatestr: caculateDate(today, 0) }) }).then((i) => {
+          if (i.code) alert(i.sqlMessage);
+          handleAllStockData(currentPage);
+        });
+      } else {
+        handleAllStockData(currentPage);
+      }
+    });
+  }, [currentPage, handleAllStockData]);
+
+  useEffect(() => { handleAllStockData(1); }, []);
+
+  const columns = useMemo(() => [
     {
-      title: 'Symbol',
-      dataIndex: 'symbol',
-      key: 'symbol',
-      render: (text, record) => {
-        const end_date = record?.datestr;
+      title: 'Symbol', dataIndex: 'symbol', key: 'symbol',
+      render: (text: string, record: any) => {
         const predict = record?.predict;
         return (
           <div>
-            <a
-              target="_blank"
-              href={`https://quote.eastmoney.com/${text}.html`}
-            >
-              {text}
-              {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
-                '*'}
+            <a target="_blank" href={`https://quote.eastmoney.com/${text}.html`}>
+              {text}{caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) && '*'}
             </a>
             <br />
-            <Tag>
-              <a
-                target="_blank"
-                href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}
-              >
-                {'Show alarm'}
-              </a>
-            </Tag>
+            <Tag><a target="_blank" href={`http://${location.host}/alarm?symbol=${text}&datestr=${record.datestr}`}>Show alarm</a></Tag>
             <br />
-            <Button
-              onClick={async () => {
-                setIsLoading(true);
-                const data = await getAllCriStocks(
-                  end_date,
-                  end_date,
-                  false,
-                  text,
-                  false
-                );
-                const downData = await getAllCriStocks(
-                  end_date,
-                  end_date,
-                  false,
-                  text,
-                  false,
-                  true
-                );
-                const data3 = await getAllCriStocks3(
-                  startDate,
-                  endDate,
-                  false,
-                  text,
-                  false
-                );
-                const downData3 = await getAllCriStocks3(
-                  startDate,
-                  endDate,
-                  false,
-                  text,
-                  false,
-                  true
-                );
-                const kdjData = await getKDJ(
-                  text,
-                  startDate,
-                  endDate
-                );
-                const dmiData = await getDMI(
-                  text,
-                  startDate,
-                  endDate
-                );
-                const profitChipsData = await getContinuousProfitChips(
-                  text,
-                  startDate,
-                  endDate
-                );  
-                const maData = await getMA(
-                  text,
-                  startDate,
-                  endDate
-                );
-                const dsData = await getDS(
-                  text,
-                  startDate,
-                  endDate
-                );   
-                const totalTradeVolData = await getTotalTradeVol(
-                  text,
-                  startDate,
-                  endDate
-                );
-                const windows = await getAnomalyWindows(text);               
-
-                setAnomalyWindows(windows);
-                setIsModalVisible(true);
-                setMergeOptionsInModal(MergeOptions(data, downData));
-                setMergeOptions3InModal(MergeOptions(data3, downData3));
-                setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
-                setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
-                setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
-                setMergeFluidityInModal(MergeFluidity(data3, downData3));
-                setMergeKDJInModal(MergeKDJ(kdjData));
-                setMergeDMIInModal(MergeDMI(dmiData));
-                setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData, windows));
-                setMergeMAInModal(MergeMA(maData));
-                setMergeDSInModal(MergeDS(dsData));
-                setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
-                setIsLoading(false);
-                setCurText(`${text} - ${record?.name}`);
-                setCurSymbol(record?.symbol);
-              }}
-            >
-              Show Charts
-            </Button>
+            <Button onClick={async () => {
+              const data = await getAllCriStocks(record.datestr, record.datestr, false, text, false);
+              const downData = await getAllCriStocks(record.datestr, record.datestr, false, text, false, true);
+              const data3 = await getAllCriStocks3(startDate, endDate, false, text, false);
+              const downData3 = await getAllCriStocks3(startDate, endDate, false, text, false, true);
+              const kdjData = await getKDJ(text, startDate, endDate);
+              const dmiData = await getDMI(text, startDate, endDate);
+              const profitChipsData = await getContinuousProfitChips(text, startDate, endDate);
+              const maData = await getMA(text, startDate, endDate);
+              const dsData = await getDS(text, startDate, endDate);
+              const totalTradeVolData = await getTotalTradeVol(text, startDate, endDate);
+              const scrData = await getSCR(text, startDate, endDate);
+              const allSCRData = await getAllSCR(text, startDate, endDate);
+              const windows = await getAnomalyWindows(text);
+              setAnomalyWindows(windows);
+              setIsModalVisible(true);
+              setMergeOptionsInModal(MergeOptions(data, downData));
+              setMergeOptions3InModal(MergeOptions(data3, downData3));
+              setMergeProfitChips3InModal(MergeProfitChips(data3, downData3));
+              setMergeQuantityRelativeRatiosInModal(MergeQuantityRelativeRatios(data3, downData3));
+              setBigOrderPctInModal(MergeBigOrderPct(data3, downData3));
+              setMergeFluidityInModal(MergeFluidity(data3, downData3));
+              setMergeKDJInModal(MergeKDJ(kdjData));
+              setMergeDMIInModal(MergeDMI(dmiData));
+              setContinuousMergeProfitChipsInModal(MergeContinuousProfitChips(profitChipsData, windows));
+              setMergeMAInModal(MergeMA(maData));
+              setMergeDSInModal(MergeDS(dsData));
+              setMergeTotalTradeVolInModal(MergeTotalTradeVol(totalTradeVolData));
+              setMergeSCRInModal(MergeSCR(scrData));
+              setMergeSCRD1InModal(MergeSCRDetails1(scrData));
+              setMergeSCRD2InModal(MergeSCRDetails2(scrData));
+              setMergeAllSCRD1InModal(MergeSCRDetails1(allSCRData));
+              setMergeAllSCRD2InModal(MergeSCRDetails2(allSCRData));
+              setCurText(`${text} - ${record?.name}`);
+              setCurSymbol(record?.symbol);
+            }}>Show Charts</Button>
             <br />
-            <span style={{ color: 'red' }}>
-              {predict === 'Up' ? 'UP' : ''}
-            </span>
+            <span style={{ color: 'red' }}>{predict === 'Up' ? 'UP' : ''}</span>
           </div>
         );
       },
     },
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => {
-        return (
-          <span>
-            {text}
-            {caculateAfterDate(record.datestr, 60) < caculateDate(today, 0) &&
-              '*'}
-          </span>
-        );
-      },
-    },
-    {
-      title: 'PCA',
-      dataIndex: 'profit_chip_analyze',
-      key: 'profit_chip_analyze',
-      render: (text) => {
-        const valueMap = JSON.parse(text);
-        return (
-          <div>
-            {Object.keys(valueMap).map((i) => {
-                return (
-                  <p>{i}: {valueMap?.[i]}</p>
-                );
-            })}
-          </div>
-        );
-      },
-    },
-    {
-      title: 'Continuance BYG',
-      dataIndex: 'continuance_BYG',
-      key: 'continuance_BYG',
-      render: (c, record) => {
-        const firstPart = c.split('|')[0]?.trim() || '';
-        
-        // 提取数字并判断
-        const numericMatch = firstPart.match(/-?\d+(\.\d+)?/);
-        if (!numericMatch) return false;
-
-        const isUp = parseFloat(numericMatch[0]) > 0;
-        return (
-          <>
-            <span style={{ color: isUp ? 'red' : 'green' }}>{c}</span>
-          </>
-        );
-      },      
-    },
-    {
-      title: 'Comments',
-      dataIndex: 'comments',
-      key: 'comments',
-      editable: true,
-    },
-    {
-      title: 'Date',
-      dataIndex: 'datestr',
-      key: 'datestr',
-      // defaultSortOrder: 'descend',
-      sorter: (a: any, b: any): any => {
-        return (
-          Number(a.datestr.replaceAll('-', '')) -
-          Number(b.datestr.replaceAll('-', ''))
-        );
-      },
-    },
-    {
-      title: 'last_updated_at',
-      dataIndex: 'last_updated_at',
-      key: 'last_updated_at',
-      render:(c) => {
-        const value = c.split('T')?.[0]
-        return (
-            <p>{value}</p>
-        );        
-      },
-      sorter: (a: any, b: any): any => {
-        var t1 = a.last_updated_at.split('T')?.[0].replaceAll('-', '');
-        var t2 = b.last_updated_at.split('T')?.[0].replaceAll('-', '')
-        return (
-          Number(t1) - Number(t2)
-        );
-      },
-    },
+    { title: 'Name', dataIndex: 'name', key: 'name', render: (text, record) => <span>{text}{caculateAfterDate(record.datestr,60)<caculateDate(today,0)&&'*'}</span> },
+    { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { const val = JSON.parse(text); return <div>{Object.keys(val).map(i=><p key={i}>{i}: {val[i]}</p>)}</div>; } },
+    { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
+    { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: true },
+    { title: 'Date', dataIndex: 'datestr', key: 'datestr', sorter: true, sortOrder: sortByDate ? (dateSortOrder==='ASC'?'ascend':'descend') : null, onHeaderCell: () => ({ onClick: () => { if(!sortByDate||dateSortOrder==='DESC') handleDateSort('ascend'); else if(dateSortOrder==='ASC') handleDateSort('descend'); else handleDateSort(null); } }) },
+    { title: 'last_updated_at', dataIndex: 'last_updated_at', key: 'last_updated_at', render: (c) => <p>{c?.split('T')?.[0]}</p> },
     {
       title: 'Recent 10 days',
       dataIndex: 'recentTen',
       key: 'recentTen',
-      render: (c, record) => {
-        const upA1 = c.filter(
-          (i) => i.status === 'up' && i.alarmtype === 'A1'
-        ).length;
-        const upA2 = c.filter(
-          (i) => i.status === 'up' && i.alarmtype === 'A2'
-        ).length;
-        const upA3 = c.filter(
-          (i) => i.status === 'up' && i.alarmtype === 'A3'
-        ).length;
-        const upNA = c.filter(
-          (i) =>
-            i.status === 'up' && (i.alarmtype === '' || i.alarmtype === null)
-        ).length;
-        const downA1 = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === 'A1'
-        ).length;
-        const downA2 = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === 'A2'
-        ).length;
-        const downA3 = c.filter(
-          (i) => i.status === 'down' && i.alarmtype === 'A3'
-        ).length;
-        const downNA = c.filter(
-          (i) =>
-            i.status === 'down' && (i.alarmtype === '' || i.alarmtype === null)
-        ).length;
+      render: (c) => {
+        if (!Array.isArray(c)) return null;
+        const upA1 = c.filter(i => i.status === 'up' && i.alarmtype === 'A1').length;
+        const upA2 = c.filter(i => i.status === 'up' && i.alarmtype === 'A2').length;
+        const upA3 = c.filter(i => i.status === 'up' && i.alarmtype === 'A3').length;
+        const upNA = c.filter(i => i.status === 'up' && (!i.alarmtype || i.alarmtype === '')).length;
+        const downA1 = c.filter(i => i.status === 'down' && i.alarmtype === 'A1').length;
+        const downA2 = c.filter(i => i.status === 'down' && i.alarmtype === 'A2').length;
+        const downA3 = c.filter(i => i.status === 'down' && i.alarmtype === 'A3').length;
+        const downNA = c.filter(i => i.status === 'down' && (!i.alarmtype || i.alarmtype === '')).length;
         return (
-          <div>
-            <table>
-              <thead>
-                <tr>
-                  <td>A1</td>
-                  <td>A2</td>
-                  <td>A3</td>
-                  <td>NA</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ background: '#f1b4b0' }}>
-                  <td>{upA1}</td>
-                  <td>{upA2}</td>
-                  <td>{upA3}</td>
-                  <td>{upNA}</td>
-                </tr>
-                <tr style={{ background: '#cbeba8' }}>
-                  <td>{downA1}</td>
-                  <td>{downA2}</td>
-                  <td>{downA3}</td>
-                  <td>{downNA}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <table border={1}>
+            <thead>
+              <tr>
+                <th>A1</th>
+                <th>A2</th>
+                <th>A3</th>
+                <th>NA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ background: '#f1b4b0' }}>
+                <td>{upA1}</td>
+                <td>{upA2}</td>
+                <td>{upA3}</td>
+                <td>{upNA}</td>
+              </tr>
+              <tr style={{ background: '#cbeba8' }}>
+                <td>{downA1}</td>
+                <td>{downA2}</td>
+                <td>{downA3}</td>
+                <td>{downNA}</td>
+              </tr>
+            </tbody>
+          </table>
         );
       },
     },
-    {
-      title: '流通股本',
-      dataIndex: 'circulation_stock',
-      key: 'circulation_stock',
-      render: (c, record) => {
-        const re = (record.marketvalue / record.finalprice).toFixed(3);
-        return <>{re}</>;
-      },
-    },
-    {
-      title: 'MaxPrice',
-      dataIndex: 'maxPrice',
-      key: 'maxPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.maxPriceDiff) - Number(b.maxPriceDiff);
-      },
-      render: (c, record) => {
-        const diff = record.maxPriceDiff;
-        return (
-          <Tag color={diff > 0 ? 'red' : 'green'}>
-            {c}/ {diff + '%'}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'MaxPriceDay',
-      dataIndex: 'maxPriceDay',
-      key: 'maxPriceDay',
-    },
-    {
-      title: 'MinPrice',
-      dataIndex: 'minPrice',
-      key: 'minPrice',
-      sorter: (a: any, b: any): any => {
-        return Number(a.minPriceDiff) - Number(b.minPriceDiff);
-      },
-      render: (c, record) => {
-        const diff = record.minPriceDiff;
-        return (
-          <Tag color={diff > 0 ? 'red' : 'green'}>
-            {c}/ {diff + '%'}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'MinPriceDay',
-      dataIndex: 'minPriceDay',
-      key: 'minPriceDay',
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (text, record) => (
-        <Popconfirm
-          title="Sure to delete?"
-          onConfirm={() =>
-            post('/api/delete_focus2', {
-              body: JSON.stringify({
-                symbol: record?.symbol,
-                datestr: record?.datestr,
-              }),
-            }).then(() => {
-              handleAllStockData();
-            })
-          }
-        >
-          <a>Delete</a>
-        </Popconfirm>
-      ),
-    },
-  ];
-  const [selectStatus, setSelectStatus] = useState<any>(null);
-  const [curAnaMap, setAnaMap] = useState();
-  useEffect(() => {
-    async function handleAllStockData() {
-      const data = await getAllFocusedStocks2();
-      const rateByCur = data?.filter(
-        (i) =>
-          (i.currentPrice >= i.finalprice && i.predict === 'Up') ||
-          (i.currentPrice < i.finalprice && i.predict === 'Down')
-      ).length;
-      const rateByMax = data?.filter(
-        (i) =>
-          (i.maxPriceDiff > 0 && i.predict === 'Up') ||
-          (i.maxPriceDiff === 0 && i.predict === 'Down')
-      )?.length;
-      setRateByCur(`${rateByCur}/${data.length}` as any);
-      setRateByMax(`${rateByMax}/${data.length}` as any);
-      setData(
-        selectStatus
-          ? data.filter(
-              (i) =>
-                i.focus_status === (selectStatus === '0' ? null : selectStatus)
-            )
-          : data
-      );
-    }
+    { title: '流通股本', dataIndex: 'circulation_stock', key: 'circulation_stock', render: (_, record) => <>{ (record.marketvalue / record.finalprice).toFixed(3) }</> },
+    { title: 'Industry', dataIndex: 'symbol', key: 'industry', render: (symbol:string) => <StockIndustry symbol={symbol} /> },
+    { title: 'MaxPrice', dataIndex: 'maxPrice', key: 'maxPrice', render: (c, record) => <Tag color={Number(record.maxPriceDiff)>0?'red':'green'}>{c}/ {record.maxPriceDiff}%</Tag> },
+    { title: 'MaxPriceDay', dataIndex: 'maxPriceDay', key: 'maxPriceDay' },
+    { title: 'MinPrice', dataIndex: 'minPrice', key: 'minPrice', render: (c, record) => <Tag color={Number(record.minPriceDiff)>0?'red':'green'}>{c}/ {record.minPriceDiff}%</Tag> },
+    { title: 'MinPriceDay', dataIndex: 'minPriceDay', key: 'minPriceDay' },
+    { title: 'Action', key: 'action', render: (_, record) => <Popconfirm title="Sure to delete?" onConfirm={()=>handleDelete(record.symbol, record.datestr)}><a>Delete</a></Popconfirm> },
+  ], [sortByDate, dateSortOrder, handleDateSort, handleDelete]);
 
-    handleAllStockData();
-  }, [selectStatus]);
-
-  const handleSave = (row: any) => {
-    post('/api/edit_focus2', {
-      body: JSON.stringify({ symbol: row?.symbol, comments: row?.comments }),
-    }).then(() => {
-      async function handleAllStockData() {
-        const data = await getAllFocusedStocks();
-        setData(
-          selectStatus
-            ? data.filter(
-                (i) =>
-                  i.focus_status ===
-                  (selectStatus === '0' ? null : selectStatus)
-              )
-            : data
-        );
-      }
-      handleAllStockData();
-    });
-  };
-  const components = {
-    body: {
-      row: EditableRow,
-      cell: EditableCell,
-    },
-  };
-  const mergedColumns: any = columns.map((col) => {
-    if (!col.editable) {
-      return col;
-    }
-    return {
-      ...col,
-      onCell: (record) => ({
-        record,
-        editable: col.editable,
-        dataIndex: col.dataIndex,
-        title: col.title,
-        handleSave: handleSave,
-      }),
-    };
-  });
+  const mergedColumns = useMemo(() => columns.map(col => col.editable ? { ...col, onCell: (record) => ({ record, editable: col.editable, dataIndex: col.dataIndex, title: col.title, handleSave }) } : col), [columns, handleSave]);
+  const components = useMemo(() => ({ body: { row: EditableRow, cell: EditableCell } }), []);
 
   return (
-    <div style={{ padding: '20px' }}>
-      Filter By Status:
-      <Dropdown
-        overlay={
-          <Menu onClick={(ob) => setSelectStatus(ob.key)}>
-            {Object.keys(focusStatusMap)
-              .map((i) => (
-                <Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>
-              ))
-              .concat(<Menu.Item key={'0'}>{'未标注'}</Menu.Item>)}
-          </Menu>
-        }
-      >
-        <Tag color={focusStatusMap[selectStatus]?.color}>
-          {selectStatus === '0'
-            ? '未标注'
-            : focusStatusMap[selectStatus]?.name || 'All'}
-        </Tag>
-      </Dropdown>
-      <Table
-        pagination={{ defaultPageSize: 100 }}
-        columns={mergedColumns}
-        dataSource={data}
-        components={components}
-      />
-      <Modal
-        title={`Charts: ${curText}`}
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={[
-          <Button onClick={() => setIsModalVisible(false)} type="primary">
-            OK
-          </Button>,
-        ]}
-        width={1500}
-      >
-        5 DAYs:
-        <img src={img} style={{ width: '200px' }} />
-        {!isEmpty(mergeOptionsInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeOptionsInModal}
-          />
-        )}
-        3 DAYs
-        {!isEmpty(mergeOptions3InModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeOptions3InModal}
-          />
-        )}
-        3 DAYs ProfitChips:
-        {!isEmpty(mergeProfitChips3InModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeProfitChips3InModal}
-            ref={mainChartRef}
-            onEvents={{
-              click: async (info) => {
-                const res = await post(`/api/get_price_from_common_data`, {
-                  body: JSON.stringify({
-                    stocks: [`'${curSymbol}'`],
-                    today: info.name,
-                  }),
-                });
-                // console.log(res, res?.[0].turnoverrates_analysis);
-                setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? ''));
-                // console.log(
-                //   info.dataIndex, // 当前点击的第几个柱子
-                //   info.seriesIndex, // 当前点击的第几个数据源
-                //   info.value, // 当前柱子Y轴的数据
-                //   info.name, // 当前柱子X轴的名字
-                //   info.seriesName, // 当前数据源的名字
-                //   info.seriesType, // 当前数据的类型
-                //   info.color // 当前柱子的颜色
-                // );
-              },
-            }}
-          />
-        )}
-        MA:
-        {!isEmpty(mergeMAInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeMAInModal}
-          />
-        )} 
-        TotalTradeVol:
-        {!isEmpty(mergeTotalTradeVolInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeTotalTradeVolInModal}
-          />
-        )}  
-        ProfitChips:
-        {!isEmpty(mergeContinuousProfitChipsInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeContinuousProfitChipsInModal}
-          />
-        )}       
-        3 DAYs BigOrderPct:
-        {!isEmpty(bigOrderPctInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={bigOrderPctInModal}
-          />
-        )}  
-        Fluidity(流动性):
-        {!isEmpty(mergeFluidityInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeFluidityInModal}
-          />
-        )}  
-        3 DAYs QuantityRelativeRatios:
-        {!isEmpty(mergeQuantityRelativeRatiosInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeQuantityRelativeRatiosInModal}
-          />
-        )}         
-        KDJ:
-        {!isEmpty(mergeKDJInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeKDJInModal}
-          />
-        )}  
-        DMI:
-        {!isEmpty(mergeDMIInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeDMIInModal}
-          />
-        )}
-        DS:
-        {!isEmpty(mergeDSInModal) && (
-          <ReactEcharts
-            style={{ height: 250, width: 1450 }}
-            notMerge={true}
-            lazyUpdate={true}
-            option={mergeDSInModal}
-          />
-        )}         
-        {!isEmpty(curAnaMap) && (
-          <div class="table">
-            <div class="col">
-              <p>Before</p>
-              {Object.keys(curAnaMap?.before).map((i) => {
-                if (i === '7-days' || i === '15-days') {
-                  return (
-                    <p>
-                      {curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}({i})
-                    </p>
-                  );
-                } else {
-                  return (
-                    <p>
-                      <b>{curAnaMap?.before?.[i]?.replaceAll(',', ',  ')}</b>({i})
-                    </p>
-                  );
-                }
-              })}
-            </div>
-            <div class="col">
-              <p>After</p>
-              {Object.keys(curAnaMap?.after).map((i) => (
-                <p>
-                  {curAnaMap?.after?.[i]?.replaceAll(',', ',  ')}({i})
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
+    <IndustryContext.Provider value={{ industryMap }}>
+      <div style={{ padding: '20px' }}>
+        Filter By Status:
+        <Dropdown overlay={<Menu onClick={(ob)=>{ setSelectStatus(ob.key); setCurrentPage(1); handleAllStockData(1); }}>{Object.keys(focusStatusMap).map(i=><Menu.Item key={i}>{focusStatusMap[i]?.name}</Menu.Item>).concat(<Menu.Item key="0">未标注</Menu.Item>)}</Menu>}>
+          <Tag color={focusStatusMap[selectStatus]?.color}>{selectStatus==='0'?'未标注':focusStatusMap[selectStatus]?.name||'All'}</Tag>
+        </Dropdown>
+        <Table
+          loading={tableLoading}
+          pagination={{ current: currentPage, total: total, pageSize: pageSize, onChange: (page)=>{ setCurrentPage(page); handleAllStockData(page); }, showSizeChanger: false, showQuickJumper: true, showTotal: (total)=>`共 ${total} 条记录` }}
+          columns={mergedColumns}
+          dataSource={data}
+          components={components}
+          rowKey="symbol"
+        />
+        <Modal title={`Charts: ${curText}`} visible={isModalVisible} onCancel={()=>setIsModalVisible(false)} footer={[<Button onClick={()=>setIsModalVisible(false)} type="primary">OK</Button>]} width={1500}>
+          5 DAYs: <img src={img} style={{ width: '200px' }} />
+          {!isEmpty(mergeOptionsInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeOptionsInModal} />}
+          3 DAYs {!isEmpty(mergeOptions3InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeOptions3InModal} />}
+          3 DAYs ProfitChips: {!isEmpty(mergeProfitChips3InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeProfitChips3InModal} ref={mainChartRef} onEvents={{ click: async (info) => { const res = await post(`/api/get_price_from_common_data`, { body: JSON.stringify({ stocks: [`'${curSymbol}'`], today: info.name }) }); setAnaMap(JSON.parse(res?.[0].turnoverrates_analysis ?? '')); } }} />}
+          SCR: {!isEmpty(mergeSCRInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeSCRInModal} />}
+          SCR Details1: {!isEmpty(mergeSCRD1InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeSCRD1InModal} />}
+          SCR Details2: {!isEmpty(mergeSCRD2InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeSCRD2InModal} />}
+          MA: {!isEmpty(mergeMAInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeMAInModal} />}
+          TotalTradeVol: {!isEmpty(mergeTotalTradeVolInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeTotalTradeVolInModal} />}
+          ProfitChips: {!isEmpty(mergeContinuousProfitChipsInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeContinuousProfitChipsInModal} />}
+          All SCR Details1: {!isEmpty(mergeAllSCRD1InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeAllSCRD1InModal} />}
+          All SCR Details2: {!isEmpty(mergeAllSCRD2InModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeAllSCRD2InModal} />}
+          3 DAYs BigOrderPct: {!isEmpty(bigOrderPctInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={bigOrderPctInModal} />}
+          Fluidity(流动性): {!isEmpty(mergeFluidityInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeFluidityInModal} />}
+          3 DAYs QuantityRelativeRatios: {!isEmpty(mergeQuantityRelativeRatiosInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeQuantityRelativeRatiosInModal} />}
+          KDJ: {!isEmpty(mergeKDJInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeKDJInModal} />}
+          DMI: {!isEmpty(mergeDMIInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeDMIInModal} />}
+          DS: {!isEmpty(mergeDSInModal) && <ReactEcharts style={{ height: 250, width: 1450 }} notMerge lazyUpdate option={mergeDSInModal} />}
+          {!isEmpty(curAnaMap) && <div className="table"><div className="col"><p>Before</p>{Object.keys(curAnaMap?.before).map(i=>(i==='7-days'||i==='15-days')?<p key={i}>{curAnaMap.before[i]?.replaceAll(',',',  ')}({i})</p>:<p key={i}><b>{curAnaMap.before[i]?.replaceAll(',',',  ')}</b>({i})</p>)}</div><div className="col"><p>After</p>{Object.keys(curAnaMap?.after).map(i=><p key={i}>{curAnaMap.after[i]?.replaceAll(',',',  ')}({i})</p>)}</div></div>}
+        </Modal>
+      </div>
+    </IndustryContext.Provider>
   );
 };
