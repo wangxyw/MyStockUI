@@ -1452,7 +1452,7 @@ const MergeSCR = (scrData) => {
   const allDataDate = orderedData.map((i) => i.datestr);
 
   // 获利盘比例（%）
-  const profitChip = orderedData.map((i) => i.tencent_profit_chip);
+  const profitChip = orderedData.map((i) => i.profit_chip);
 
   return {
     title: {
@@ -1466,9 +1466,6 @@ const MergeSCR = (scrData) => {
       left: 'left',
       selected: {
         '获利盘比例(%)': true,
-        '90%成本集中度(%)': true,
-        '90%成本区间下沿': false,
-        '90%成本区间上沿': false,
       },
     },
     tooltip: {

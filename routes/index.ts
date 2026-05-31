@@ -950,9 +950,9 @@ router.get('/stock_chip_result', function (req, res, next) {
   const stock = req.query.stock;
   const startDateStr = req.query.start_date;
   const endDateStr = req.query.end_date;
-  let sql = `select scr.* from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr where rc3.symbol LIKE '%${stock}%' and scr.datestr >= '${startDateStr}' and scr.datestr <= '${endDateStr}' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+  let sql = `select scr.*, sdcd.profit_chip from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr join stock_day_common_data sdcd on rc3.symbol=sdcd.symbol and rc3.end_date=sdcd.datestr where rc3.symbol LIKE '%${stock}%' and scr.datestr >= '${startDateStr}' and scr.datestr <= '${endDateStr}' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
   if ((startDateStr == endDateStr) || isEmpty(startDateStr) || isEmpty(endDateStr)) {
-    sql = `select scr.* from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr where rc3.symbol LIKE '%${stock}%' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
+    sql = `select scr.*, sdcd.profit_chip from replay_critical_3 rc3 join stock_chip_result scr on rc3.symbol=scr.symbol and rc3.end_date=scr.datestr join stock_day_common_data sdcd on rc3.symbol=sdcd.symbol and rc3.end_date=sdcd.datestr where rc3.symbol LIKE '%${stock}%' GROUP BY rc3.end_date ORDER BY rc3.end_date DESC;`;
   }
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
