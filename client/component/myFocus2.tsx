@@ -966,7 +966,7 @@ export const MyFocus2ListComponent = () => {
       },
     },
     { title: 'Name', dataIndex: 'name', key: 'name', render: (text, record) => <span>{text}{caculateAfterDate(record.datestr,60)<caculateDate(today,0)&&'*'}</span> },
-    { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { const val = JSON.parse(text); return <div>{Object.keys(val).map(i=><p key={i}>{i}: {val[i]}</p>)}</div>; } },
+    { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
     { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
     { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: true },
     { title: 'Date', dataIndex: 'datestr', key: 'datestr', sorter: true, sortOrder: sortByDate ? (dateSortOrder==='ASC'?'ascend':'descend') : null, onHeaderCell: () => ({ onClick: () => { if(!sortByDate||dateSortOrder==='DESC') handleDateSort('ascend'); else if(dateSortOrder==='ASC') handleDateSort('descend'); else handleDateSort(null); } }) },
