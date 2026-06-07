@@ -32,6 +32,48 @@ export const focusStatusMap = {
   '4': { name: '买点已过-4', color: 'grey' },
 };
 
+const strongMainCommentTags = [
+  '筹码热度回落动能',
+  '高集中低盈扩散',
+  '高集中趋势型',
+  '宽筹码动能型',
+  '低中集中反转型',
+];
+
+const watchMainCommentTags = [
+  '优选带观察',
+  '核心集中区',
+  '低位紧凑-需确认',
+  '普通筹码区',
+  '核心承接型',
+  '观察组合',
+];
+
+const getCommentTagColor = (tag: string) => {
+  if (tag.includes('风险:')) return 'green';
+  if (strongMainCommentTags.some(i => tag.includes(i))) return 'red';
+  if (watchMainCommentTags.some(i => tag.includes(i))) return 'blue';
+  return undefined;
+};
+
+const renderComments = (comments?: string) => {
+  if (!comments) return null;
+
+  const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
+  return (
+    <span>
+      {parts.map((part, index) => {
+        const color = getCommentTagColor(part);
+        return (
+          <span key={`${part}-${index}`} style={color ? { color, fontWeight: 600 } : undefined}>
+            {part}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 // ======================= 通用工具函数 =======================
 const addMarkAreaToOption = (option, anomalyWindows) => {
   if (!anomalyWindows || anomalyWindows.length === 0 || !option) return option;
@@ -966,10 +1008,10 @@ export const MyFocus2ListComponent = () => {
       },
     },
     { title: 'Name', dataIndex: 'name', key: 'name', render: (text, record) => <span>{text}{caculateAfterDate(record.datestr,60)<caculateDate(today,0)&&'*'}</span> },
-    { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
+    // { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
     { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
-    { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: true },
-    { title: 'Date', dataIndex: 'datestr', key: 'datestr', sorter: true, sortOrder: sortByDate ? (dateSortOrder==='ASC'?'ascend':'descend') : null, onHeaderCell: () => ({ onClick: () => { if(!sortByDate||dateSortOrder==='DESC') handleDateSort('ascend'); else if(dateSortOrder==='ASC') handleDateSort('descend'); else handleDateSort(null); } }) },
+    { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: false, render: renderComments },
+    { title: 'Date', dataIndex: 'datestr', key: 'datestr', width: 120, sorter: true, sortOrder: sortByDate ? (dateSortOrder==='ASC'?'ascend':'descend') : null, onHeaderCell: () => ({ onClick: () => { if(!sortByDate||dateSortOrder==='DESC') handleDateSort('ascend'); else if(dateSortOrder==='ASC') handleDateSort('descend'); else handleDateSort(null); } }) },
     { title: 'last_updated_at', dataIndex: 'last_updated_at', key: 'last_updated_at', render: (c) => <p>{c?.split('T')?.[0]}</p> },
     {
       title: 'Recent 10 days',

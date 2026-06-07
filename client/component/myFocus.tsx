@@ -2258,6 +2258,56 @@ const StockIndustry: React.FC<{ symbol: string }> = ({ symbol }) => {
   return <span>--</span>;
 };
 
+const strongCommentTags = [
+  '超强信号',
+  '强核心',
+  '强信号',
+];
+
+const observeCommentTags = [
+  '中等筹码带+活跃承接',
+  '盈利筹码回落蓄势',
+  '次级观察',
+  '观察',
+];
+
+const getCommentTagColor = (tagText: string) => {
+  if (tagText.includes('风险')) return 'green';
+  if (strongCommentTags.some((tag) => tagText.includes(tag))) return 'red';
+  if (observeCommentTags.some((tag) => tagText.includes(tag))) return 'blue';
+  return undefined;
+};
+
+const renderComments = (comments?: string) => {
+  if (!comments) return null;
+
+  const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
+
+  return (
+    <div style={{ lineHeight: 1.7 }}>
+      {parts.map((part, index) => {
+        const isTag = part.startsWith('【') && part.endsWith('】');
+        const tagText = isTag ? part.slice(1, -1) : part;
+        const color = isTag ? getCommentTagColor(tagText) : undefined;
+
+        if (isTag) {
+          return (
+            <Tag key={`${part}-${index}`} color={color} style={{ marginBottom: 4 }}>
+              {tagText}
+            </Tag>
+          );
+        }
+
+        return (
+          <span key={`${part}-${index}`} style={{ color: '#666' }}>
+            {part}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
@@ -2587,27 +2637,28 @@ export const MyFocusListComponent = () => {
         );
       },
     },
-    {
-      title: 'PCA',
-      dataIndex: 'profit_chip_analyze',
-      key: 'profit_chip_analyze',
-      render: (text) => {
-        const valueMap = JSON.parse(text);
-        return (
-          <div>
-            {Object.keys(valueMap).map((i) => {
-                return (
-                  <p>{i}: {valueMap?.[i]}</p>
-                );
-            })}
-          </div>
-        );
-      },
-    },    
+    // {
+    //   title: 'PCA',
+    //   dataIndex: 'profit_chip_analyze',
+    //   key: 'profit_chip_analyze',
+    //   render: (text) => {
+    //     const valueMap = JSON.parse(text);
+    //     return (
+    //       <div>
+    //         {Object.keys(valueMap).map((i) => {
+    //             return (
+    //               <p>{i}: {valueMap?.[i]}</p>
+    //             );
+    //         })}
+    //       </div>
+    //     );
+    //   },
+    // },    
     {
       title: 'Continuance BYG',
       dataIndex: 'continuance_BYG',
       key: 'continuance_BYG',
+      width: 180,
       render: (c, record) => {
         const firstPart = c.split('|')[0]?.trim() || '';
         
@@ -2626,12 +2677,15 @@ export const MyFocusListComponent = () => {
       title: 'Comments',
       dataIndex: 'comments',
       key: 'comments',
-      editable: true,
+      width: 1000,
+      editable: false,
+      render: renderComments,
     },
     {
       title: 'Date',
       dataIndex: 'datestr',
       key: 'datestr',
+      width: 120,
       sorter: true,
       sortOrder: sortByDate ? (dateSortOrder === 'ASC' ? 'ascend' : 'descend') : null,
       onHeaderCell: () => ({
@@ -2731,6 +2785,7 @@ export const MyFocusListComponent = () => {
         title: 'Industry',
         dataIndex: 'symbol',
         key: 'industry',
+        width: 150,
         render: (symbol: string) => <StockIndustry symbol={symbol} />,
     },
     {
