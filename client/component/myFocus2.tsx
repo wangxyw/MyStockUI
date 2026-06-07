@@ -51,6 +51,8 @@ const watchMainCommentTags = [
 
 const getCommentTagColor = (tag: string) => {
   if (tag.includes('风险:')) return 'green';
+  if (tag === '【强信号】') return 'red';
+  if (tag === '【观察】') return 'blue';
   if (strongMainCommentTags.some(i => tag.includes(i))) return 'red';
   if (watchMainCommentTags.some(i => tag.includes(i))) return 'blue';
   return undefined;
@@ -64,8 +66,15 @@ const renderComments = (comments?: string) => {
     <span>
       {parts.map((part, index) => {
         const color = getCommentTagColor(part);
+        const isScore = index === 0 && /^【[0-9.]+】$/.test(part);
         return (
-          <span key={`${part}-${index}`} style={color ? { color, fontWeight: 600 } : undefined}>
+          <span
+            key={`${part}-${index}`}
+            style={{
+              ...(color ? { color } : {}),
+              fontWeight: color || isScore ? 600 : undefined,
+            }}
+          >
             {part}
           </span>
         );

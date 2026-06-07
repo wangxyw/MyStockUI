@@ -2278,6 +2278,28 @@ const getCommentTagColor = (tagText: string) => {
   return undefined;
 };
 
+const renderCommentText = (part: string, index: number) => {
+  const scoreMatch = index === 0 ? part.match(/^(\s*(?:score\s*[:=：]?\s*)?-?\d+(?:\.\d+)?)/i) : null;
+
+  if (!scoreMatch) {
+    return (
+      <span key={`${part}-${index}`} style={{ color: '#666' }}>
+        {part}
+      </span>
+    );
+  }
+
+  const scoreText = scoreMatch[1];
+  const restText = part.slice(scoreText.length);
+
+  return (
+    <span key={`${part}-${index}`} style={{ color: '#666' }}>
+      <span style={{ color: '#222', fontWeight: 700 }}>{scoreText}</span>
+      {restText}
+    </span>
+  );
+};
+
 const renderComments = (comments?: string) => {
   if (!comments) return null;
 
@@ -2289,20 +2311,24 @@ const renderComments = (comments?: string) => {
         const isTag = part.startsWith('【') && part.endsWith('】');
         const tagText = isTag ? part.slice(1, -1) : part;
         const color = isTag ? getCommentTagColor(tagText) : undefined;
+        const isScoreTag = index === 0 && /^-?\d+(?:\.\d+)?$/.test(tagText);
 
         if (isTag) {
           return (
-            <Tag key={`${part}-${index}`} color={color} style={{ marginBottom: 4 }}>
+            <Tag
+              key={`${part}-${index}`}
+              color={color}
+              style={{
+                marginBottom: 4,
+                fontWeight: isScoreTag ? 700 : undefined,
+              }}
+            >
               {tagText}
             </Tag>
           );
         }
 
-        return (
-          <span key={`${part}-${index}`} style={{ color: '#666' }}>
-            {part}
-          </span>
-        );
+        return renderCommentText(part, index);
       })}
     </div>
   );
