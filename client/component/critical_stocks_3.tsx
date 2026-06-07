@@ -1994,7 +1994,7 @@ const renderPortraitComments = (comments?: string) => {
   const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
 
   return (
-    <div style={{ lineHeight: 1.7 }}>
+    <div style={{ lineHeight: 1.9, fontSize: 15 }}>
       {parts.map((part, index) => {
         const isTag = part.startsWith('【') && part.endsWith('】');
         const tagText = isTag ? part.slice(1, -1) : part;
@@ -2008,6 +2008,8 @@ const renderPortraitComments = (comments?: string) => {
               color={color}
               style={{
                 marginBottom: 4,
+                fontSize: 15,
+                lineHeight: '24px',
                 fontWeight: isScoreTag ? 700 : undefined,
               }}
             >
@@ -2017,7 +2019,7 @@ const renderPortraitComments = (comments?: string) => {
         }
 
         return (
-          <span key={`${part}-${index}`} style={{ color: '#666' }}>
+          <span key={`${part}-${index}`} style={{ color: '#666', fontSize: 15 }}>
             {part}
           </span>
         );
