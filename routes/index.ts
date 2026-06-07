@@ -649,7 +649,7 @@ const buildStockPortrait = async (symbolInput: string, datestr: string) => {
     circulation_stock: round2(circulationStock),
   };
 
-  if (finalPrice >= 0 && finalPrice <= 15 && circulationStock >= 1 && circulationStock < 30) {
+  if (finalPrice >= 0 && finalPrice <= 30 && circulationStock >= 1 && circulationStock < 30) {
     return buildRecord1Portrait(common.symbol, datestr, modelMeta);
   }
 
