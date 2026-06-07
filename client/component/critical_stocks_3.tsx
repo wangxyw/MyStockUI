@@ -3022,12 +3022,13 @@ export const CriticalStocks3Component = () => {
             border: '1px solid #e8e8e8',
             borderRadius: 4,
             background: '#fff',
+            fontSize: 15,
           }}
         >
-          <div style={{ marginBottom: 6, fontWeight: 600 }}>
+          <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 16 }}>
             AI画像
             {stockPortrait && (
-              <span style={{ marginLeft: 8, color: '#666', fontWeight: 400 }}>
+              <span style={{ marginLeft: 8, color: '#666', fontWeight: 400, fontSize: 15 }}>
                 {stockPortrait.symbol} {stockPortrait.name || ''} / 画像日期:
                 {stockPortrait.datestr}
                 {stockPortrait.model && ` / 模型:${stockPortrait.model}`}
