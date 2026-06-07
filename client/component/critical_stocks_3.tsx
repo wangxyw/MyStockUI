@@ -1962,6 +1962,81 @@ async function getAllSCR(
   return stockData;
 }
 
+async function getStockPortrait(stock, endDate: any = 0) {
+  if (!stock || !endDate) return null;
+  return get(
+    `/api/stock_ai_portrait?symbol=${encodeURIComponent(stock)}&datestr=${encodeURIComponent(endDate)}`
+  );
+}
+
+const getPortraitTagColor = (tagText: string) => {
+  if (tagText.includes('风险')) return 'green';
+  if (
+    ['强信号', '强核心', '超强信号'].some((tag) =>
+      tagText.includes(tag)
+    )
+  ) {
+    return 'red';
+  }
+  if (
+    ['观察', '中等筹码带+活跃承接', '盈利筹码回落蓄势'].some((tag) =>
+      tagText.includes(tag)
+    )
+  ) {
+    return 'blue';
+  }
+  return undefined;
+};
+
+const renderPortraitComments = (comments?: string) => {
+  if (!comments) return null;
+
+  const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
+
+  return (
+    <div style={{ lineHeight: 1.7 }}>
+      {parts.map((part, index) => {
+        const isTag = part.startsWith('【') && part.endsWith('】');
+        const tagText = isTag ? part.slice(1, -1) : part;
+        const isScoreTag = index === 0 && /^-?\d+(?:\.\d+)?$/.test(tagText);
+        const color = isTag ? getPortraitTagColor(tagText) : undefined;
+
+        if (isTag) {
+          return (
+            <Tag
+              key={`${part}-${index}`}
+              color={color}
+              style={{
+                marginBottom: 4,
+                fontWeight: isScoreTag ? 700 : undefined,
+              }}
+            >
+              {tagText}
+            </Tag>
+          );
+        }
+
+        return (
+          <span key={`${part}-${index}`} style={{ color: '#666' }}>
+            {part}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+const getCriticalStockRowKey = (record: any) =>
+  [
+    record?.symbol || 'unknown',
+    record?.end_date || record?.datestr || 'no-date',
+    record?.status || 'unknown',
+    record?.source || 'no-source',
+    record?.alarmtype || 'no-alarmtype',
+    record?.days || 'no-days',
+    record?.finalprice || 'no-price',
+  ].join('-');
+
 // 获取异常时间窗口数据
 async function getAnomalyWindows(stock) {
   try {
@@ -2006,6 +2081,8 @@ export const CriticalStocks3Component = () => {
     useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const [stockPortrait, setStockPortrait] = useState<any>(null);
+  const [stockPortraitError, setStockPortraitError] = useState<string>('');
 
   // 新增：存储异常窗口数据（仅用于 ProfitChips）
   const [anomalyWindows, setAnomalyWindows] = useState<any[]>([]);
@@ -2786,6 +2863,21 @@ export const CriticalStocks3Component = () => {
                 endDate
               );
               const windows = await getAnomalyWindows(searchStock);
+
+              if (searchStock) {
+                try {
+                  const portrait = await getStockPortrait(searchStock, endDate);
+                  setStockPortrait(portrait);
+                  setStockPortraitError('');
+                } catch (error: any) {
+                  setStockPortrait(null);
+                  setStockPortraitError(error?.message || '生成股票画像失败');
+                }
+              } else {
+                setStockPortrait(null);
+                setStockPortraitError('');
+              }
+
               if (searchStock) {
                 setAnomalyWindows(windows);
                 setUpOptions(options(data));
@@ -2919,6 +3011,40 @@ export const CriticalStocks3Component = () => {
           Search
         </Button>
       </div>
+      {(stockPortrait || stockPortraitError) && (
+        <div
+          style={{
+            marginTop: 12,
+            marginBottom: 12,
+            padding: 12,
+            border: '1px solid #e8e8e8',
+            borderRadius: 4,
+            background: '#fff',
+          }}
+        >
+          <div style={{ marginBottom: 6, fontWeight: 600 }}>
+            AI画像
+            {stockPortrait && (
+              <span style={{ marginLeft: 8, color: '#666', fontWeight: 400 }}>
+                {stockPortrait.symbol} {stockPortrait.name || ''} / 画像日期:
+                {stockPortrait.datestr}
+                {stockPortrait.model && ` / 模型:${stockPortrait.model}`}
+                {stockPortrait.final_price && ` / 价格:${stockPortrait.final_price}`}
+                {stockPortrait.circulation_stock &&
+                  ` / 流通:${stockPortrait.circulation_stock}亿`}
+                {stockPortrait.chip_datestr &&
+                  stockPortrait.chip_datestr !== stockPortrait.datestr &&
+                  ` / 筹码日期:${stockPortrait.chip_datestr}`}
+              </span>
+            )}
+          </div>
+          {stockPortraitError ? (
+            <Tag color="orange">{stockPortraitError}</Tag>
+          ) : (
+            renderPortraitComments(stockPortrait?.comments)
+          )}
+        </div>
+      )}
       UPDown:
       <img src={img} style={{ width: '200px' }} />
       {!isEmpty(mergeOptions) && (
@@ -3088,6 +3214,7 @@ export const CriticalStocks3Component = () => {
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
         dataSource={data}
+        rowKey={getCriticalStockRowKey}
       />
       DownList:
       <Table
@@ -3095,6 +3222,7 @@ export const CriticalStocks3Component = () => {
         pagination={{ defaultPageSize: 100 }}
         columns={columns}
         dataSource={downData}
+        rowKey={getCriticalStockRowKey}
       />
       <Modal
         title="Charts"

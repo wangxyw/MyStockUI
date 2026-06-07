@@ -42,6 +42,630 @@ let queryDB = function (sql) {
   });
 };
 
+const sqlEscape = (value: any) => String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+const toNumber = (value: any, defaultValue = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : defaultValue;
+};
+const round2 = (value: any) => Math.round(toNumber(value) * 100) / 100;
+const betweenValue = (value: number, minValue: number, maxValue: number) =>
+  value >= minValue && value <= maxValue;
+const shiftDate = (dateStr: string, days: number) => {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+const formatDbDate = (value: any) => {
+  if (!value) return value;
+  if (typeof value === 'string') return value.slice(0, 10);
+  if (value instanceof Date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(value);
+    const dateParts = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  }
+  return String(value).slice(0, 10);
+};
+
+const TIGHT_CONC_GAP_MAX = 2.01;
+const MID_CONC_GAP_MAX = 3.24;
+const MOMENTUM_GAP_MIN = 3.24;
+const MOMENTUM_GAP_MAX = 4.40;
+const WIDE_CONC_GAP_MIN = 4.40;
+const HIGH_AVG_TURN_MIN = 4.77;
+const ACTIVE_AVG_TURN_MIN = 3.74;
+const MID_AVG_TURN_MIN = 2.96;
+const LOW_AVG_TURN_MIN = 2.10;
+const CONC70_MID_LOW = 5.03;
+const CONC70_MID_HIGH = 7.64;
+const CONC70_CORE_LOW = 6.10;
+const CONC70_CORE_HIGH = 7.64;
+const CONC90_CORE_LOW = 8.13;
+const CONC90_CORE_HIGH = 9.45;
+const CONC90_NON_EXTREME_LOW = 6.62;
+const CONC90_NON_EXTREME_HIGH = 11.50;
+const PROFIT_CORE_LOW = 1.75;
+const PROFIT_CORE_HIGH = 9.20;
+const PROFIT_FADE_DELTA_MIN = 5.0;
+const PULSE_LOW = 2.01;
+const PULSE_HIGH = 5.73;
+const PULSE_IDEAL_LOW = 3.62;
+const PULSE_IDEAL_HIGH = 4.89;
+const DEFAULT_MIN_SCORE = 80;
+
+const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelMeta: any = {}) => {
+  const symbolLike = sqlEscape(symbolInput);
+  const safeDate = sqlEscape(datestr);
+
+  const commonRows: any = await queryDB(`
+    SELECT symbol, name, datestr, finalprice, marketvalue, profit_chip
+    FROM stock_day_common_data
+    WHERE symbol LIKE '%${symbolLike}%'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  const common = commonRows?.[0];
+  if (!common) {
+    return { error: '未找到该股票在指定日期之前的基础交易数据' };
+  }
+
+  const symbol = common.symbol;
+  const actualDate = formatDbDate(common.datestr);
+  const safeSymbol = sqlEscape(symbol);
+
+  const chipRows: any = await queryDB(`
+    SELECT tencent_concentration_70, tencent_concentration_90, datestr
+    FROM stock_chip_result
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  const chip = chipRows?.[0];
+  if (!chip) {
+    return { error: '未找到该股票在指定日期之前的筹码集中度数据', symbol, datestr: actualDate };
+  }
+
+  const turnoverRows: any = await queryDB(`
+    SELECT turnoverrate
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 150
+  `);
+  if (!turnoverRows?.length) {
+    return { error: '未找到该股票在指定日期之前的换手率数据', symbol, datestr: actualDate };
+  }
+
+  const profitRows: any = await queryDB(`
+    SELECT profit_chip
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 3
+  `);
+
+  const dmiRows: any = await queryDB(`
+    SELECT pdi, mdi, adx
+    FROM dmi
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+
+  const maRows: any = await queryDB(`
+    SELECT ma5, ma10, ma20, ma60
+    FROM ma
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+
+  const maLagRows: any = await queryDB(`
+    SELECT ma5
+    FROM ma
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${sqlEscape(shiftDate(datestr, -5))}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+
+  const rates = turnoverRows.map((row: any) => toNumber(row.turnoverrate));
+  const meanTurn = rates.reduce((sum: number, rate: number) => sum + rate, 0) / rates.length;
+  const maxTurn = Math.max(...rates);
+  const pulseRatio = maxTurn / (meanTurn > 0 ? meanTurn : 1);
+
+  const profitDay0 = toNumber(common.profit_chip);
+  const profitMax3 = Math.max(...(profitRows || []).map((row: any) => toNumber(row.profit_chip, profitDay0)), profitDay0);
+  const profitDelta = profitMax3 - profitDay0;
+
+  const conc70 = toNumber(chip.tencent_concentration_70);
+  const conc90 = toNumber(chip.tencent_concentration_90);
+  const concGap = conc90 - conc70;
+  if (concGap < 0) {
+    return { error: '集中度数据异常', symbol, datestr: actualDate };
+  }
+
+  const dmi = dmiRows?.[0];
+  const ma = maRows?.[0];
+  const maLag = maLagRows?.[0];
+  const dmiPdi = dmi ? toNumber(dmi.pdi) : null;
+  const dmiMdi = dmi ? toNumber(dmi.mdi) : null;
+  const dmiAdx = dmi ? toNumber(dmi.adx) : null;
+  const dmiDiff = dmi ? toNumber(dmi.pdi) - toNumber(dmi.mdi) : null;
+  const ma5 = ma ? toNumber(ma.ma5) : null;
+  const ma10 = ma ? toNumber(ma.ma10) : null;
+  const ma20 = ma ? toNumber(ma.ma20) : null;
+  const ma60 = ma ? toNumber(ma.ma60) : null;
+  const ma5Lag5 = maLag ? toNumber(maLag.ma5) : 0;
+  const ma5Chg5Pct = ma5 !== null && ma5Lag5 > 0 ? (ma5 / ma5Lag5 - 1) * 100 : null;
+
+  const tightGap = concGap <= TIGHT_CONC_GAP_MAX;
+  const highAvgTurn = meanTurn >= HIGH_AVG_TURN_MIN;
+  const activeAvgTurn = meanTurn >= ACTIVE_AVG_TURN_MIN;
+  const midAvgTurn = meanTurn >= MID_AVG_TURN_MIN;
+  const profitCore = betweenValue(profitMax3, PROFIT_CORE_LOW, PROFIT_CORE_HIGH);
+  const pulseGood = betweenValue(pulseRatio, PULSE_LOW, PULSE_HIGH);
+  const pulseIdeal = betweenValue(pulseRatio, PULSE_IDEAL_LOW, PULSE_IDEAL_HIGH);
+  const coreChipZone =
+    betweenValue(conc70, CONC70_CORE_LOW, CONC70_CORE_HIGH) &&
+    betweenValue(conc90, CONC90_CORE_LOW, CONC90_CORE_HIGH);
+  const midUpperChip =
+    betweenValue(conc70, CONC70_MID_LOW, CONC70_MID_HIGH) &&
+    betweenValue(conc90, CONC90_NON_EXTREME_LOW, CONC90_NON_EXTREME_HIGH);
+  const strongCore = tightGap && highAvgTurn;
+  const superStrong =
+    strongCore &&
+    profitCore &&
+    pulseGood &&
+    conc70 >= 4.10 &&
+    conc90 >= CONC90_NON_EXTREME_LOW;
+  const mediumGapMomentum =
+    betweenValue(concGap, MOMENTUM_GAP_MIN, MOMENTUM_GAP_MAX) &&
+    meanTurn >= ACTIVE_AVG_TURN_MIN &&
+    meanTurn < HIGH_AVG_TURN_MIN;
+  const mediumGapWatch =
+    betweenValue(concGap, MOMENTUM_GAP_MIN, MOMENTUM_GAP_MAX) &&
+    meanTurn >= MID_AVG_TURN_MIN &&
+    meanTurn < ACTIVE_AVG_TURN_MIN;
+  const profitFadeMomentum =
+    profitDelta >= PROFIT_FADE_DELTA_MIN &&
+    meanTurn >= ACTIVE_AVG_TURN_MIN &&
+    concGap <= WIDE_CONC_GAP_MIN;
+
+  const gapScore = tightGap ? 34 : concGap <= 2.56 ? 21 : concGap <= MID_CONC_GAP_MAX ? 12 : concGap <= MOMENTUM_GAP_MAX ? 8 : 0;
+  const avgTurnScore = highAvgTurn ? 32 : activeAvgTurn ? 22 : midAvgTurn ? 12 : meanTurn >= LOW_AVG_TURN_MIN ? 5 : 0;
+  const concPositionScore = coreChipZone && profitCore ? 18 : coreChipZone ? 14 : midUpperChip && profitCore ? 10 : midUpperChip ? 7 : betweenValue(conc70, 4.10, 8.60) && betweenValue(conc90, CONC90_NON_EXTREME_LOW, CONC90_NON_EXTREME_HIGH) ? 5 : conc70 > 9.0 || conc90 > CONC90_NON_EXTREME_HIGH ? 0 : 3;
+  const maxTurnScore = maxTurn >= 18.21 && maxTurn <= 30.0 ? 5 : maxTurn > 30.0 ? 3 : maxTurn >= 13.75 ? 3 : maxTurn >= 9.19 ? 1 : 0;
+  const profitScore = profitCore ? 6 : profitMax3 > PROFIT_CORE_HIGH && profitMax3 <= 18.59 ? 3 : 1;
+  const pulseScore = pulseIdeal ? 6 : pulseGood ? 5 : 0;
+
+  let regimeBonus = 0;
+  if (superStrong) regimeBonus += 10;
+  if (strongCore && !superStrong) regimeBonus += 5;
+  if (mediumGapMomentum) regimeBonus += 18;
+  if (mediumGapWatch) regimeBonus += 6;
+  if (coreChipZone && profitCore) regimeBonus += 6;
+  if (profitFadeMomentum) regimeBonus += 5;
+  if (tightGap && activeAvgTurn && !highAvgTurn) regimeBonus += 4;
+
+  const rawScore = gapScore + avgTurnScore + concPositionScore + maxTurnScore + profitScore + pulseScore + regimeBonus;
+  let riskPenalty = 0;
+  if (concGap > WIDE_CONC_GAP_MIN && meanTurn < LOW_AVG_TURN_MIN) riskPenalty += 10;
+  if (concGap > WIDE_CONC_GAP_MIN) riskPenalty += 8;
+  if (meanTurn < LOW_AVG_TURN_MIN) riskPenalty += 8;
+  if (conc70 > 9.0) riskPenalty += 8;
+  if (conc90 > CONC90_NON_EXTREME_HIGH) riskPenalty += 5;
+  if (pulseRatio > PULSE_HIGH && !highAvgTurn) riskPenalty += 5;
+
+  const preScore = Math.min(Math.max(rawScore - riskPenalty, 0), 100);
+  const technicalHardRisk = dmiDiff !== null && dmiDiff < -20.0 && meanTurn < LOW_AVG_TURN_MIN && profitDelta < 1.0;
+  const technicalSoftRisk = preScore < 40.0 && profitDelta < 1.0 && ma5Chg5Pct !== null && ma5Chg5Pct < 0.0;
+  if (technicalHardRisk) riskPenalty += 10;
+  if (technicalSoftRisk) riskPenalty += 4;
+
+  const score = Math.round(Math.min(Math.max(rawScore - riskPenalty, 0), 100) * 10) / 10;
+  const tags: string[] = [];
+  if (superStrong) tags.push('【超强确认:紧凑筹码+高均换+健康盈利+脉冲】');
+  else if (strongCore) tags.push('【强规律:筹码紧凑+高均换】');
+  else if (tightGap && activeAvgTurn) tags.push('【次强规律:筹码紧凑+活跃换手】');
+  else if (tightGap) tags.push('【筹码紧凑-待换手确认】');
+  if (mediumGapMomentum) tags.push('【中等筹码带+活跃承接】', '【中期发酵型】');
+  else if (mediumGapWatch) tags.push('【中等筹码带-动能观察】');
+  if (profitFadeMomentum) tags.push('【盈利筹码回落蓄势】');
+  if (coreChipZone && profitCore) tags.push('【优质复合:核心集中度+健康盈利】');
+  else if (coreChipZone) tags.push('【集中度中上-核心区】');
+  else if (midUpperChip) tags.push('【集中度中上-非极端】');
+  if (highAvgTurn) tags.push('【高均换确认】');
+  if (score >= DEFAULT_MIN_SCORE && !tags.includes('【中期发酵型】')) tags.push('【中期发酵型】');
+  if (concGap > TIGHT_CONC_GAP_MAX && concGap <= MID_CONC_GAP_MAX) tags.push('【筹码带中等-观察】');
+  if (technicalHardRisk) tags.push('【风险:趋势空头+均换不足+筹码无修复】');
+  if (technicalSoftRisk) tags.push('【风险:低分+盈利无修复+短均走弱】');
+  if (concGap > WIDE_CONC_GAP_MIN) tags.push('【风险:筹码带偏宽】');
+  if (conc70 > 9.0) tags.push('【风险:70集中度过高】');
+  if (conc90 > CONC90_NON_EXTREME_HIGH) tags.push('【风险:90集中度偏高】');
+  if (meanTurn < LOW_AVG_TURN_MIN) tags.push('【风险:均换不足】');
+  if (pulseRatio > PULSE_HIGH && !highAvgTurn) tags.push('【风险:脉冲过强】');
+  if (!tags.length) tags.push('【弱匹配:未命中规律】');
+
+  const statusTag =
+    score >= DEFAULT_MIN_SCORE && (superStrong || strongCore)
+      ? '【强信号】'
+      : mediumGapMomentum || (coreChipZone && profitCore && score >= 55) || score >= 60
+        ? '【观察】'
+        : '【无效】';
+  const details = {
+    conc_70: round2(conc70),
+    conc_90: round2(conc90),
+    conc_gap: round2(concGap),
+    turnover_mean: round2(meanTurn),
+    turnover_max: round2(maxTurn),
+    profit_chip_day0: round2(profitDay0),
+    profit_chip_max3: round2(profitMax3),
+    profit_delta: round2(profitDelta),
+    pulse_ratio: round2(pulseRatio),
+    dmi_pdi: dmiPdi === null ? null : round2(dmiPdi),
+    dmi_mdi: dmiMdi === null ? null : round2(dmiMdi),
+    dmi_adx: dmiAdx === null ? null : round2(dmiAdx),
+    dmi_diff: dmiDiff === null ? null : round2(dmiDiff),
+    ma5: ma5 === null ? null : round2(ma5),
+    ma10: ma10 === null ? null : round2(ma10),
+    ma20: ma20 === null ? null : round2(ma20),
+    ma60: ma60 === null ? null : round2(ma60),
+    ma5_chg5_pct: ma5Chg5Pct === null ? null : round2(ma5Chg5Pct),
+    raw_score: rawScore,
+    risk_penalty: riskPenalty,
+    pre_score: round2(preScore),
+    super_strong: superStrong,
+    strong_core: strongCore,
+    medium_gap_momentum: mediumGapMomentum,
+    technical_hard_risk: technicalHardRisk,
+    technical_soft_risk: technicalSoftRisk
+  };
+  const comments = [
+    `【${score}】`,
+    statusTag,
+    `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
+    `【T:${details.turnover_mean},${details.turnover_max}】`,
+    `【P:${details.profit_chip_day0},${details.profit_chip_max3},${details.profit_delta},${details.pulse_ratio}】`,
+    tags.join(' ')
+  ].join('');
+
+  return {
+    symbol,
+    name: common.name,
+    model: 'record1_v12_4',
+    ...modelMeta,
+    query_datestr: datestr,
+    datestr: actualDate,
+    chip_datestr: formatDbDate(chip.datestr),
+    comments,
+    score,
+    status: statusTag.replace(/[【】]/g, ''),
+    tags,
+    details
+  };
+};
+
+const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelMeta: any = {}) => {
+  const symbolLike = sqlEscape(symbolInput);
+  const safeDate = sqlEscape(datestr);
+
+  const commonRows: any = await queryDB(`
+    SELECT symbol, name, datestr, finalprice, marketvalue, profit_chip
+    FROM stock_day_common_data
+    WHERE symbol LIKE '%${symbolLike}%'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  const common = commonRows?.[0];
+  if (!common) return { error: '未找到该股票在指定日期之前的基础交易数据' };
+
+  const symbol = common.symbol;
+  const actualDate = formatDbDate(common.datestr);
+  const safeSymbol = sqlEscape(symbol);
+
+  const chipRows: any = await queryDB(`
+    SELECT tencent_concentration_70, tencent_concentration_90, datestr
+    FROM stock_chip_result
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  const chip = chipRows?.[0];
+  if (!chip) return { error: '未找到该股票在指定日期之前的筹码集中度数据', symbol, datestr: actualDate };
+
+  const turnoverRows: any = await queryDB(`
+    SELECT turnoverrate
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 150
+  `);
+  if (!turnoverRows?.length) return { error: '未找到该股票在指定日期之前的换手率数据', symbol, datestr: actualDate };
+
+  const profitRows: any = await queryDB(`
+    SELECT profit_chip
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 3
+  `);
+  const kdjRows: any = await queryDB(`
+    SELECT k, d, j
+    FROM kdj
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 6
+  `);
+  const maRows: any = await queryDB(`
+    SELECT ma5, ma10, ma20, ma60
+    FROM ma
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 6
+  `);
+  const dmiRows: any = await queryDB(`
+    SELECT pdi, mdi, adx
+    FROM dmi
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 6
+  `);
+
+  const rates = turnoverRows.map((row: any) => toNumber(row.turnoverrate));
+  const meanTurn = rates.reduce((sum: number, rate: number) => sum + rate, 0) / rates.length;
+  const maxTurn = Math.max(...rates);
+  const pulseRatio = maxTurn / (meanTurn > 0 ? meanTurn : 1);
+
+  const profitDay0 = toNumber(common.profit_chip);
+  const profitMax3 = Math.max(...(profitRows || []).map((row: any) => toNumber(row.profit_chip, profitDay0)), profitDay0);
+  const profitDelta = profitMax3 - profitDay0;
+  const conc70 = toNumber(chip.tencent_concentration_70);
+  const conc90 = toNumber(chip.tencent_concentration_90);
+  const concGap = conc90 - conc70;
+  if (concGap < 0) return { error: '集中度数据异常', symbol, datestr: actualDate };
+
+  const kdj0 = kdjRows?.[0];
+  const kdj3 = kdjRows?.[3];
+  const ma0 = maRows?.[0];
+  const dmi0 = dmiRows?.[0];
+  const dmi5 = dmiRows?.[5];
+  const kdjThreeDayWeak = kdj0 && kdj3 ? toNumber(kdj0.k) - toNumber(kdj3.k) < 0 && toNumber(kdj0.j) - toNumber(kdj3.j) < 0 : false;
+  const ma5 = ma0 ? toNumber(ma0.ma5) : 0;
+  const ma10 = ma0 ? toNumber(ma0.ma10) : 0;
+  const ma20 = ma0 ? toNumber(ma0.ma20) : 0;
+  const ma60 = ma0 ? toNumber(ma0.ma60) : 0;
+  const ma5Ma20Delta = ma20 > 0 ? ma5 / ma20 - 1 : null;
+  const maAllBear = ma0 ? ma5 < ma10 && ma10 < ma20 && ma20 < ma60 : false;
+  const maShortWeak = ma5Ma20Delta !== null && ma5Ma20Delta < -0.01;
+  const dmiPdi = dmi0 ? toNumber(dmi0.pdi) : 0;
+  const dmiMdi = dmi0 ? toNumber(dmi0.mdi) : 0;
+  const dmiAdx = dmi0 ? toNumber(dmi0.adx) : 0;
+  const dmiStrongBear = dmi0 ? dmiAdx > 25.0 && dmiMdi > dmiPdi : false;
+  const dmiLowTrend = dmi0 ? dmiAdx < 20.0 : false;
+  const mdiFiveDayRising = dmi0 && dmi5 ? toNumber(dmi0.mdi) - toNumber(dmi5.mdi) > 0 : false;
+
+  const tightGap = concGap <= 2.01;
+  const coreGap = betweenValue(concGap, 2.01, 4.40);
+  const coreChipZone = betweenValue(conc70, 6.10, 8.60) && betweenValue(conc90, 8.13, 11.50);
+  const preferredChipBand = betweenValue(conc70, 6.10, 8.60) && coreGap;
+  const coreAcceptance = betweenValue(conc90, 8.13, 11.50) && betweenValue(maxTurn, 5.00, 18.00);
+  const turnConfirm = meanTurn >= 1.50 || maxTurn >= 5.00;
+  const turnWatch = meanTurn >= 0.70;
+  const profitLow = profitMax3 < 3.00;
+  const profitHealth = betweenValue(profitMax3, 3.00, 18.60);
+  const pulseGood = betweenValue(pulseRatio, 2.00, 5.80);
+  const highConcLowProfit = conc70 > 11.50 && betweenValue(maxTurn, 5.00, 18.00) && profitLow;
+  const highConcExpansion = conc70 > 11.50 && conc90 > 16.00 && profitLow && turnConfirm;
+  const highConcTrend =
+    conc70 > 11.50 &&
+    betweenValue(maxTurn, 5.00, 18.00) &&
+    pulseGood &&
+    (profitLow || meanTurn >= 1.50 || maxTurn >= 10.0) &&
+    !(conc70 > 14.00 && profitDay0 >= 3.00 && profitDelta >= 12.0);
+  const profitRetreatMomentum =
+    profitDay0 <= 9.20 &&
+    profitMax3 >= 15.00 &&
+    profitDelta >= 8.00 &&
+    meanTurn >= 1.50 &&
+    maxTurn >= 5.00 &&
+    (profitDay0 < 3.00 || meanTurn >= 3.00 || maxTurn >= 12.00) &&
+    !(conc70 > 14.00 && profitDay0 >= 3.00);
+  const wideGapMomentum =
+    concGap > 6.80 &&
+    meanTurn >= 1.50 &&
+    maxTurn >= 5.00 &&
+    profitMax3 <= 9.20 &&
+    !(conc70 > 12.00 && conc90 > 21.00);
+  const lowMidReversal = betweenValue(conc70, 5.00, 6.10) && maxTurn >= 5.00 && profitMax3 <= 9.20;
+  const extremeHighRisk = (conc70 > 14.00 || conc90 > 21.00 || concGap > 8.00) && !highConcExpansion && !profitRetreatMomentum;
+  const lowTightNoAcceptance = tightGap && conc70 < 5.0 && meanTurn < 0.70;
+  const lowTightZone = conc70 < 5.0 && conc90 < 8.13;
+  const lowLiquidity = meanTurn < 1.0 && maxTurn < 5.0;
+  const ordinaryChipZone =
+    !profitRetreatMomentum &&
+    !highConcLowProfit &&
+    !highConcTrend &&
+    !wideGapMomentum &&
+    !lowMidReversal &&
+    !preferredChipBand &&
+    !coreChipZone &&
+    !lowTightZone &&
+    !extremeHighRisk;
+  const strongMainType = profitRetreatMomentum || highConcLowProfit || highConcTrend || wideGapMomentum || lowMidReversal;
+
+  let score = 0;
+  const tags: string[] = [];
+  let regimeBonus = 0;
+  let riskHitCount = 0;
+
+  if (profitRetreatMomentum) {
+    score += 50; regimeBonus += 18; tags.push('【筹码热度回落动能:day0低热+max3高位+回落确认】');
+  } else if (highConcLowProfit) {
+    score += 50; regimeBonus += 16; tags.push('【高集中低盈扩散:高70+低盈利筹码+历史放量】');
+  } else if (highConcTrend) {
+    score += 45; regimeBonus += 10; tags.push('【高集中趋势型:高集中+放量承接】');
+  } else if (wideGapMomentum) {
+    score += 40; regimeBonus += 10; tags.push('【宽筹码动能型:带宽偏宽+均换确认+低热盈利】');
+  } else if (lowMidReversal) {
+    score += 35; regimeBonus += 8; tags.push('【低中集中反转型:70集中5-6.1+放量+低热盈利】');
+  } else if (preferredChipBand) {
+    score += 28; tags.push('【优选带观察:70集中6.1-8.6+带宽2.0-4.4】');
+  } else if (coreChipZone) {
+    score += 24; tags.push('【核心集中区】');
+  } else if (lowTightZone) {
+    score += 10; tags.push('【低位紧凑-需确认】');
+  } else if (extremeHighRisk) {
+    score -= 18; tags.push('【风险:集中度过高或带宽过宽】');
+  } else {
+    score += 8; tags.push('【普通筹码区】');
+  }
+
+  if (turnConfirm) { score += 15; tags.push('【换手确认】'); }
+  else if (turnWatch) { score += 10; tags.push('【低换手观察】'); }
+  else { score -= 18; tags.push('【风险:均换过低】'); }
+
+  if (profitHealth) { score += 10; tags.push('【盈利筹码健康】'); }
+  else if (profitLow) { score += 3; tags.push('【盈利筹码低位】'); }
+  else { score += 5; tags.push('【盈利筹码偏热】'); }
+
+  if (pulseGood) { score += 8; tags.push('【脉冲温和】'); }
+  else if (pulseRatio > 7.00 && meanTurn < 1.50) { score -= 8; tags.push('【风险:孤峰脉冲】'); }
+
+  if (betweenValue(maxTurn, 5.00, 18.00)) { score += 6; tags.push('【历史放量承接】'); }
+  else if (maxTurn >= 5.00) score += 3;
+
+  if (preferredChipBand && turnConfirm) { score += 5; regimeBonus += 5; tags.push('【观察组合:优选筹码带+换手确认】'); }
+  if (coreAcceptance) { score += 12; regimeBonus += 12; tags.push('【核心承接型:90不过热+历史放量】'); }
+  if (highConcLowProfit || wideGapMomentum || profitRetreatMomentum) { score += 10; tags.push('【强组合:扩散/动能+承接确认】'); }
+  if (lowTightNoAcceptance) { score -= 12; tags.push('【风险:低位紧凑但无承接】'); }
+
+  const riskLowTightBear = lowLiquidity && lowTightZone && kdjThreeDayWeak && dmiStrongBear;
+  const riskMaAllBear = !strongMainType && ordinaryChipZone && maAllBear && maShortWeak && (score <= 20 || meanTurn < 0.70);
+  const riskLowLiquidityWeakTrend = !strongMainType && lowLiquidity && maShortWeak && dmiLowTrend && mdiFiveDayRising;
+  if (riskLowTightBear) { riskHitCount += 1; score -= 12; tags.push('【风险:低位无承接空头】'); }
+  if (riskMaAllBear) { riskHitCount += 1; score -= 14; tags.push('【风险:均线全空弱势】'); }
+  if (riskLowLiquidityWeakTrend) { riskHitCount += 1; score -= 10; tags.push('【风险:低流动弱趋势】'); }
+  if (riskHitCount >= 2) { score -= 8; tags.push('【风险:技术风险叠加】'); }
+  else if (riskHitCount === 1) tags.push('【风险:技术弱势过滤】');
+
+  score = Math.round(Math.min(Math.max(score, 0), 100) * 10) / 10;
+  const strongRegime =
+    highConcLowProfit ||
+    profitRetreatMomentum ||
+    wideGapMomentum ||
+    (highConcTrend && score >= 75) ||
+    (lowMidReversal && score >= 75);
+  const statusTag =
+    riskHitCount >= 2
+      ? '【无效】'
+      : score >= 75 && strongRegime && riskHitCount === 0
+        ? '【强信号】'
+        : score >= 55 && !lowTightNoAcceptance
+          ? '【观察】'
+          : '【无效】';
+  const details = {
+    conc_70: round2(conc70),
+    conc_90: round2(conc90),
+    conc_gap: round2(concGap),
+    turnover_mean: round2(meanTurn),
+    turnover_max: round2(maxTurn),
+    profit_chip: round2(profitMax3),
+    profit_chip_day0: round2(profitDay0),
+    profit_delta: round2(profitDelta),
+    pulse_ratio: round2(pulseRatio),
+    regime_bonus: regimeBonus,
+    risk_hit_count: riskHitCount,
+    high_conc_low_profit: highConcLowProfit,
+    profit_retreat_momentum: profitRetreatMomentum,
+    wide_gap_momentum: wideGapMomentum,
+    high_conc_trend: highConcTrend,
+    low_mid_reversal: lowMidReversal,
+    low_tight_no_acceptance: lowTightNoAcceptance,
+    ma5_ma20_pct: ma5Ma20Delta === null ? null : round2(ma5Ma20Delta * 100),
+    dmi_adx: dmi0 ? round2(dmiAdx) : null,
+  };
+  const comments = [
+    `【${score}】`,
+    statusTag,
+    `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
+    `【T:${details.turnover_mean},${details.turnover_max}】`,
+    riskHitCount > 0 ? `【R:${riskHitCount}】` : null,
+    tags.join(' ')
+  ].filter(Boolean).join('');
+
+  return {
+    symbol,
+    name: common.name,
+    model: 'record2_v1_6',
+    ...modelMeta,
+    query_datestr: datestr,
+    datestr: actualDate,
+    chip_datestr: formatDbDate(chip.datestr),
+    comments,
+    score,
+    status: statusTag.replace(/[【】]/g, ''),
+    tags,
+    details
+  };
+};
+
+const buildStockPortrait = async (symbolInput: string, datestr: string) => {
+  const symbolLike = sqlEscape(symbolInput);
+  const safeDate = sqlEscape(datestr);
+  const commonRows: any = await queryDB(`
+    SELECT symbol, name, datestr, finalprice, marketvalue
+    FROM stock_day_common_data
+    WHERE symbol LIKE '%${symbolLike}%'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  const common = commonRows?.[0];
+  if (!common) return { error: '未找到该股票在指定日期之前的基础交易数据' };
+
+  const finalPrice = toNumber(common.finalprice);
+  const marketValue = toNumber(common.marketvalue);
+  const circulationStock = finalPrice > 0 ? marketValue / finalPrice : 0;
+  const modelMeta = {
+    final_price: round2(finalPrice),
+    circulation_stock: round2(circulationStock),
+  };
+
+  if (finalPrice >= 0 && finalPrice <= 15 && circulationStock >= 1 && circulationStock < 30) {
+    return buildRecord1Portrait(common.symbol, datestr, modelMeta);
+  }
+
+  if (finalPrice >= 0 && finalPrice <= 100 && circulationStock >= 30 && circulationStock <= 500) {
+    return buildRecord2Portrait(common.symbol, datestr, modelMeta);
+  }
+
+  return {
+    error: `该股票不在当前画像模型适用范围内: price=${round2(finalPrice)}, circulation=${round2(circulationStock)}亿`,
+    symbol: common.symbol,
+    name: common.name,
+    datestr: formatDbDate(common.datestr),
+    ...modelMeta,
+  };
+};
+
 const DB_PATH = '/Users/xywang/mystockdata/info/rss-board-mapper/board_scores.db';
 
 router.get('/stock_info', function (req, res, next) {
@@ -61,6 +685,27 @@ router.get('/stock_list', function (req, res, next) {
     if (err) throw err;
     res.json(rows);
   });
+});
+
+router.get('/stock_ai_portrait', async function (req, res, next) {
+  const symbol = String(req.query.symbol || '').trim();
+  const datestr = String(req.query.datestr || '').trim();
+
+  if (!symbol || !datestr) {
+    res.status(400).json({ error: 'symbol 和 datestr 不能为空' });
+    return;
+  }
+
+  try {
+    const result = await buildStockPortrait(symbol, datestr);
+    if ((result as any).error) {
+      res.status(404).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || '生成股票画像失败' });
+  }
 });
 
 router.get('/update_stock_status', function (req, res, next) {
