@@ -2347,7 +2347,7 @@ const renderComments = (comments?: string) => {
         </div>
       )}
       {factorTags.length > 0 && (
-        <div style={{ color: '#777', fontSize: 12 }}>
+        <div style={{ color: '#666', fontSize: 14, lineHeight: 1.7 }}>
           {factorTags.map((tag) => tag.replace(':', ' ')).join(' · ')}
         </div>
       )}

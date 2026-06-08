@@ -2063,7 +2063,7 @@ const renderPortraitComments = (comments?: string) => {
         </div>
       )}
       {factorTags.length > 0 && (
-        <div style={{ color: '#777', fontSize: 13 }}>
+        <div style={{ color: '#666', fontSize: 15, lineHeight: 1.8 }}>
           {factorTags.map((tag) => tag.replace(':', ' ')).join(' · ')}
         </div>
       )}
