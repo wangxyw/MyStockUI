@@ -2278,58 +2278,79 @@ const getCommentTagColor = (tagText: string) => {
   return undefined;
 };
 
-const renderCommentText = (part: string, index: number) => {
-  const scoreMatch = index === 0 ? part.match(/^(\s*(?:score\s*[:=：]?\s*)?-?\d+(?:\.\d+)?)/i) : null;
-
-  if (!scoreMatch) {
-    return (
-      <span key={`${part}-${index}`} style={{ color: '#666' }}>
-        {part}
-      </span>
-    );
-  }
-
-  const scoreText = scoreMatch[1];
-  const restText = part.slice(scoreText.length);
-
-  return (
-    <span key={`${part}-${index}`} style={{ color: '#666' }}>
-      <span style={{ color: '#222', fontWeight: 700 }}>{scoreText}</span>
-      {restText}
-    </span>
-  );
-};
+const renderCommentTag = (
+  tagText: string,
+  key: string,
+  options: { color?: string; fontWeight?: number; fontSize?: number } = {}
+) => (
+  <Tag
+    key={key}
+    color={options.color || getCommentTagColor(tagText)}
+    style={{
+      marginBottom: 4,
+      fontWeight: options.fontWeight,
+      fontSize: options.fontSize,
+      lineHeight: options.fontSize ? '22px' : undefined,
+    }}
+  >
+    {tagText}
+  </Tag>
+);
 
 const renderComments = (comments?: string) => {
   if (!comments) return null;
 
-  const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
+  const tagTexts = (comments.match(/【[^】]+】/g) || []).map((tag) =>
+    tag.slice(1, -1)
+  );
+  const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
+  const statusTag = tagTexts.find((tag) =>
+    ['强信号', '观察', '无效'].includes(tag)
+  );
+  const factorTags = tagTexts.filter((tag) =>
+    /^(C|T|P|DMI|MA):/.test(tag)
+  );
+  const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
+  const signalTags = tagTexts.filter(
+    (tag) =>
+      tag !== scoreTag &&
+      tag !== statusTag &&
+      !factorTags.includes(tag) &&
+      !riskTags.includes(tag)
+  );
 
   return (
-    <div style={{ lineHeight: 1.7 }}>
-      {parts.map((part, index) => {
-        const isTag = part.startsWith('【') && part.endsWith('】');
-        const tagText = isTag ? part.slice(1, -1) : part;
-        const color = isTag ? getCommentTagColor(tagText) : undefined;
-        const isScoreTag = index === 0 && /^-?\d+(?:\.\d+)?$/.test(tagText);
-
-        if (isTag) {
-          return (
-            <Tag
-              key={`${part}-${index}`}
-              color={color}
-              style={{
-                marginBottom: 4,
-                fontWeight: isScoreTag ? 700 : undefined,
-              }}
-            >
-              {tagText}
-            </Tag>
-          );
-        }
-
-        return renderCommentText(part, index);
-      })}
+    <div style={{ lineHeight: 1.6 }}>
+      <div>
+        {scoreTag && (
+          <span
+            style={{
+              color: '#222',
+              fontWeight: 700,
+              fontSize: 15,
+              marginRight: 6,
+            }}
+          >
+            {scoreTag}
+          </span>
+        )}
+        {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
+      </div>
+      {riskTags.length > 0 && (
+        <div>{riskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
+      )}
+      {signalTags.length > 0 && (
+        <div>
+          {signalTags.map((tag, index) =>
+            renderCommentTag(tag, `signal-${index}`)
+          )}
+        </div>
+      )}
+      {factorTags.length > 0 && (
+        <div style={{ color: '#777', fontSize: 12 }}>
+          {factorTags.map((tag) => tag.replace(':', ' ')).join(' · ')}
+        </div>
+      )}
     </div>
   );
 };

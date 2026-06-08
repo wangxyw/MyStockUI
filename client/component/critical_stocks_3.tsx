@@ -1988,42 +1988,85 @@ const getPortraitTagColor = (tagText: string) => {
   return undefined;
 };
 
+const renderPortraitTag = (
+  tagText: string,
+  key: string,
+  options: { color?: string; fontWeight?: number; fontSize?: number } = {}
+) => (
+  <Tag
+    key={key}
+    color={options.color || getPortraitTagColor(tagText)}
+    style={{
+      marginBottom: 4,
+      fontSize: options.fontSize || 15,
+      lineHeight: '24px',
+      fontWeight: options.fontWeight,
+    }}
+  >
+    {tagText}
+  </Tag>
+);
+
 const renderPortraitComments = (comments?: string) => {
   if (!comments) return null;
 
-  const parts = comments.match(/【[^】]+】|[^【]+/g) || [comments];
+  const tagTexts = (comments.match(/【[^】]+】/g) || []).map((tag) =>
+    tag.slice(1, -1)
+  );
+  const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
+  const statusTag = tagTexts.find((tag) =>
+    ['强信号', '观察', '无效'].includes(tag)
+  );
+  const factorTags = tagTexts.filter((tag) =>
+    /^(C|T|P|DMI|MA):/.test(tag)
+  );
+  const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
+  const signalTags = tagTexts.filter(
+    (tag) =>
+      tag !== scoreTag &&
+      tag !== statusTag &&
+      !factorTags.includes(tag) &&
+      !riskTags.includes(tag)
+  );
 
   return (
     <div style={{ lineHeight: 1.9, fontSize: 15 }}>
-      {parts.map((part, index) => {
-        const isTag = part.startsWith('【') && part.endsWith('】');
-        const tagText = isTag ? part.slice(1, -1) : part;
-        const isScoreTag = index === 0 && /^-?\d+(?:\.\d+)?$/.test(tagText);
-        const color = isTag ? getPortraitTagColor(tagText) : undefined;
-
-        if (isTag) {
-          return (
-            <Tag
-              key={`${part}-${index}`}
-              color={color}
-              style={{
-                marginBottom: 4,
-                fontSize: 15,
-                lineHeight: '24px',
-                fontWeight: isScoreTag ? 700 : undefined,
-              }}
-            >
-              {tagText}
-            </Tag>
-          );
-        }
-
-        return (
-          <span key={`${part}-${index}`} style={{ color: '#666', fontSize: 15 }}>
-            {part}
+      <div>
+        {scoreTag && (
+          <span
+            style={{
+              color: '#222',
+              fontWeight: 700,
+              fontSize: 18,
+              marginRight: 8,
+            }}
+          >
+            {scoreTag}
           </span>
-        );
-      })}
+        )}
+        {statusTag &&
+          renderPortraitTag(statusTag, 'status', {
+            fontWeight: 600,
+            fontSize: 15,
+          })}
+      </div>
+      {riskTags.length > 0 && (
+        <div>
+          {riskTags.map((tag, index) => renderPortraitTag(tag, `risk-${index}`))}
+        </div>
+      )}
+      {signalTags.length > 0 && (
+        <div>
+          {signalTags.map((tag, index) =>
+            renderPortraitTag(tag, `signal-${index}`)
+          )}
+        </div>
+      )}
+      {factorTags.length > 0 && (
+        <div style={{ color: '#777', fontSize: 13 }}>
+          {factorTags.map((tag) => tag.replace(':', ' ')).join(' · ')}
+        </div>
+      )}
     </div>
   );
 };
