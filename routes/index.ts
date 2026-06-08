@@ -393,6 +393,24 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (nearHighLowProfitDivergence && !highTurnLowProfitRisk) riskPenalty += 10;
 
   const score = Math.round(Math.min(Math.max(rawScore - riskPenalty, 0), 100) * 10) / 10;
+  const strongSignalCandidate = superStrong || strongCore;
+  const strongQualityTightHighScore =
+    strongSignalCandidate &&
+    concGap <= 1.57 &&
+    score >= 93.0;
+  const strongQualityHighTurnPulse =
+    strongSignalCandidate &&
+    meanTurn >= 6.20 &&
+    pulseRatio >= 4.04;
+  const strongDrawdownLowProfitWeakPulse =
+    strongSignalCandidate &&
+    profitDay0 <= 1.84 &&
+    pulseRatio <= 4.25;
+  const strongDrawdownWeakClose =
+    strongSignalCandidate &&
+    closeWeakness10 !== null &&
+    pulseRatio <= 3.48 &&
+    closeWeakness10 >= 54.15;
   const tags: string[] = [];
   if (superStrong) tags.push('【超强确认:紧凑筹码+高均换+健康盈利+脉冲】');
   else if (strongCore) tags.push('【强规律:筹码紧凑+高均换】');
@@ -405,6 +423,10 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   else if (coreChipZone) tags.push('【集中度中上-核心区】');
   else if (midUpperChip) tags.push('【集中度中上-非极端】');
   if (highAvgTurn) tags.push('【高均换确认】');
+  if (strongQualityTightHighScore) tags.push('【强信号质量:紧凑高分稳健】');
+  if (strongQualityHighTurnPulse) tags.push('【强信号质量:高均换强脉冲】');
+  if (strongDrawdownLowProfitWeakPulse) tags.push('【回撤管理:强信号低盈利弱脉冲】');
+  if (strongDrawdownWeakClose) tags.push('【回撤管理:强信号收盘承接弱】');
   if (score >= DEFAULT_MIN_SCORE && !tags.includes('【中期发酵型】')) tags.push('【中期发酵型】');
   if (concGap > TIGHT_CONC_GAP_MAX && concGap <= MID_CONC_GAP_MAX) tags.push('【筹码带中等-观察】');
   if (technicalHardRisk) tags.push('【风险:趋势空头+均换不足+筹码无修复】');
@@ -471,6 +493,10 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     score_before_drawdown_risk: scoreBeforeDrawdownRisk,
     super_strong: superStrong,
     strong_core: strongCore,
+    strong_quality_tight_high_score: strongQualityTightHighScore,
+    strong_quality_high_turn_pulse: strongQualityHighTurnPulse,
+    strong_drawdown_low_profit_weak_pulse: strongDrawdownLowProfitWeakPulse,
+    strong_drawdown_weak_close: strongDrawdownWeakClose,
     medium_gap_momentum: mediumGapMomentum,
     technical_hard_risk: technicalHardRisk,
     technical_soft_risk: technicalSoftRisk,
@@ -493,7 +519,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_6_1',
+    model: 'record1_v12_7',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -754,6 +780,26 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     wideGapMomentum ||
     (highConcTrend && score >= 75) ||
     (lowMidReversal && score >= 75);
+  const strongStatusCandidate = score >= 75 && strongRegime && riskHitCount === 0;
+  const highTurnElasticity =
+    strongStatusCandidate &&
+    meanTurn >= 3.34 &&
+    avgTurn10 !== null &&
+    avgTurn10 >= 2.24;
+  const drawdownRepairElasticity =
+    strongStatusCandidate &&
+    meanTurn >= 2.86 &&
+    drawdownFrom60High !== null &&
+    drawdownFrom60High <= -15.31;
+  const coreAcceptanceLowElasticity =
+    strongStatusCandidate &&
+    coreAcceptance &&
+    !highTurnElasticity &&
+    !drawdownRepairElasticity;
+  if (highTurnElasticity) tags.push('【强信号弹性:高换手高弹】');
+  else if (drawdownRepairElasticity) tags.push('【强信号弹性:回撤后放量修复】');
+  else if (coreAcceptanceLowElasticity) tags.push('【强信号弹性:核心承接低弹】');
+  else if (strongStatusCandidate) tags.push('【强信号弹性:普通】');
   const record2ForcedInvalid =
     riskHitCount >= 2 ||
     riskLowPositionLowTurnElasticity ||
@@ -796,6 +842,9 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     ret_10: ret10 === null ? null : round2(ret10),
     risk_low_position_low_turn_elasticity: riskLowPositionLowTurnElasticity,
     risk_low_turn_stagnation: riskLowTurnStagnation,
+    high_turn_elasticity: highTurnElasticity,
+    drawdown_repair_elasticity: drawdownRepairElasticity,
+    core_acceptance_low_elasticity: coreAcceptanceLowElasticity,
   };
   const comments = [
     `【${score}】`,
@@ -809,7 +858,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v1_7_1',
+    model: 'record2_v1_8',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

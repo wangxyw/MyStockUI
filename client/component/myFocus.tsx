@@ -2262,6 +2262,7 @@ const strongCommentTags = [
   '超强信号',
   '强核心',
   '强信号',
+  '强信号质量',
 ];
 
 const observeCommentTags = [
@@ -2312,20 +2313,60 @@ const formatRiskTagText = (tagText: string) => {
 
 const getCommentTagColor = (tagText: string) => {
   if (tagText.includes('风险')) return 'green';
+  if (tagText.includes('回撤管理')) return 'green';
   if (strongCommentTags.some((tag) => tagText.includes(tag))) return 'red';
   if (observeCommentTags.some((tag) => tagText.includes(tag))) return 'blue';
   return undefined;
 };
 
 const formatCommentTagText = (tagText: string) => {
+  if (tagText.startsWith('优｜') || tagText.startsWith('慎｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
+  if (tagText.includes('回撤管理')) return `管｜${tagText}`;
   const color = getCommentTagColor(tagText);
   if (color === 'red') return `强｜${tagText}`;
   if (color === 'blue') return `观｜${tagText}`;
   if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
   return tagText;
+};
+
+const hasRecord1DrawdownConcern = (tagTexts: string[]) =>
+  tagTexts.some((tag) =>
+    tag.includes('回撤管理') ||
+    tag.includes('低盈利未修复+观察高分') ||
+    tag.includes('低盈利+中等筹码带回撤') ||
+    tag.includes('高换手低盈利承接弱') ||
+    tag.includes('低盈利+收盘承接弱') ||
+    tag.includes('近高位低盈利背离')
+  );
+
+const getRecord1BestPickTag = (
+  score: number | null,
+  statusTag: string | undefined,
+  tagTexts: string[],
+  riskTags: string[]
+) => {
+  const hasHighMidRisk = riskTags.some((tag) => {
+    const level = getRiskTagLevel(tag);
+    return level === '高' || level === '中';
+  });
+  const hasDrawdownConcern = hasRecord1DrawdownConcern(tagTexts);
+
+  if (statusTag === '强信号') {
+    return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
+  }
+  if (
+    statusTag === '观察' &&
+    score !== null &&
+    score >= 70 &&
+    !hasHighMidRisk &&
+    !hasDrawdownConcern
+  ) {
+    return '优｜70+低风险观察';
+  }
+  return null;
 };
 
 const renderCommentTag = (
@@ -2358,6 +2399,7 @@ const renderComments = (comments?: string) => {
     tag.slice(1, -1)
   );
   const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
+  const scoreValue = scoreTag ? Number(scoreTag) : null;
   const statusTag = tagTexts.find((tag) =>
     ['强信号', '观察', '无效'].includes(tag)
   );
@@ -2375,6 +2417,7 @@ const renderComments = (comments?: string) => {
       !factorTags.includes(tag) &&
       !riskTags.includes(tag)
   );
+  const bestPickTag = getRecord1BestPickTag(scoreValue, statusTag, tagTexts, riskTags);
 
   return (
     <div style={{ lineHeight: 1.6 }}>
@@ -2392,6 +2435,11 @@ const renderComments = (comments?: string) => {
           </span>
         )}
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
+        {bestPickTag &&
+          renderCommentTag(bestPickTag, 'best-pick', {
+            color: bestPickTag.startsWith('优') ? 'red' : 'gold',
+            fontWeight: 700,
+          })}
       </div>
       {riskTags.length > 0 && (
         <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>

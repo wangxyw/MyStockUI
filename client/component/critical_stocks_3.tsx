@@ -2010,15 +2010,16 @@ const formatRiskTagText = (tagText: string) => {
 
 const getPortraitTagColor = (tagText: string) => {
   if (tagText.includes('风险')) return 'green';
+  if (tagText.includes('回撤管理')) return 'green';
   if (
-    ['强信号', '强核心', '超强信号'].some((tag) =>
+    ['强信号', '强核心', '超强信号', '强信号质量', '强信号弹性:高换手高弹', '强信号弹性:回撤后放量修复', '强信号弹性:普通'].some((tag) =>
       tagText.includes(tag)
     )
   ) {
     return 'red';
   }
   if (
-    ['观察', '中等筹码带+活跃承接', '盈利筹码回落蓄势'].some((tag) =>
+    ['观察', '中等筹码带+活跃承接', '盈利筹码回落蓄势', '强信号弹性:核心承接低弹'].some((tag) =>
       tagText.includes(tag)
     )
   ) {
@@ -2028,14 +2029,101 @@ const getPortraitTagColor = (tagText: string) => {
 };
 
 const formatPortraitTagText = (tagText: string) => {
+  if (tagText.startsWith('优｜') || tagText.startsWith('慎｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
+  if (tagText.includes('回撤管理')) return `管｜${tagText}`;
   const color = getPortraitTagColor(tagText);
   if (color === 'red') return `强｜${tagText}`;
   if (color === 'blue') return `观｜${tagText}`;
   if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
   return tagText;
+};
+
+const hasRecord1DrawdownConcern = (tagTexts: string[]) =>
+  tagTexts.some((tag) =>
+    tag.includes('回撤管理') ||
+    tag.includes('低盈利未修复+观察高分') ||
+    tag.includes('低盈利+中等筹码带回撤') ||
+    tag.includes('高换手低盈利承接弱') ||
+    tag.includes('低盈利+收盘承接弱') ||
+    tag.includes('近高位低盈利背离')
+  );
+
+const getPortraitBestPickTag = (
+  score: number | null,
+  statusTag: string | undefined,
+  tagTexts: string[],
+  riskTags: string[]
+) => {
+  const hasHighMidRisk = riskTags.some((tag) => {
+    const level = getRiskTagLevel(tag);
+    return level === '高' || level === '中';
+  });
+  const isRecord2Portrait = tagTexts.some(
+    (tag) =>
+      tag.includes('强信号弹性') ||
+      tag.includes('筹码热度回落动能') ||
+      tag.includes('高集中低盈扩散') ||
+      tag.includes('高集中趋势型') ||
+      tag.includes('宽筹码动能型') ||
+      tag.includes('低中集中反转型') ||
+      tag.includes('核心承接型')
+  );
+
+  if (isRecord2Portrait) {
+    const rTag = tagTexts.find((tag) => tag.startsWith('R:'));
+    const rValues = rTag
+      ? rTag.slice(2).split(',').map((value) => Number(value))
+      : [];
+    const closeWeakness10 = Number.isFinite(rValues[3]) ? rValues[3] : null;
+    const hasOrdinaryElasticity = tagTexts.some((tag) =>
+      tag.includes('强信号弹性:普通')
+    );
+    const hasHighElasticity = tagTexts.some(
+      (tag) =>
+        tag.includes('强信号弹性:高换手高弹') ||
+        tag.includes('强信号弹性:回撤后放量修复')
+    );
+    const hasCoreAcceptance = tagTexts.some(
+      (tag) =>
+        tag.includes('核心承接型') ||
+        tag.includes('强信号弹性:核心承接低弹')
+    );
+    const hasStrongMainType = tagTexts.some(
+      (tag) =>
+        tag.includes('筹码热度回落动能') ||
+        tag.includes('高集中低盈扩散') ||
+        tag.includes('高集中趋势型') ||
+        tag.includes('宽筹码动能型') ||
+      tag.includes('低中集中反转型')
+    );
+
+    if (statusTag === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) {
+      return '慎｜强信号承接弱';
+    }
+    if (statusTag !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
+    if (hasHighElasticity) return '优｜高弹强主';
+    if (hasCoreAcceptance) return '优｜核心承接';
+    if (hasStrongMainType) return '优｜强主非普通弹性';
+    return null;
+  }
+
+  const hasDrawdownConcern = hasRecord1DrawdownConcern(tagTexts);
+  if (statusTag === '强信号') {
+    return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
+  }
+  if (
+    statusTag === '观察' &&
+    score !== null &&
+    score >= 70 &&
+    !hasHighMidRisk &&
+    !hasDrawdownConcern
+  ) {
+    return '优｜70+低风险观察';
+  }
+  return null;
 };
 
 const renderPortraitTag = (
@@ -2065,6 +2153,7 @@ const renderPortraitComments = (comments?: string) => {
     tag.slice(1, -1)
   );
   const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
+  const scoreValue = scoreTag ? Number(scoreTag) : null;
   const statusTag = tagTexts.find((tag) =>
     ['强信号', '观察', '无效'].includes(tag)
   );
@@ -2082,6 +2171,7 @@ const renderPortraitComments = (comments?: string) => {
       !factorTags.includes(tag) &&
       !riskTags.includes(tag)
   );
+  const bestPickTag = getPortraitBestPickTag(scoreValue, statusTag, tagTexts, riskTags);
 
   return (
     <div style={{ lineHeight: 1.9, fontSize: 15 }}>
@@ -2101,6 +2191,12 @@ const renderPortraitComments = (comments?: string) => {
         {statusTag &&
           renderPortraitTag(statusTag, 'status', {
             fontWeight: 600,
+            fontSize: 15,
+          })}
+        {bestPickTag &&
+          renderPortraitTag(bestPickTag, 'best-pick', {
+            color: bestPickTag.startsWith('优') ? 'red' : 'gold',
+            fontWeight: 700,
             fontSize: 15,
           })}
       </div>

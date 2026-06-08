@@ -38,6 +38,9 @@ const strongMainCommentTags = [
   '高集中趋势型',
   '宽筹码动能型',
   '低中集中反转型',
+  '强信号弹性:高换手高弹',
+  '强信号弹性:回撤后放量修复',
+  '强信号弹性:普通',
 ];
 
 const watchMainCommentTags = [
@@ -47,6 +50,7 @@ const watchMainCommentTags = [
   '普通筹码区',
   '核心承接型',
   '观察组合',
+  '强信号弹性:核心承接低弹',
 ];
 
 const highRiskCommentTags = [
@@ -98,6 +102,7 @@ const getCommentTagColor = (tag: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
+  if (tagText.startsWith('优｜') || tagText.startsWith('慎｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
@@ -106,6 +111,47 @@ const formatCommentTagText = (tagText: string) => {
   if (color === 'blue') return `观｜${tagText}`;
   if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
   return tagText;
+};
+
+const getRecord2BestPickTag = (
+  statusTag: string | undefined,
+  tagTexts: string[],
+  riskTags: string[]
+) => {
+  const rTag = tagTexts.find((tag) => tag.startsWith('R:'));
+  const rValues = rTag
+    ? rTag.slice(2).split(',').map((value) => Number(value))
+    : [];
+  const closeWeakness10 = Number.isFinite(rValues[3]) ? rValues[3] : null;
+  const hasHighMidRisk = riskTags.some((tag) => {
+    const level = getRiskTagLevel(tag);
+    return level === '高' || level === '中';
+  });
+  const hasOrdinaryElasticity = tagTexts.some((tag) =>
+    tag.includes('强信号弹性:普通')
+  );
+  const hasHighElasticity = tagTexts.some(
+    (tag) =>
+      tag.includes('强信号弹性:高换手高弹') ||
+      tag.includes('强信号弹性:回撤后放量修复')
+  );
+  const hasCoreAcceptance = tagTexts.some(
+    (tag) =>
+      tag.includes('核心承接型') ||
+      tag.includes('强信号弹性:核心承接低弹')
+  );
+  const hasStrongMainType = tagTexts.some((tag) =>
+    strongMainCommentTags.some((mainTag) => tag.includes(mainTag))
+  );
+
+  if (statusTag === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) {
+    return '慎｜强信号承接弱';
+  }
+  if (statusTag !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
+  if (hasHighElasticity) return '优｜高弹强主';
+  if (hasCoreAcceptance) return '优｜核心承接';
+  if (hasStrongMainType) return '优｜强主非普通弹性';
+  return null;
 };
 
 const renderCommentTag = (
@@ -155,6 +201,7 @@ const renderComments = (comments?: string) => {
       !factorTags.includes(tag) &&
       !riskTags.includes(tag)
   );
+  const bestPickTag = getRecord2BestPickTag(statusTag, tagTexts, riskTags);
 
   return (
     <div style={{ lineHeight: 1.6 }}>
@@ -172,6 +219,11 @@ const renderComments = (comments?: string) => {
           </span>
         )}
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
+        {bestPickTag &&
+          renderCommentTag(bestPickTag, 'best-pick', {
+            color: bestPickTag.startsWith('优') ? 'red' : 'gold',
+            fontWeight: 700,
+          })}
       </div>
       {riskTags.length > 0 && (
         <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
