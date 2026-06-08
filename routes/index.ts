@@ -273,6 +273,28 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (technicalHardRisk) riskPenalty += 10;
   if (technicalSoftRisk) riskPenalty += 4;
 
+  const scoreBeforeDrawdownRisk = Math.round(Math.min(Math.max(rawScore - riskPenalty, 0), 100) * 10) / 10;
+  const observeCandidateBeforeDrawdown =
+    !superStrong &&
+    !strongCore &&
+    (
+      mediumGapMomentum ||
+      (coreChipZone && profitCore && scoreBeforeDrawdownRisk >= 55) ||
+      scoreBeforeDrawdownRisk >= 60
+    );
+  const drawdownHardRisk =
+    observeCandidateBeforeDrawdown &&
+    scoreBeforeDrawdownRisk >= 60 &&
+    profitDay0 < 2.0 &&
+    profitMax3 < 5.0;
+  const drawdownSoftRisk =
+    observeCandidateBeforeDrawdown &&
+    profitDay0 < 3.2 &&
+    concGap >= 2.20 &&
+    concGap <= 3.30;
+  if (drawdownHardRisk) riskPenalty += 18;
+  if (drawdownSoftRisk && !drawdownHardRisk) riskPenalty += 8;
+
   const score = Math.round(Math.min(Math.max(rawScore - riskPenalty, 0), 100) * 10) / 10;
   const tags: string[] = [];
   if (superStrong) tags.push('【超强确认:紧凑筹码+高均换+健康盈利+脉冲】');
@@ -290,6 +312,8 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (concGap > TIGHT_CONC_GAP_MAX && concGap <= MID_CONC_GAP_MAX) tags.push('【筹码带中等-观察】');
   if (technicalHardRisk) tags.push('【风险:趋势空头+均换不足+筹码无修复】');
   if (technicalSoftRisk) tags.push('【风险:低分+盈利无修复+短均走弱】');
+  if (drawdownHardRisk) tags.push('【风险:低盈利未修复+观察高分】');
+  if (drawdownSoftRisk) tags.push('【风险:低盈利+中等筹码带回撤】');
   if (concGap > WIDE_CONC_GAP_MIN) tags.push('【风险:筹码带偏宽】');
   if (conc70 > 9.0) tags.push('【风险:70集中度过高】');
   if (conc90 > CONC90_NON_EXTREME_HIGH) tags.push('【风险:90集中度偏高】');
@@ -298,11 +322,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (!tags.length) tags.push('【弱匹配:未命中规律】');
 
   const statusTag =
-    score >= DEFAULT_MIN_SCORE && (superStrong || strongCore)
-      ? '【强信号】'
-      : mediumGapMomentum || (coreChipZone && profitCore && score >= 55) || score >= 60
-        ? '【观察】'
-        : '【无效】';
+    drawdownHardRisk || (drawdownSoftRisk && score < 60)
+      ? '【无效】'
+      : score >= DEFAULT_MIN_SCORE && (superStrong || strongCore)
+        ? '【强信号】'
+        : (mediumGapMomentum && score >= 60) || (coreChipZone && profitCore && score >= 55) || score >= 60
+          ? '【观察】'
+          : '【无效】';
   const details = {
     conc_70: round2(conc70),
     conc_90: round2(conc90),
@@ -325,11 +351,14 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     raw_score: rawScore,
     risk_penalty: riskPenalty,
     pre_score: round2(preScore),
+    score_before_drawdown_risk: scoreBeforeDrawdownRisk,
     super_strong: superStrong,
     strong_core: strongCore,
     medium_gap_momentum: mediumGapMomentum,
     technical_hard_risk: technicalHardRisk,
-    technical_soft_risk: technicalSoftRisk
+    technical_soft_risk: technicalSoftRisk,
+    drawdown_hard_risk: drawdownHardRisk,
+    drawdown_soft_risk: drawdownSoftRisk
   };
   const comments = [
     `【${score}】`,
@@ -343,7 +372,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_4',
+    model: 'record1_v12_5_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
