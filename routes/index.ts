@@ -97,6 +97,60 @@ const PULSE_IDEAL_LOW = 3.62;
 const PULSE_IDEAL_HIGH = 4.89;
 const DEFAULT_MIN_SCORE = 80;
 
+const avg = (values: number[]) =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+
+const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
+  const rows = [...(rowsDesc || [])].reverse();
+  if (rows.length < 20) return null;
+
+  const closes = rows.map((row) => toNumber(row.finalprice));
+  const latestClose = closes[closes.length - 1];
+  const last = (count: number) => rows.slice(Math.max(rows.length - count, 0));
+  const lastNumbers = (field: string, count: number) => last(count).map((row) => toNumber(row[field]));
+  const high60 = Math.max(...lastNumbers('day_max_price', 60));
+  const low60 = Math.min(...lastNumbers('day_min_price', 60));
+  const pricePos60 = high60 > low60 ? ((latestClose - low60) / (high60 - low60)) * 100 : null;
+  const drawdownFrom60High = high60 > 0 ? (latestClose / high60 - 1) * 100 : null;
+  const closeWeaknessValues = last(10)
+    .map((row) => {
+      const high = toNumber(row.day_max_price);
+      const low = toNumber(row.day_min_price);
+      const close = toNumber(row.finalprice);
+      return high > low ? ((high - close) / (high - low)) * 100 : null;
+    })
+    .filter((value) => value !== null) as number[];
+  const avgTurn10 = avg(lastNumbers('turnoverrate', 10));
+  const avgTurn5 = avg(lastNumbers('turnoverrate', 5));
+  const avgVol5 = avg(lastNumbers('totaltradevol', 5));
+  const avgVol60 = avg(lastNumbers('totaltradevol', 60));
+  const avgAmount5 = avg(lastNumbers('totaltradevalue', 5));
+  const avgAmount60 = avg(lastNumbers('totaltradevalue', 60));
+  const ma20Current = avg(closes.slice(-20));
+  const ma20Lag5 = rows.length >= 25 ? avg(closes.slice(-25, -5)) : null;
+  const ret = (count: number) => {
+    const base = closes[closes.length - count];
+    return base > 0 ? (latestClose / base - 1) * 100 : null;
+  };
+
+  return {
+    price_pos_60: pricePos60,
+    drawdown_from_60_high: drawdownFrom60High,
+    avg_turn_10: avgTurn10,
+    avg_turn_5: avgTurn5,
+    volume_ratio_5_60: avgVol60 && avgVol60 > 0 && avgVol5 !== null ? avgVol5 / avgVol60 : null,
+    amount_ratio_5_60: avgAmount60 && avgAmount60 > 0 && avgAmount5 !== null ? avgAmount5 / avgAmount60 : null,
+    close_weakness_10: avg(closeWeaknessValues),
+    ret_5: rows.length >= 5 ? ret(5) : null,
+    ret_10: rows.length >= 10 ? ret(10) : null,
+    ret_20: rows.length >= 20 ? ret(20) : null,
+    max_drop_20: Math.min(...lastNumbers('pricechangepct', 20)),
+    ma20_slope_5: ma20Current !== null && ma20Lag5 !== null && ma20Lag5 > 0 ? (ma20Current / ma20Lag5 - 1) * 100 : null,
+    profit_change_5: rows.length >= 6 ? toNumber(rows[rows.length - 1].profit_chip) - toNumber(rows[rows.length - 6].profit_chip) : null,
+    history_days: rows.length
+  };
+};
+
 const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelMeta: any = {}) => {
   const symbolLike = sqlEscape(symbolInput);
   const safeDate = sqlEscape(datestr);
@@ -179,6 +233,16 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     LIMIT 1
   `);
 
+  const stockDayRows: any = await queryDB(`
+    SELECT datestr, finalprice, pricechangepct, totaltradevalue, totaltradevol,
+           turnoverrate, day_max_price, day_min_price, profit_chip
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 180
+  `);
+
   const rates = turnoverRows.map((row: any) => toNumber(row.turnoverrate));
   const meanTurn = rates.reduce((sum: number, rate: number) => sum + rate, 0) / rates.length;
   const maxTurn = Math.max(...rates);
@@ -208,6 +272,20 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   const ma60 = ma ? toNumber(ma.ma60) : null;
   const ma5Lag5 = maLag ? toNumber(maLag.ma5) : 0;
   const ma5Chg5Pct = ma5 !== null && ma5Lag5 > 0 ? (ma5 / ma5Lag5 - 1) * 100 : null;
+  const priceVolumeStats = calcRecord1PriceVolumeStats(stockDayRows || []);
+  const pricePos60 = priceVolumeStats?.price_pos_60 ?? null;
+  const drawdownFrom60High = priceVolumeStats?.drawdown_from_60_high ?? null;
+  const avgTurn10 = priceVolumeStats?.avg_turn_10 ?? null;
+  const avgTurn5 = priceVolumeStats?.avg_turn_5 ?? null;
+  const volumeRatio560 = priceVolumeStats?.volume_ratio_5_60 ?? null;
+  const amountRatio560 = priceVolumeStats?.amount_ratio_5_60 ?? null;
+  const closeWeakness10 = priceVolumeStats?.close_weakness_10 ?? null;
+  const ret5 = priceVolumeStats?.ret_5 ?? null;
+  const ret10 = priceVolumeStats?.ret_10 ?? null;
+  const ret20 = priceVolumeStats?.ret_20 ?? null;
+  const maxDrop20 = priceVolumeStats?.max_drop_20 ?? null;
+  const ma20Slope5 = priceVolumeStats?.ma20_slope_5 ?? null;
+  const profitChange5 = priceVolumeStats?.profit_change_5 ?? null;
 
   const tightGap = concGap <= TIGHT_CONC_GAP_MAX;
   const highAvgTurn = meanTurn >= HIGH_AVG_TURN_MIN;
@@ -292,8 +370,27 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     profitDay0 < 3.2 &&
     concGap >= 2.20 &&
     concGap <= 3.30;
+  const nonStrongCandidate = !superStrong && !strongCore;
+  const highTurnLowProfitRisk =
+    nonStrongCandidate &&
+    avgTurn10 !== null &&
+    avgTurn10 >= 4.0 &&
+    profitDay0 <= 2.5;
+  const weakCloseLowProfitRisk =
+    nonStrongCandidate &&
+    closeWeakness10 !== null &&
+    closeWeakness10 >= 63.0 &&
+    profitDay0 <= 2.5;
+  const nearHighLowProfitDivergence =
+    nonStrongCandidate &&
+    drawdownFrom60High !== null &&
+    drawdownFrom60High >= -14.0 &&
+    profitDay0 <= 3.0;
   if (drawdownHardRisk) riskPenalty += 18;
   if (drawdownSoftRisk && !drawdownHardRisk) riskPenalty += 8;
+  if (highTurnLowProfitRisk) riskPenalty += 16;
+  if (weakCloseLowProfitRisk && !highTurnLowProfitRisk) riskPenalty += 10;
+  if (nearHighLowProfitDivergence && !highTurnLowProfitRisk) riskPenalty += 10;
 
   const score = Math.round(Math.min(Math.max(rawScore - riskPenalty, 0), 100) * 10) / 10;
   const tags: string[] = [];
@@ -314,6 +411,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (technicalSoftRisk) tags.push('【风险:低分+盈利无修复+短均走弱】');
   if (drawdownHardRisk) tags.push('【风险:低盈利未修复+观察高分】');
   if (drawdownSoftRisk) tags.push('【风险:低盈利+中等筹码带回撤】');
+  if (highTurnLowProfitRisk) tags.push('【风险:高换手低盈利承接弱】');
+  if (weakCloseLowProfitRisk) tags.push('【风险:低盈利+收盘承接弱】');
+  if (nearHighLowProfitDivergence) tags.push('【风险:近高位低盈利背离】');
   if (concGap > WIDE_CONC_GAP_MIN) tags.push('【风险:筹码带偏宽】');
   if (conc70 > 9.0) tags.push('【风险:70集中度过高】');
   if (conc90 > CONC90_NON_EXTREME_HIGH) tags.push('【风险:90集中度偏高】');
@@ -322,7 +422,11 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (!tags.length) tags.push('【弱匹配:未命中规律】');
 
   const statusTag =
-    drawdownHardRisk || (drawdownSoftRisk && score < 60)
+    drawdownHardRisk ||
+    (drawdownSoftRisk && score < 60) ||
+    highTurnLowProfitRisk ||
+    weakCloseLowProfitRisk ||
+    nearHighLowProfitDivergence
       ? '【无效】'
       : score >= DEFAULT_MIN_SCORE && (superStrong || strongCore)
         ? '【强信号】'
@@ -348,6 +452,19 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     ma20: ma20 === null ? null : round2(ma20),
     ma60: ma60 === null ? null : round2(ma60),
     ma5_chg5_pct: ma5Chg5Pct === null ? null : round2(ma5Chg5Pct),
+    price_pos_60: pricePos60 === null ? null : round2(pricePos60),
+    drawdown_from_60_high: drawdownFrom60High === null ? null : round2(drawdownFrom60High),
+    avg_turn_10: avgTurn10 === null ? null : round2(avgTurn10),
+    avg_turn_5: avgTurn5 === null ? null : round2(avgTurn5),
+    volume_ratio_5_60: volumeRatio560 === null ? null : round2(volumeRatio560),
+    amount_ratio_5_60: amountRatio560 === null ? null : round2(amountRatio560),
+    close_weakness_10: closeWeakness10 === null ? null : round2(closeWeakness10),
+    ret_5: ret5 === null ? null : round2(ret5),
+    ret_10: ret10 === null ? null : round2(ret10),
+    ret_20: ret20 === null ? null : round2(ret20),
+    max_drop_20: maxDrop20 === null ? null : round2(maxDrop20),
+    ma20_slope_5: ma20Slope5 === null ? null : round2(ma20Slope5),
+    profit_change_5: profitChange5 === null ? null : round2(profitChange5),
     raw_score: rawScore,
     risk_penalty: riskPenalty,
     pre_score: round2(preScore),
@@ -358,7 +475,10 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     technical_hard_risk: technicalHardRisk,
     technical_soft_risk: technicalSoftRisk,
     drawdown_hard_risk: drawdownHardRisk,
-    drawdown_soft_risk: drawdownSoftRisk
+    drawdown_soft_risk: drawdownSoftRisk,
+    high_turn_low_profit_risk: highTurnLowProfitRisk,
+    weak_close_low_profit_risk: weakCloseLowProfitRisk,
+    near_high_low_profit_divergence: nearHighLowProfitDivergence
   };
   const comments = [
     `【${score}】`,
@@ -366,13 +486,14 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【P:${details.profit_chip_day0},${details.profit_chip_max3},${details.profit_delta},${details.pulse_ratio}】`,
+    `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
     tags.join(' ')
   ].join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_5_1',
+    model: 'record1_v12_6_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -457,6 +578,15 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     ORDER BY datestr DESC
     LIMIT 6
   `);
+  const stockDayRows: any = await queryDB(`
+    SELECT datestr, finalprice, pricechangepct, totaltradevalue, totaltradevol,
+           turnoverrate, day_max_price, day_min_price, profit_chip
+    FROM stock_day_common_data
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 180
+  `);
 
   const rates = turnoverRows.map((row: any) => toNumber(row.turnoverrate));
   const meanTurn = rates.reduce((sum: number, rate: number) => sum + rate, 0) / rates.length;
@@ -490,6 +620,14 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   const dmiStrongBear = dmi0 ? dmiAdx > 25.0 && dmiMdi > dmiPdi : false;
   const dmiLowTrend = dmi0 ? dmiAdx < 20.0 : false;
   const mdiFiveDayRising = dmi0 && dmi5 ? toNumber(dmi0.mdi) - toNumber(dmi5.mdi) > 0 : false;
+  const priceVolumeStats = calcRecord1PriceVolumeStats(stockDayRows || []);
+  const pricePos60 = priceVolumeStats?.price_pos_60 ?? null;
+  const drawdownFrom60High = priceVolumeStats?.drawdown_from_60_high ?? null;
+  const avgTurn10 = priceVolumeStats?.avg_turn_10 ?? null;
+  const avgTurn5 = priceVolumeStats?.avg_turn_5 ?? null;
+  const closeWeakness10 = priceVolumeStats?.close_weakness_10 ?? null;
+  const ret5 = priceVolumeStats?.ret_5 ?? null;
+  const ret10 = priceVolumeStats?.ret_10 ?? null;
 
   const tightGap = concGap <= 2.01;
   const coreGap = betweenValue(concGap, 2.01, 4.40);
@@ -589,9 +727,23 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   const riskLowTightBear = lowLiquidity && lowTightZone && kdjThreeDayWeak && dmiStrongBear;
   const riskMaAllBear = !strongMainType && ordinaryChipZone && maAllBear && maShortWeak && (score <= 20 || meanTurn < 0.70);
   const riskLowLiquidityWeakTrend = !strongMainType && lowLiquidity && maShortWeak && dmiLowTrend && mdiFiveDayRising;
+  const riskLowPositionLowTurnElasticity =
+    !strongMainType &&
+    pricePos60 !== null &&
+    avgTurn5 !== null &&
+    pricePos60 <= 5.0 &&
+    avgTurn5 <= 0.50;
+  const riskLowTurnStagnation =
+    !strongMainType &&
+    avgTurn10 !== null &&
+    ret5 !== null &&
+    avgTurn10 <= 0.60 &&
+    ret5 >= -1.0;
   if (riskLowTightBear) { riskHitCount += 1; score -= 12; tags.push('【风险:低位无承接空头】'); }
   if (riskMaAllBear) { riskHitCount += 1; score -= 14; tags.push('【风险:均线全空弱势】'); }
   if (riskLowLiquidityWeakTrend) { riskHitCount += 1; score -= 10; tags.push('【风险:低流动弱趋势】'); }
+  if (riskLowPositionLowTurnElasticity) { riskHitCount += 1; score -= 10; tags.push('【风险:低位低换弹性不足】'); }
+  if (riskLowTurnStagnation) { riskHitCount += 1; score -= 8; tags.push('【风险:低换滞涨】'); }
   if (riskHitCount >= 2) { score -= 8; tags.push('【风险:技术风险叠加】'); }
   else if (riskHitCount === 1) tags.push('【风险:技术弱势过滤】');
 
@@ -602,8 +754,12 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     wideGapMomentum ||
     (highConcTrend && score >= 75) ||
     (lowMidReversal && score >= 75);
+  const record2ForcedInvalid =
+    riskHitCount >= 2 ||
+    riskLowPositionLowTurnElasticity ||
+    (riskLowTurnStagnation && !strongMainType);
   const statusTag =
-    riskHitCount >= 2
+    record2ForcedInvalid
       ? '【无效】'
       : score >= 75 && strongRegime && riskHitCount === 0
         ? '【强信号】'
@@ -627,23 +783,33 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     wide_gap_momentum: wideGapMomentum,
     high_conc_trend: highConcTrend,
     low_mid_reversal: lowMidReversal,
+    strong_main_type: strongMainType,
     low_tight_no_acceptance: lowTightNoAcceptance,
     ma5_ma20_pct: ma5Ma20Delta === null ? null : round2(ma5Ma20Delta * 100),
     dmi_adx: dmi0 ? round2(dmiAdx) : null,
+    price_pos_60: pricePos60 === null ? null : round2(pricePos60),
+    drawdown_from_60_high: drawdownFrom60High === null ? null : round2(drawdownFrom60High),
+    avg_turn_10: avgTurn10 === null ? null : round2(avgTurn10),
+    avg_turn_5: avgTurn5 === null ? null : round2(avgTurn5),
+    close_weakness_10: closeWeakness10 === null ? null : round2(closeWeakness10),
+    ret_5: ret5 === null ? null : round2(ret5),
+    ret_10: ret10 === null ? null : round2(ret10),
+    risk_low_position_low_turn_elasticity: riskLowPositionLowTurnElasticity,
+    risk_low_turn_stagnation: riskLowTurnStagnation,
   };
   const comments = [
     `【${score}】`,
     statusTag,
     `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
     `【T:${details.turnover_mean},${details.turnover_max}】`,
-    riskHitCount > 0 ? `【R:${riskHitCount}】` : null,
+    `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record2_v1_6',
+    model: 'record2_v1_7_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

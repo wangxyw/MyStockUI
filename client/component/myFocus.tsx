@@ -2271,6 +2271,45 @@ const observeCommentTags = [
   '观察',
 ];
 
+const highRiskCommentTags = [
+  '高换手低盈利承接弱',
+  '低盈利未修复+观察高分',
+  '低盈利+中等筹码带回撤',
+  '低盈利+收盘承接弱',
+  '近高位低盈利背离',
+  '趋势空头+均换不足+筹码无修复',
+  '低位低换弹性不足',
+];
+
+const mediumRiskCommentTags = [
+  '低分+盈利无修复+短均走弱',
+  '低换滞涨',
+  '技术风险叠加',
+  '均线全空弱势',
+  '低流动弱趋势',
+  '低位无承接空头',
+];
+
+const getRiskTagLevel = (tagText: string) => {
+  if (!tagText.includes('风险')) return null;
+  if (highRiskCommentTags.some((tag) => tagText.includes(tag))) return '高';
+  if (mediumRiskCommentTags.some((tag) => tagText.includes(tag))) return '中';
+  return '低';
+};
+
+const getRiskTagRank = (tagText: string) => {
+  const level = getRiskTagLevel(tagText);
+  if (level === '高') return 0;
+  if (level === '中') return 1;
+  if (level === '低') return 2;
+  return 3;
+};
+
+const formatRiskTagText = (tagText: string) => {
+  const level = getRiskTagLevel(tagText);
+  return level ? `${level}｜${tagText}` : tagText;
+};
+
 const getCommentTagColor = (tagText: string) => {
   if (tagText.includes('风险')) return 'green';
   if (strongCommentTags.some((tag) => tagText.includes(tag))) return 'red';
@@ -2278,24 +2317,39 @@ const getCommentTagColor = (tagText: string) => {
   return undefined;
 };
 
+const formatCommentTagText = (tagText: string) => {
+  if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
+  const riskText = formatRiskTagText(tagText);
+  if (riskText !== tagText) return riskText;
+  const color = getCommentTagColor(tagText);
+  if (color === 'red') return `强｜${tagText}`;
+  if (color === 'blue') return `观｜${tagText}`;
+  if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
+  return tagText;
+};
+
 const renderCommentTag = (
   tagText: string,
   key: string,
   options: { color?: string; fontWeight?: number; fontSize?: number } = {}
-) => (
-  <Tag
-    key={key}
-    color={options.color || getCommentTagColor(tagText)}
-    style={{
-      marginBottom: 4,
-      fontWeight: options.fontWeight,
-      fontSize: options.fontSize,
-      lineHeight: options.fontSize ? '22px' : undefined,
-    }}
-  >
-    {tagText}
-  </Tag>
-);
+) => {
+  const displayText = formatCommentTagText(tagText);
+  return (
+    <Tag
+      key={key}
+      color={options.color || getCommentTagColor(tagText)}
+      title={tagText}
+      style={{
+        marginBottom: 4,
+        fontWeight: options.fontWeight,
+        fontSize: options.fontSize,
+        lineHeight: options.fontSize ? '22px' : undefined,
+      }}
+    >
+      {displayText}
+    </Tag>
+  );
+};
 
 const renderComments = (comments?: string) => {
   if (!comments) return null;
@@ -2308,9 +2362,12 @@ const renderComments = (comments?: string) => {
     ['强信号', '观察', '无效'].includes(tag)
   );
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|DMI|MA):/.test(tag)
+    /^(C|T|P|R|DMI|MA):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
+  const sortedRiskTags = [...riskTags].sort(
+    (a, b) => getRiskTagRank(a) - getRiskTagRank(b)
+  );
   const signalTags = tagTexts.filter(
     (tag) =>
       tag !== scoreTag &&
@@ -2337,7 +2394,7 @@ const renderComments = (comments?: string) => {
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
       </div>
       {riskTags.length > 0 && (
-        <div>{riskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
+        <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
       )}
       {signalTags.length > 0 && (
         <div>
