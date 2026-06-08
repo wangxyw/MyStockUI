@@ -137,8 +137,10 @@ const getRecord2BestPickTag = (
   );
   const hasCoreAcceptance = tagTexts.some(
     (tag) =>
-      tag.includes('核心承接型') ||
-      tag.includes('强信号弹性:核心承接低弹')
+      tag.includes('核心承接型')
+  );
+  const hasCoreAcceptanceLowElasticity = tagTexts.some((tag) =>
+    tag.includes('强信号弹性:核心承接低弹')
   );
   const hasStrongMainType = tagTexts.some((tag) =>
     strongMainCommentTags.some((mainTag) => tag.includes(mainTag))
@@ -146,6 +148,9 @@ const getRecord2BestPickTag = (
 
   if (statusTag === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) {
     return '慎｜强信号承接弱';
+  }
+  if (statusTag === '强信号' && hasCoreAcceptanceLowElasticity) {
+    return '慎｜核心承接低弹';
   }
   if (statusTag !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
   if (hasHighElasticity) return '优｜高弹强主';
