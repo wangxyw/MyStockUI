@@ -93,6 +93,9 @@ const formatRiskTagText = (tagText: string) => {
 };
 
 const getCommentTagColor = (tag: string) => {
+  if (tag.includes('序列确认:')) return 'red';
+  if (tag.includes('序列警戒:')) return 'gold';
+  if (tag.includes('短线观察:')) return 'orange';
   if (tag.includes('短线:')) return 'volcano';
   if (tag.includes('警戒:')) return 'gold';
   if (tag.includes('风险:')) return 'green';
@@ -108,6 +111,9 @@ const formatCommentTagText = (tagText: string) => {
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
+  if (tagText.includes('序列确认:')) return `序确｜${tagText}`;
+  if (tagText.includes('序列警戒:')) return `序警｜${tagText}`;
+  if (tagText.includes('短线观察:')) return `短观｜${tagText}`;
   if (tagText.includes('短线:')) return `短｜${tagText}`;
   if (tagText.includes('警戒:')) return `警｜${tagText}`;
   const color = getCommentTagColor(tagText);
@@ -153,10 +159,16 @@ const getRecord2BestPickTag = (
   const hasCoreAcceptanceLowElasticity = tagTexts.some((tag) =>
     tag.includes('强信号弹性:核心承接低弹')
   );
+  const hasSequenceWarning = tagTexts.some((tag) =>
+    tag.includes('序列警戒:')
+  );
   const hasStrongMainType = tagTexts.some((tag) =>
     strongMainCommentTags.some((mainTag) => tag.includes(mainTag))
   );
 
+  if (statusTag === '强信号' && hasSequenceWarning) {
+    return '慎｜序列警戒';
+  }
   if (statusTag === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) {
     return '慎｜强信号承接弱';
   }

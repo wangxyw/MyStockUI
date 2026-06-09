@@ -2009,6 +2009,9 @@ const formatRiskTagText = (tagText: string) => {
 };
 
 const getPortraitTagColor = (tagText: string) => {
+  if (tagText.includes('序列确认:')) return 'red';
+  if (tagText.includes('序列警戒:')) return 'gold';
+  if (tagText.includes('短线观察:')) return 'orange';
   if (tagText.includes('短线:')) return 'volcano';
   if (tagText.includes('警戒:')) return 'gold';
   if (tagText.includes('风险')) return 'green';
@@ -2036,6 +2039,9 @@ const formatPortraitTagText = (tagText: string) => {
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
   if (tagText.includes('回撤管理')) return `管｜${tagText}`;
+  if (tagText.includes('序列确认:')) return `序确｜${tagText}`;
+  if (tagText.includes('序列警戒:')) return `序警｜${tagText}`;
+  if (tagText.includes('短线观察:')) return `短观｜${tagText}`;
   if (tagText.includes('短线:')) return `短｜${tagText}`;
   if (tagText.includes('警戒:')) return `警｜${tagText}`;
   const color = getPortraitTagColor(tagText);
@@ -2104,6 +2110,9 @@ const getPortraitBestPickTag = (
     const hasCoreAcceptanceLowElasticity = tagTexts.some((tag) =>
       tag.includes('强信号弹性:核心承接低弹')
     );
+    const hasSequenceWarning = tagTexts.some((tag) =>
+      tag.includes('序列警戒:')
+    );
     const hasStrongMainType = tagTexts.some(
       (tag) =>
         tag.includes('筹码热度回落动能') ||
@@ -2113,6 +2122,9 @@ const getPortraitBestPickTag = (
       tag.includes('低中集中反转型')
     );
 
+    if (statusTag === '强信号' && hasSequenceWarning) {
+      return '慎｜序列警戒';
+    }
     if (statusTag === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) {
       return '慎｜强信号承接弱';
     }
@@ -2127,6 +2139,9 @@ const getPortraitBestPickTag = (
   }
 
   const hasDrawdownConcern = hasRecord1DrawdownConcern(tagTexts);
+  const hasWarningTag = tagTexts.some((tag) => tag.includes('警戒:'));
+  const hasShortWatchTag = tagTexts.some((tag) => tag.includes('短线观察:'));
+  const hasSequenceWarningTag = tagTexts.some((tag) => tag.includes('序列警戒:'));
   if (statusTag === '强信号') {
     return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
   }
@@ -2137,7 +2152,9 @@ const getPortraitBestPickTag = (
     !hasHighMidRisk &&
     !hasDrawdownConcern
   ) {
-    return '备｜70+低风险观察';
+    if (hasSequenceWarningTag) return '慎｜序列警戒';
+    if (hasShortWatchTag) return '慎｜短观回撤未稳';
+    return hasWarningTag ? '慎｜观察警戒' : '备｜70+低风险观察';
   }
   return null;
 };

@@ -70,6 +70,76 @@ const formatDbDate = (value: any) => {
   }
   return String(value).slice(0, 10);
 };
+const parseCommentScoreStatus = (comments: any) => {
+  const tagTexts = String(comments ?? '').match(/【[^】]+】/g)?.map((tag) => tag.slice(1, -1)) || [];
+  const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
+  const statusTag = tagTexts.find((tag) => ['强信号', '观察', '无效'].includes(tag));
+  return {
+    score: scoreTag === undefined ? null : Number(scoreTag),
+    status: statusTag || null,
+  };
+};
+const dateDiffDays = (later: string, earlier: string) => {
+  const laterTime = new Date(`${later}T00:00:00+08:00`).getTime();
+  const earlierTime = new Date(`${earlier}T00:00:00+08:00`).getTime();
+  return Math.round((laterTime - earlierTime) / 86400000);
+};
+const querySequenceContext = async (tableName: 'focus_stocks_ai' | 'focus_stocks2_ai', symbol: string, currentDate: string) => {
+  const rows: any = await queryDB(`
+    SELECT datestr, comments
+    FROM ${tableName}
+    WHERE symbol = '${sqlEscape(symbol)}'
+      AND datestr < '${sqlEscape(currentDate)}'
+    ORDER BY datestr DESC
+    LIMIT 20
+  `);
+  const history = (rows || []).map((row: any) => {
+    const date = formatDbDate(row.datestr);
+    const parsed = parseCommentScoreStatus(row.comments);
+    return { date, ...parsed };
+  });
+  const prev = history[0];
+  return {
+    prior_count: history.length,
+    prior_30d: history.filter((row: any) => dateDiffDays(currentDate, row.date) <= 30).length,
+    prior_90d: history.filter((row: any) => dateDiffDays(currentDate, row.date) <= 90).length,
+    prior_180d: history.filter((row: any) => dateDiffDays(currentDate, row.date) <= 180).length,
+    days_since_prev: prev ? dateDiffDays(currentDate, prev.date) : null,
+    prev_score: prev?.score ?? null,
+    prev_status: prev?.status ?? null,
+  };
+};
+const sequenceTagsRecord1 = (sequence: any, currentScore: number) => {
+  if (!sequence || toNumber(sequence.prior_count) <= 0) return [];
+  const tags: string[] = [];
+  const daysSincePrev = sequence.days_since_prev;
+  const prevScore = sequence.prev_score;
+  const scoreDelta = prevScore === null || prevScore === undefined ? null : currentScore - toNumber(prevScore);
+
+  if (daysSincePrev !== null && daysSincePrev <= 30) tags.push('【序列确认:30日内重复报警】');
+  else if (daysSincePrev !== null && daysSincePrev > 30) tags.push('【序列警戒:长期重复报警】');
+  if (toNumber(sequence.prior_count) >= 2) tags.push('【序列警戒:三次以上反复报警】');
+  if (toNumber(sequence.prior_180d) >= 2) tags.push('【序列警戒:180日内多次报警】');
+  if (scoreDelta !== null && Math.abs(scoreDelta) >= 15) tags.push('【序列警戒:重复报警分数大幅波动】');
+  return tags;
+};
+const statusRank = (status: any) => ({ 无效: 0, 观察: 1, 强信号: 2 }[String(status)] ?? null);
+const sequenceTagsRecord2 = (sequence: any, currentStatus: string) => {
+  if (!sequence || toNumber(sequence.prior_count) <= 0) return [];
+  const tags: string[] = [];
+  const daysSincePrev = sequence.days_since_prev;
+  const prevRank = statusRank(sequence.prev_status);
+  const currentRank = statusRank(currentStatus);
+
+  if (daysSincePrev !== null && daysSincePrev >= 31 && daysSincePrev <= 90) tags.push('【序列确认:31-90日再次报警】');
+  else if (daysSincePrev !== null && daysSincePrev > 90) tags.push('【序列警戒:长期重复报警】');
+  if (prevRank !== null && currentRank !== null) {
+    if (currentRank > prevRank) tags.push('【序列确认:状态升级】');
+    else if (currentRank < prevRank) tags.push('【序列警戒:状态降级】');
+    else if (currentStatus === '强信号') tags.push('【序列确认:强信号重复确认】');
+  }
+  return tags;
+};
 
 const TIGHT_CONC_GAP_MAX = 2.01;
 const MID_CONC_GAP_MAX = 3.24;
@@ -428,6 +498,18 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     avgTurn10 !== null &&
     concGap >= 6.8 &&
     avgTurn10 >= 2.5;
+  const shortWatchPullbackTurnPulse =
+    !strongSignalCandidate &&
+    avgTurn10 !== null &&
+    drawdownFrom60High !== null &&
+    score < DEFAULT_MIN_SCORE &&
+    avgTurn10 >= 2.4 &&
+    pulseRatio >= 4.5 &&
+    drawdownFrom60High <= -18.0 &&
+    !shortHighPositionActive &&
+    !shortProfitRepair &&
+    !shortPulseElastic &&
+    !shortWideHighTurn;
   const warningObservePulseMidChip =
     !strongSignalCandidate &&
     pulseRatio >= 5.0 &&
@@ -443,6 +525,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     profitMax3 <= 3.0 &&
     concGap > TIGHT_CONC_GAP_MAX &&
     concGap <= MID_CONC_GAP_MAX;
+  const warningObserveShortWatchConflict =
+    shortWatchPullbackTurnPulse &&
+    score >= 70.0;
   const tags: string[] = [];
   if (superStrong) tags.push('【超强确认:紧凑筹码+高均换+健康盈利+脉冲】');
   else if (strongCore) tags.push('【强规律:筹码紧凑+高均换】');
@@ -463,9 +548,11 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   if (shortProfitRepair) tags.push('【短线:盈利回落强修复】');
   if (shortPulseElastic) tags.push('【短线:脉冲高弹机会】');
   if (shortWideHighTurn) tags.push('【短线:宽筹码高换弹性】');
+  if (shortWatchPullbackTurnPulse) tags.push('【短线观察:回撤换手脉冲修复】');
   if (warningObservePulseMidChip) tags.push('【警戒:观察脉冲偏强中等筹码】');
   if (warningObservePullbackWeak) tags.push('【警戒:观察回撤位弱】');
   if (warningLowProfitMidChip) tags.push('【警戒:低盈利中等筹码回撤】');
+  if (warningObserveShortWatchConflict) tags.push('【警戒:观察短线修复回撤未稳】');
   if (score >= DEFAULT_MIN_SCORE && !tags.includes('【中期发酵型】')) tags.push('【中期发酵型】');
   if (concGap > TIGHT_CONC_GAP_MAX && concGap <= MID_CONC_GAP_MAX) tags.push('【筹码带中等-观察】');
   if (technicalHardRisk) tags.push('【风险:趋势空头+均换不足+筹码无修复】');
@@ -492,8 +579,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
       : score >= DEFAULT_MIN_SCORE && (superStrong || strongCore)
         ? '【强信号】'
         : (mediumGapMomentum && score >= 60) || (coreChipZone && profitCore && score >= 55) || score >= 60
-          ? '【观察】'
+        ? '【观察】'
           : '【无效】';
+  tags.push(...sequenceTagsRecord1(await querySequenceContext('focus_stocks_ai', symbol, actualDate), score));
   const details = {
     conc_70: round2(conc70),
     conc_90: round2(conc90),
@@ -540,9 +628,11 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     short_profit_repair: shortProfitRepair,
     short_pulse_elastic: shortPulseElastic,
     short_wide_high_turn: shortWideHighTurn,
+    short_watch_pullback_turn_pulse: shortWatchPullbackTurnPulse,
     warning_observe_pulse_mid_chip: warningObservePulseMidChip,
     warning_observe_pullback_weak: warningObservePullbackWeak,
     warning_low_profit_mid_chip: warningLowProfitMidChip,
+    warning_observe_short_watch_conflict: warningObserveShortWatchConflict,
     medium_gap_momentum: mediumGapMomentum,
     technical_hard_risk: technicalHardRisk,
     technical_soft_risk: technicalSoftRisk,
@@ -565,7 +655,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_8',
+    model: 'record1_v12_9',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -862,11 +952,21 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
       pricePos60 === null ||
       pricePos60 <= 20.0
     );
+  const shortWatchMidcapAcceptanceRepair =
+    !strongStatusCandidate &&
+    score >= 55 &&
+    avgTurn10 !== null &&
+    drawdownFrom60High !== null &&
+    meanTurn >= 2.4 &&
+    avgTurn10 >= 1.6 &&
+    drawdownFrom60High <= -15.0 &&
+    (coreAcceptance || lowMidReversal || preferredChipBand);
   if (highTurnElasticity) tags.push('【强信号弹性:高换手高弹】');
   else if (drawdownRepairElasticity) tags.push('【强信号弹性:回撤后放量修复】');
   else if (coreAcceptanceLowElasticity) tags.push('【强信号弹性:核心承接低弹】');
   else if (strongStatusCandidate) tags.push('【强信号弹性:普通】');
   if (shortMidcapRepairElasticity) tags.push('【短线:中大盘修复弹性】');
+  if (shortWatchMidcapAcceptanceRepair) tags.push('【短线观察:中大盘承接修复】');
   if (warningLowElasticCoreAcceptance) tags.push('【警戒:低弹核心承接】');
   const record2ForcedInvalid =
     riskHitCount >= 2 ||
@@ -880,6 +980,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
         : score >= 55 && !lowTightNoAcceptance
           ? '【观察】'
           : '【无效】';
+  tags.push(...sequenceTagsRecord2(await querySequenceContext('focus_stocks2_ai', symbol, actualDate), statusTag.replace(/[【】]/g, '')));
   const details = {
     conc_70: round2(conc70),
     conc_90: round2(conc90),
@@ -914,6 +1015,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     drawdown_repair_elasticity: drawdownRepairElasticity,
     core_acceptance_low_elasticity: coreAcceptanceLowElasticity,
     short_midcap_repair_elasticity: shortMidcapRepairElasticity,
+    short_watch_midcap_acceptance_repair: shortWatchMidcapAcceptanceRepair,
     warning_low_elastic_core_acceptance: warningLowElasticCoreAcceptance,
   };
   const comments = [
@@ -928,7 +1030,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v1_9',
+    model: 'record2_v2_0',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
