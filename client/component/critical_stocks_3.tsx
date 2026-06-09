@@ -2143,6 +2143,7 @@ const getPortraitBestPickTag = (
   const hasShortWatchTag = tagTexts.some((tag) => tag.includes('短线观察:'));
   const hasSequenceWarningTag = tagTexts.some((tag) => tag.includes('序列警戒:'));
   if (statusTag === '强信号') {
+    if (hasSequenceWarningTag) return '慎｜序列警戒';
     return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
   }
   if (

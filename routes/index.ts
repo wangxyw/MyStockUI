@@ -116,11 +116,13 @@ const sequenceTagsRecord1 = (sequence: any, currentScore: number) => {
   const prevScore = sequence.prev_score;
   const scoreDelta = prevScore === null || prevScore === undefined ? null : currentScore - toNumber(prevScore);
 
-  if (daysSincePrev !== null && daysSincePrev <= 30) tags.push('【序列确认:30日内重复报警】');
-  else if (daysSincePrev !== null && daysSincePrev > 30) tags.push('【序列警戒:长期重复报警】');
-  if (toNumber(sequence.prior_count) >= 2) tags.push('【序列警戒:三次以上反复报警】');
-  if (toNumber(sequence.prior_180d) >= 2) tags.push('【序列警戒:180日内多次报警】');
-  if (scoreDelta !== null && Math.abs(scoreDelta) >= 15) tags.push('【序列警戒:重复报警分数大幅波动】');
+  const warningTags: string[] = [];
+  if (toNumber(sequence.prior_count) >= 2) warningTags.push('【序列警戒:三次以上反复报警】');
+  if (toNumber(sequence.prior_180d) >= 2) warningTags.push('【序列警戒:180日内多次报警】');
+  if (scoreDelta !== null && Math.abs(scoreDelta) >= 15) warningTags.push('【序列警戒:重复报警分数大幅波动】');
+  if (daysSincePrev !== null && daysSincePrev > 30) tags.push('【序列警戒:长期重复报警】');
+  else if (daysSincePrev !== null && daysSincePrev <= 30 && warningTags.length === 0) tags.push('【序列确认:30日内重复报警】');
+  tags.push(...warningTags);
   return tags;
 };
 const statusRank = (status: any) => ({ 无效: 0, 观察: 1, 强信号: 2 }[String(status)] ?? null);
@@ -131,13 +133,17 @@ const sequenceTagsRecord2 = (sequence: any, currentStatus: string) => {
   const prevRank = statusRank(sequence.prev_status);
   const currentRank = statusRank(currentStatus);
 
-  if (daysSincePrev !== null && daysSincePrev >= 31 && daysSincePrev <= 90) tags.push('【序列确认:31-90日再次报警】');
-  else if (daysSincePrev !== null && daysSincePrev > 90) tags.push('【序列警戒:长期重复报警】');
-  if (prevRank !== null && currentRank !== null) {
-    if (currentRank > prevRank) tags.push('【序列确认:状态升级】');
-    else if (currentRank < prevRank) tags.push('【序列警戒:状态降级】');
-    else if (currentStatus === '强信号') tags.push('【序列确认:强信号重复确认】');
+  const warningTags: string[] = [];
+  if (daysSincePrev !== null && daysSincePrev > 90) warningTags.push('【序列警戒:长期重复报警】');
+  if (prevRank !== null && currentRank !== null && currentRank < prevRank) warningTags.push('【序列警戒:状态降级】');
+  if (warningTags.length === 0) {
+    if (daysSincePrev !== null && daysSincePrev >= 31 && daysSincePrev <= 90) tags.push('【序列确认:31-90日再次报警】');
+    if (prevRank !== null && currentRank !== null) {
+      if (currentRank > prevRank) tags.push('【序列确认:状态升级】');
+      else if (currentStatus === '强信号') tags.push('【序列确认:强信号重复确认】');
+    }
   }
+  tags.push(...warningTags);
   return tags;
 };
 
@@ -655,7 +661,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_9',
+    model: 'record1_v12_9_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1030,7 +1036,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_0',
+    model: 'record2_v2_0_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
