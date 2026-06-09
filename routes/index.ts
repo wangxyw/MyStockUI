@@ -126,7 +126,7 @@ const sequenceTagsRecord1 = (sequence: any, currentScore: number) => {
   return tags;
 };
 const statusRank = (status: any) => ({ 无效: 0, 观察: 1, 强信号: 2 }[String(status)] ?? null);
-const sequenceTagsRecord2 = (sequence: any, currentStatus: string) => {
+const sequenceTagsRecord2 = (sequence: any, currentStatus: string, technicalBlocked = false) => {
   if (!sequence || toNumber(sequence.prior_count) <= 0) return [];
   const tags: string[] = [];
   const daysSincePrev = sequence.days_since_prev;
@@ -136,7 +136,7 @@ const sequenceTagsRecord2 = (sequence: any, currentStatus: string) => {
   const warningTags: string[] = [];
   if (daysSincePrev !== null && daysSincePrev > 90) warningTags.push('【序列警戒:长期重复报警】');
   if (prevRank !== null && currentRank !== null && currentRank < prevRank) warningTags.push('【序列警戒:状态降级】');
-  if (warningTags.length === 0) {
+  if (warningTags.length === 0 && !technicalBlocked) {
     if (daysSincePrev !== null && daysSincePrev >= 31 && daysSincePrev <= 90) tags.push('【序列确认:31-90日再次报警】');
     if (prevRank !== null && currentRank !== null) {
       if (currentRank > prevRank) tags.push('【序列确认:状态升级】');
@@ -594,15 +594,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     record1LowInvalid &&
     !record1SequenceWarning &&
     shortWideHighTurn;
-  const lowScoreProfitPositionRepair =
-    record1LowInvalid &&
-    !record1SequenceWarning &&
-    profitMax3 >= 5.0 &&
-    pricePos60 !== null &&
-    pricePos60 >= 10.0 &&
-    pulseRatio >= 8.0;
   if (lowScoreWideHighTurnRepair) tags.push('【低分修复:宽筹码高换弹性确认】');
-  if (lowScoreProfitPositionRepair && !lowScoreWideHighTurnRepair) tags.push('【低分观察:盈利修复+位置抬升】');
   const details = {
     conc_70: round2(conc70),
     conc_90: round2(conc90),
@@ -676,7 +668,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_10',
+    model: 'record1_v12_10_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1001,7 +993,6 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
         : score >= 55 && !lowTightNoAcceptance
           ? '【观察】'
           : '【无效】';
-  tags.push(...sequenceTagsRecord2(await querySequenceContext('focus_stocks2_ai', symbol, actualDate), statusTag.replace(/[【】]/g, '')));
   const record2LowInvalid = statusTag === '【无效】' && score < 55;
   const technicalBlocked =
     riskHitCount >= 2 ||
@@ -1009,9 +1000,12 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     riskMaAllBear ||
     riskLowLiquidityWeakTrend ||
     riskLowPositionLowTurnElasticity;
+  tags.push(...sequenceTagsRecord2(await querySequenceContext('focus_stocks2_ai', symbol, actualDate), statusTag.replace(/[【】]/g, ''), technicalBlocked));
+  const record2SequenceWarning = tags.some((tag) => tag.includes('序列警戒:'));
   const lowScoreHighConcPullbackRepair =
     record2LowInvalid &&
     !technicalBlocked &&
+    !record2SequenceWarning &&
     conc90 >= 13.0 &&
     conc70 >= 7.0 &&
     drawdownFrom60High !== null &&
@@ -1019,6 +1013,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   const lowScoreHighConcVolumeRepair =
     record2LowInvalid &&
     !technicalBlocked &&
+    !record2SequenceWarning &&
     conc90 >= 13.0 &&
     pricePos60 !== null &&
     pricePos60 >= 10.0 &&
@@ -1083,7 +1078,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_1',
+    model: 'record2_v2_1_1',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

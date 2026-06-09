@@ -650,7 +650,11 @@ const MergeSCRDetails2 = (scrData) => {
 
 // ======================= API 调用函数 =======================
 async function getAllFocusedStocks2(page = 1, pageSize = 50, sortByDate = false, dateSortOrder: 'ASC' | 'DESC' = 'DESC') {
-  const response = await get(`/api/all_focus_stock2?page=${page}&pageSize=${pageSize}&sortByDate=${sortByDate}&dateSortOrder=${dateSortOrder}`);
+  let url = `/api/all_focus_stock2?page=${page}&pageSize=${pageSize}`;
+  if (sortByDate) {
+    url += `&sortByDate=true&dateSortOrder=${dateSortOrder}`;
+  }
+  const response = await get(url);
   return response; // { data, total }
 }
 
@@ -1146,6 +1150,7 @@ export const MyFocus2ListComponent = () => {
   }, [selectStatus, sortByDate, dateSortOrder, pageSize]);
 
   const handleDateSort = useCallback((order: 'ascend' | 'descend' | null) => {
+    setCurrentPage(1);
     if (order === null) {
       setSortByDate(false);
       handleAllStockData(1, false, 'DESC');
@@ -1241,7 +1246,25 @@ export const MyFocus2ListComponent = () => {
     // { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
     { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
     { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: false, render: renderComments },
-    { title: 'Date', dataIndex: 'datestr', key: 'datestr', width: 120, sorter: true, sortOrder: sortByDate ? (dateSortOrder==='ASC'?'ascend':'descend') : null, onHeaderCell: () => ({ onClick: () => { if(!sortByDate||dateSortOrder==='DESC') handleDateSort('ascend'); else if(dateSortOrder==='ASC') handleDateSort('descend'); else handleDateSort(null); } }) },
+    {
+      title: 'Date',
+      dataIndex: 'datestr',
+      key: 'datestr',
+      width: 120,
+      sorter: true,
+      sortOrder: sortByDate ? (dateSortOrder === 'ASC' ? 'ascend' : 'descend') : null,
+      onHeaderCell: () => ({
+        onClick: () => {
+          if (!sortByDate || dateSortOrder === 'DESC') {
+            handleDateSort('ascend');
+          } else if (dateSortOrder === 'ASC') {
+            handleDateSort('descend');
+          } else {
+            handleDateSort(null);
+          }
+        },
+      }),
+    },
     { title: 'last_updated_at', dataIndex: 'last_updated_at', key: 'last_updated_at', render: (c) => <p>{c?.split('T')?.[0]}</p> },
     {
       title: 'Recent 10 days',
@@ -1310,7 +1333,7 @@ export const MyFocus2ListComponent = () => {
           columns={mergedColumns}
           dataSource={data}
           components={components}
-          rowKey="symbol"
+          rowKey={(record: any) => `${record.symbol}-${record.datestr}`}
         />
         <Modal title={`Charts: ${curText}`} visible={isModalVisible} onCancel={()=>setIsModalVisible(false)} footer={[<Button onClick={()=>setIsModalVisible(false)} type="primary">OK</Button>]} width={1500}>
           5 DAYs: <img src={img} style={{ width: '200px' }} />
