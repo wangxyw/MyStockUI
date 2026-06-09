@@ -2314,6 +2314,8 @@ const formatRiskTagText = (tagText: string) => {
 const getCommentTagColor = (tagText: string) => {
   if (tagText.includes('序列确认:')) return 'red';
   if (tagText.includes('序列警戒:')) return 'gold';
+  if (tagText.includes('低分修复:')) return 'geekblue';
+  if (tagText.includes('低分观察:')) return 'blue';
   if (tagText.includes('短线观察:')) return 'orange';
   if (tagText.includes('短线:')) return 'volcano';
   if (tagText.includes('警戒:')) return 'gold';
@@ -2325,13 +2327,15 @@ const getCommentTagColor = (tagText: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
-  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜')) return tagText;
+  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜') || tagText.startsWith('避｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
   if (tagText.includes('回撤管理')) return `管｜${tagText}`;
   if (tagText.includes('序列确认:')) return `序确｜${tagText}`;
   if (tagText.includes('序列警戒:')) return `序警｜${tagText}`;
+  if (tagText.includes('低分修复:')) return `修｜${tagText}`;
+  if (tagText.includes('低分观察:')) return `低观｜${tagText}`;
   if (tagText.includes('短线观察:')) return `短观｜${tagText}`;
   if (tagText.includes('短线:')) return `短｜${tagText}`;
   if (tagText.includes('警戒:')) return `警｜${tagText}`;
@@ -2346,6 +2350,7 @@ const getBestPickTagColor = (tagText: string) => {
   if (tagText.startsWith('优｜')) return 'red';
   if (tagText.startsWith('备｜')) return 'geekblue';
   if (tagText.startsWith('慎｜')) return 'gold';
+  if (tagText.startsWith('避｜')) return 'green';
   return undefined;
 };
 
@@ -2373,6 +2378,18 @@ const getRecord1BestPickTag = (
   const hasWarningTag = tagTexts.some((tag) => tag.includes('警戒:'));
   const hasShortWatchTag = tagTexts.some((tag) => tag.includes('短线观察:'));
   const hasSequenceWarningTag = tagTexts.some((tag) => tag.includes('序列警戒:'));
+  const hasLowScoreRepairTag = tagTexts.some((tag) => tag.includes('低分修复:'));
+  const hasLowScoreWatchTag = tagTexts.some((tag) => tag.includes('低分观察:'));
+  const hasHardAvoidTag = tagTexts.some((tag) =>
+    tag.includes('趋势空头+均换不足+筹码无修复') ||
+    tag.includes('三次以上反复报警') ||
+    tag.includes('180日内多次报警')
+  );
+
+  if (statusTag === '无效' && hasHardAvoidTag) return '避｜明确弱势';
+  if (statusTag === '无效' && hasSequenceWarningTag) return '避｜低分序列警戒';
+  if (statusTag === '无效' && hasLowScoreRepairTag) return '备｜低分修复观察';
+  if (statusTag === '无效' && hasLowScoreWatchTag) return '备｜低分二次观察';
 
   if (statusTag === '强信号') {
     if (hasSequenceWarningTag) return '慎｜序列警戒';

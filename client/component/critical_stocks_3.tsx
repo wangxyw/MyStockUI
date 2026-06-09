@@ -2011,6 +2011,9 @@ const formatRiskTagText = (tagText: string) => {
 const getPortraitTagColor = (tagText: string) => {
   if (tagText.includes('序列确认:')) return 'red';
   if (tagText.includes('序列警戒:')) return 'gold';
+  if (tagText.includes('低分修复:')) return 'geekblue';
+  if (tagText.includes('低分观察:')) return 'blue';
+  if (tagText.includes('备选:')) return 'blue';
   if (tagText.includes('短线观察:')) return 'orange';
   if (tagText.includes('短线:')) return 'volcano';
   if (tagText.includes('警戒:')) return 'gold';
@@ -2034,13 +2037,16 @@ const getPortraitTagColor = (tagText: string) => {
 };
 
 const formatPortraitTagText = (tagText: string) => {
-  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜')) return tagText;
+  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜') || tagText.startsWith('避｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
   if (tagText.includes('回撤管理')) return `管｜${tagText}`;
   if (tagText.includes('序列确认:')) return `序确｜${tagText}`;
   if (tagText.includes('序列警戒:')) return `序警｜${tagText}`;
+  if (tagText.includes('低分修复:')) return `修｜${tagText}`;
+  if (tagText.includes('低分观察:')) return `低观｜${tagText}`;
+  if (tagText.includes('备选:')) return `备｜${tagText}`;
   if (tagText.includes('短线观察:')) return `短观｜${tagText}`;
   if (tagText.includes('短线:')) return `短｜${tagText}`;
   if (tagText.includes('警戒:')) return `警｜${tagText}`;
@@ -2055,6 +2061,7 @@ const getBestPickTagColor = (tagText: string) => {
   if (tagText.startsWith('优｜')) return 'red';
   if (tagText.startsWith('备｜')) return 'geekblue';
   if (tagText.startsWith('慎｜')) return 'gold';
+  if (tagText.startsWith('避｜')) return 'green';
   return undefined;
 };
 
@@ -2086,7 +2093,9 @@ const getPortraitBestPickTag = (
       tag.includes('高集中趋势型') ||
       tag.includes('宽筹码动能型') ||
       tag.includes('低中集中反转型') ||
-      tag.includes('核心承接型')
+      tag.includes('核心承接型') ||
+      tag.includes('低分修复:高集中回撤修复') ||
+      tag.includes('短线观察:高集中放量修复')
   );
 
   if (isRecord2Portrait) {
@@ -2113,6 +2122,9 @@ const getPortraitBestPickTag = (
     const hasSequenceWarning = tagTexts.some((tag) =>
       tag.includes('序列警戒:')
     );
+    const hasSequenceConfirm = tagTexts.some((tag) =>
+      tag.includes('序列确认:')
+    );
     const hasStrongMainType = tagTexts.some(
       (tag) =>
         tag.includes('筹码热度回落动能') ||
@@ -2121,6 +2133,28 @@ const getPortraitBestPickTag = (
         tag.includes('宽筹码动能型') ||
       tag.includes('低中集中反转型')
     );
+    const hasLowScoreRepair = tagTexts.some((tag) => tag.includes('低分修复:'));
+    const hasLowScoreShortWatch = tagTexts.some((tag) => tag.includes('短线观察:高集中放量修复'));
+    const hasTechnicalAvoid = tagTexts.some((tag) =>
+      tag.includes('低位无承接空头') ||
+      tag.includes('技术风险叠加') ||
+      tag.includes('均线全空弱势') ||
+      tag.includes('低流动弱趋势') ||
+      tag.includes('低位低换弹性不足')
+    );
+
+    if (statusTag === '无效' && hasTechnicalAvoid) {
+      return '避｜技术弱势';
+    }
+    if (statusTag === '无效' && hasSequenceWarning) {
+      return '避｜低分序列警戒';
+    }
+    if (statusTag === '无效' && hasLowScoreRepair) {
+      return '备｜低分高集中修复';
+    }
+    if (statusTag === '无效' && hasLowScoreShortWatch) {
+      return '备｜低分短线观察';
+    }
 
     if (statusTag === '强信号' && hasSequenceWarning) {
       return '慎｜序列警戒';
@@ -2133,8 +2167,9 @@ const getPortraitBestPickTag = (
     }
     if (statusTag !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
     if (hasHighElasticity) return '优｜高弹强主';
-    if (hasCoreAcceptance) return '优｜核心承接';
+    if (hasCoreAcceptance && (hasStrongMainType || hasSequenceConfirm)) return '优｜核心承接确认';
     if (hasStrongMainType) return '优｜强主非普通弹性';
+    if (hasCoreAcceptance) return '备｜核心承接待确认';
     return null;
   }
 
@@ -2142,6 +2177,17 @@ const getPortraitBestPickTag = (
   const hasWarningTag = tagTexts.some((tag) => tag.includes('警戒:'));
   const hasShortWatchTag = tagTexts.some((tag) => tag.includes('短线观察:'));
   const hasSequenceWarningTag = tagTexts.some((tag) => tag.includes('序列警戒:'));
+  const hasLowScoreRepairTag = tagTexts.some((tag) => tag.includes('低分修复:'));
+  const hasLowScoreWatchTag = tagTexts.some((tag) => tag.includes('低分观察:'));
+  const hasHardAvoidTag = tagTexts.some((tag) =>
+    tag.includes('趋势空头+均换不足+筹码无修复') ||
+    tag.includes('三次以上反复报警') ||
+    tag.includes('180日内多次报警')
+  );
+  if (statusTag === '无效' && hasHardAvoidTag) return '避｜明确弱势';
+  if (statusTag === '无效' && hasSequenceWarningTag) return '避｜低分序列警戒';
+  if (statusTag === '无效' && hasLowScoreRepairTag) return '备｜低分修复观察';
+  if (statusTag === '无效' && hasLowScoreWatchTag) return '备｜低分二次观察';
   if (statusTag === '强信号') {
     if (hasSequenceWarningTag) return '慎｜序列警戒';
     return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
