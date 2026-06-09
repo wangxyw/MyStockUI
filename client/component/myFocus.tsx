@@ -2327,7 +2327,7 @@ const getCommentTagColor = (tagText: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
-  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜') || tagText.startsWith('避｜')) return tagText;
+  if (/^(买|试|等|慎|避)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
@@ -2347,66 +2347,12 @@ const formatCommentTagText = (tagText: string) => {
 };
 
 const getBestPickTagColor = (tagText: string) => {
-  if (tagText.startsWith('优｜')) return 'red';
-  if (tagText.startsWith('备｜')) return 'geekblue';
-  if (tagText.startsWith('慎｜')) return 'gold';
-  if (tagText.startsWith('避｜')) return 'green';
+  if (/^买[:｜]/.test(tagText)) return 'red';
+  if (/^试[:｜]/.test(tagText)) return 'volcano';
+  if (/^等[:｜]/.test(tagText)) return 'geekblue';
+  if (/^慎[:｜]/.test(tagText)) return 'gold';
+  if (/^避[:｜]/.test(tagText)) return 'green';
   return undefined;
-};
-
-const hasRecord1DrawdownConcern = (tagTexts: string[]) =>
-  tagTexts.some((tag) =>
-    tag.includes('回撤管理') ||
-    tag.includes('低盈利未修复+观察高分') ||
-    tag.includes('低盈利+中等筹码带回撤') ||
-    tag.includes('高换手低盈利承接弱') ||
-    tag.includes('低盈利+收盘承接弱') ||
-    tag.includes('近高位低盈利背离')
-  );
-
-const getRecord1BestPickTag = (
-  score: number | null,
-  statusTag: string | undefined,
-  tagTexts: string[],
-  riskTags: string[]
-) => {
-  const hasHighMidRisk = riskTags.some((tag) => {
-    const level = getRiskTagLevel(tag);
-    return level === '高' || level === '中';
-  });
-  const hasDrawdownConcern = hasRecord1DrawdownConcern(tagTexts);
-  const hasWarningTag = tagTexts.some((tag) => tag.includes('警戒:'));
-  const hasShortWatchTag = tagTexts.some((tag) => tag.includes('短线观察:'));
-  const hasSequenceWarningTag = tagTexts.some((tag) => tag.includes('序列警戒:'));
-  const hasLowScoreRepairTag = tagTexts.some((tag) => tag.includes('低分修复:'));
-  const hasLowScoreWatchTag = tagTexts.some((tag) => tag.includes('低分观察:'));
-  const hasHardAvoidTag = tagTexts.some((tag) =>
-    tag.includes('趋势空头+均换不足+筹码无修复') ||
-    tag.includes('三次以上反复报警') ||
-    tag.includes('180日内多次报警')
-  );
-
-  if (statusTag === '无效' && hasHardAvoidTag) return '避｜明确弱势';
-  if (statusTag === '无效' && hasSequenceWarningTag) return '避｜低分序列警戒';
-  if (statusTag === '无效' && hasLowScoreRepairTag) return '备｜低分修复观察';
-  if (statusTag === '无效' && hasLowScoreWatchTag) return '备｜低分二次观察';
-
-  if (statusTag === '强信号') {
-    if (hasSequenceWarningTag) return '慎｜序列警戒';
-    return hasDrawdownConcern ? '慎｜强信号回撤管理' : '优｜强信号优先';
-  }
-  if (
-    statusTag === '观察' &&
-    score !== null &&
-    score >= 70 &&
-    !hasHighMidRisk &&
-    !hasDrawdownConcern
-  ) {
-    if (hasSequenceWarningTag) return '慎｜序列警戒';
-    if (hasShortWatchTag) return '慎｜短观回撤未稳';
-    return hasWarningTag ? '慎｜观察警戒' : '备｜70+低风险观察';
-  }
-  return null;
 };
 
 const renderCommentTag = (
@@ -2439,10 +2385,10 @@ const renderComments = (comments?: string) => {
     tag.slice(1, -1)
   );
   const scoreTag = tagTexts.find((tag) => /^-?\d+(?:\.\d+)?$/.test(tag));
-  const scoreValue = scoreTag ? Number(scoreTag) : null;
   const statusTag = tagTexts.find((tag) =>
     ['强信号', '观察', '无效'].includes(tag)
   );
+  const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避):/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
     /^(C|T|P|R|DMI|MA):/.test(tag)
   );
@@ -2454,10 +2400,11 @@ const renderComments = (comments?: string) => {
     (tag) =>
       tag !== scoreTag &&
       tag !== statusTag &&
+      tag !== decisionTag &&
       !factorTags.includes(tag) &&
       !riskTags.includes(tag)
   );
-  const bestPickTag = getRecord1BestPickTag(scoreValue, statusTag, tagTexts, riskTags);
+  const bestPickTag = decisionTag;
 
   return (
     <div style={{ lineHeight: 1.6 }}>
