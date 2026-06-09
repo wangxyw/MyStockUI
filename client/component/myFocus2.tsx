@@ -93,6 +93,8 @@ const formatRiskTagText = (tagText: string) => {
 };
 
 const getCommentTagColor = (tag: string) => {
+  if (tag.includes('短线:')) return 'volcano';
+  if (tag.includes('警戒:')) return 'gold';
   if (tag.includes('风险:')) return 'green';
   if (tag === '强信号') return 'red';
   if (tag === '观察') return 'blue';
@@ -102,15 +104,24 @@ const getCommentTagColor = (tag: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
-  if (tagText.startsWith('优｜') || tagText.startsWith('慎｜')) return tagText;
+  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
+  if (tagText.includes('短线:')) return `短｜${tagText}`;
+  if (tagText.includes('警戒:')) return `警｜${tagText}`;
   const color = getCommentTagColor(tagText);
   if (color === 'red') return `强｜${tagText}`;
   if (color === 'blue') return `观｜${tagText}`;
   if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
   return tagText;
+};
+
+const getBestPickTagColor = (tagText: string) => {
+  if (tagText.startsWith('优｜')) return 'red';
+  if (tagText.startsWith('备｜')) return 'geekblue';
+  if (tagText.startsWith('慎｜')) return 'gold';
+  return undefined;
 };
 
 const getRecord2BestPickTag = (
@@ -226,7 +237,7 @@ const renderComments = (comments?: string) => {
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
         {bestPickTag &&
           renderCommentTag(bestPickTag, 'best-pick', {
-            color: bestPickTag.startsWith('优') ? 'red' : 'gold',
+            color: getBestPickTagColor(bestPickTag),
             fontWeight: 700,
           })}
       </div>

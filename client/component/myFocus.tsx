@@ -2312,6 +2312,8 @@ const formatRiskTagText = (tagText: string) => {
 };
 
 const getCommentTagColor = (tagText: string) => {
+  if (tagText.includes('短线:')) return 'volcano';
+  if (tagText.includes('警戒:')) return 'gold';
   if (tagText.includes('风险')) return 'green';
   if (tagText.includes('回撤管理')) return 'green';
   if (strongCommentTags.some((tag) => tagText.includes(tag))) return 'red';
@@ -2320,16 +2322,25 @@ const getCommentTagColor = (tagText: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
-  if (tagText.startsWith('优｜') || tagText.startsWith('慎｜')) return tagText;
+  if (tagText.startsWith('优｜') || tagText.startsWith('备｜') || tagText.startsWith('慎｜')) return tagText;
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
   if (tagText.includes('回撤管理')) return `管｜${tagText}`;
+  if (tagText.includes('短线:')) return `短｜${tagText}`;
+  if (tagText.includes('警戒:')) return `警｜${tagText}`;
   const color = getCommentTagColor(tagText);
   if (color === 'red') return `强｜${tagText}`;
   if (color === 'blue') return `观｜${tagText}`;
   if (tagText.includes('弱匹配')) return `弱｜${tagText}`;
   return tagText;
+};
+
+const getBestPickTagColor = (tagText: string) => {
+  if (tagText.startsWith('优｜')) return 'red';
+  if (tagText.startsWith('备｜')) return 'geekblue';
+  if (tagText.startsWith('慎｜')) return 'gold';
+  return undefined;
 };
 
 const hasRecord1DrawdownConcern = (tagTexts: string[]) =>
@@ -2364,7 +2375,7 @@ const getRecord1BestPickTag = (
     !hasHighMidRisk &&
     !hasDrawdownConcern
   ) {
-    return '优｜70+低风险观察';
+    return '备｜70+低风险观察';
   }
   return null;
 };
@@ -2437,7 +2448,7 @@ const renderComments = (comments?: string) => {
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
         {bestPickTag &&
           renderCommentTag(bestPickTag, 'best-pick', {
-            color: bestPickTag.startsWith('优') ? 'red' : 'gold',
+            color: getBestPickTagColor(bestPickTag),
             fontWeight: 700,
           })}
       </div>
