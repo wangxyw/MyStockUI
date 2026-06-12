@@ -134,6 +134,7 @@ const sequenceTagsRecord2 = (sequence: any, currentStatus: string, technicalBloc
   const currentRank = statusRank(currentStatus);
 
   const warningTags: string[] = [];
+  if (toNumber(sequence.prior_count) >= 4 || toNumber(sequence.prior_180d) >= 4) warningTags.push('【序列警戒:高频重复报警】');
   if (daysSincePrev !== null && daysSincePrev > 90) warningTags.push('【序列警戒:长期重复报警】');
   if (prevRank !== null && currentRank !== null && currentRank < prevRank) warningTags.push('【序列警戒:状态降级】');
   if (warningTags.length === 0 && !technicalBlocked) {
@@ -212,6 +213,14 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
   const warningTag = tagText.includes('警戒:');
   const shortWatchTag = tagText.includes('短线观察:');
   const lowScoreRepair = tagText.includes('低分修复:');
+  const profitDelta = details?.profit_delta === null || details?.profit_delta === undefined
+    ? null
+    : Number(details.profit_delta);
+  const observePullbackManagement = profitDelta !== null && profitDelta >= 7;
+  const conc70 = details?.conc_70 === null || details?.conc_70 === undefined
+    ? null
+    : Number(details.conc_70);
+  const observeHighConcPullback = conc70 !== null && conc70 >= 7;
   const hardAvoid =
     tagText.includes('趋势空头+均换不足+筹码无修复') ||
     tagText.includes('三次以上反复报警') ||
@@ -230,11 +239,14 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
   if (statusText === '观察' && score >= 70 && !highMidRisk && !drawdownConcern) {
     if (sequenceWarning) return '【慎:序列警戒】';
     if (shortWatchTag) return '【慎:短观回撤未稳】';
-    return warningTag ? '【慎:观察警戒】' : '【试:70+低风险观察】';
+    if (observePullbackManagement) return '【慎:70+回撤管理】';
+    if (observeHighConcPullback) return '【慎:70+高集中回撤】';
+    return warningTag ? '【慎:观察警戒】' : '【试:70+回撤观察】';
   }
   if (statusText === '观察' && score < 70 && lowPositionRepairConfirm) {
     return '【试:低位修复确认】';
   }
+  if (statusText === '观察' && sequenceWarning) return '【慎:序列警戒】';
   return null;
 };
 
@@ -244,6 +256,9 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   const closeWeakness10 = details?.close_weakness_10 === null || details?.close_weakness_10 === undefined
     ? null
     : Number(details.close_weakness_10);
+  const conc90 = details?.conc_90 === null || details?.conc_90 === undefined
+    ? null
+    : Number(details.conc_90);
   const hasHighMidRisk = hasAnyTagText(tagText, record2HighMidRiskPatterns);
   const hasOrdinaryElasticity = tagText.includes('强信号弹性:普通');
   const hasHighElasticity = tagText.includes('强信号弹性:高换手高弹');
@@ -252,6 +267,21 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   const hasSequenceWarning = tagText.includes('序列警戒:');
   const hasLowScoreRepair = tagText.includes('低分修复:');
   const hasLowScoreShortWatch = tagText.includes('短线观察:高集中放量修复');
+  const hasCoreAcceptanceWaitConfirm = tagText.includes('备选:核心承接待确认');
+  const pricePos60 = details?.price_pos_60 === null || details?.price_pos_60 === undefined
+    ? null
+    : Number(details.price_pos_60);
+  const profitChip = details?.profit_chip === null || details?.profit_chip === undefined
+    ? null
+    : Number(details.profit_chip);
+  const turnoverMax = details?.turnover_max === null || details?.turnover_max === undefined
+    ? null
+    : Number(details.turnover_max);
+  const weakLowScoreRepair = hasLowScoreRepair && (
+    (pricePos60 !== null && pricePos60 <= 3) ||
+    (profitChip !== null && profitChip <= 3) ||
+    (turnoverMax !== null && turnoverMax >= 15)
+  );
   const hasStrongMainType = hasAnyTagText(tagText, record2StrongMainPatterns);
   const hasTechnicalAvoid = hasAnyTagText(tagText, [
     '低位无承接空头',
@@ -263,9 +293,13 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
 
   if (statusText === '无效' && hasTechnicalAvoid) return '【避:技术弱势】';
   if (statusText === '无效' && hasSequenceWarning) return '【避:低分序列警戒】';
+  if (statusText === '无效' && weakLowScoreRepair) return '【慎:低分修复承接弱】';
   if (statusText === '无效' && hasLowScoreRepair) return '【试:低分高集中修复】';
   if (statusText === '无效' && hasLowScoreShortWatch) return '【等:低分短线观察】';
   if (statusText === '强信号' && hasSequenceWarning) return '【慎:序列警戒】';
+  if (statusText === '观察' && hasSequenceWarning) return '【慎:序列警戒】';
+  if (statusText === '观察' && hasCoreAcceptanceWaitConfirm) return '【等:核心承接待确认】';
+  if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60 && conc90 !== null && conc90 >= 20) return '【试:强信号承接修复】';
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【慎:强信号承接弱】';
   if (statusText === '强信号' && hasCoreLowElasticity) return '【慎:核心承接低弹】';
   if (statusText !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
@@ -808,7 +842,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_12_2',
+    model: 'record1_v12_13',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1220,7 +1254,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_2_2',
+    model: 'record2_v2_5',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
