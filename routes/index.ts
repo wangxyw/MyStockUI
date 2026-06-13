@@ -1324,11 +1324,26 @@ const queryStoredPostAlertPortrait = async (
     SELECT id, datestr
     FROM ${tableName}
     WHERE symbol = '${sqlEscape(symbol)}'
-      AND datestr = '${sqlEscape(alarmDatestr)}'
-    ORDER BY id DESC
+      AND datestr <= '${sqlEscape(observeDatestr)}'
+      AND (
+        datestr = '${sqlEscape(alarmDatestr)}'
+        OR datestr >= '${sqlEscape(alarmDatestr)}'
+      )
+    ORDER BY CASE WHEN datestr = '${sqlEscape(alarmDatestr)}' THEN 0 ELSE 1 END, datestr DESC, id DESC
     LIMIT 1
   `);
-  const alert = alertRows?.[0];
+  let alert = alertRows?.[0];
+  if (!alert) {
+    const fallbackRows: any = await queryDB(`
+      SELECT id, datestr
+      FROM ${tableName}
+      WHERE symbol = '${sqlEscape(symbol)}'
+        AND datestr <= '${sqlEscape(observeDatestr)}'
+      ORDER BY datestr DESC, id DESC
+      LIMIT 1
+    `);
+    alert = fallbackRows?.[0];
+  }
   if (!alert) return null;
 
   const rows: any = await queryDB(`

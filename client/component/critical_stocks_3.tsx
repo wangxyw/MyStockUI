@@ -2011,7 +2011,20 @@ const formatRiskTagText = (tagText: string) => {
   return level ? `${level}｜${tagText}` : tagText;
 };
 
+const getPostAlertPortraitTagColor = (tagText: string) => {
+  if (tagText.includes('D60强确认') || tagText.includes('曾D60强确认') || tagText.includes('后市:确认')) return 'red';
+  if (tagText.includes('D30早期确认') || tagText.includes('曾D30早期确认')) return 'volcano';
+  if (tagText.includes('D60降权') || tagText.includes('首次降权')) return 'gold';
+  if (tagText.includes('D90放弃') || tagText.includes('从未确认已放弃') || tagText.includes('首次放弃') || tagText.includes('后市:放弃')) return 'green';
+  if (tagText.includes('确认后转弱')) return 'gold';
+  if (tagText.includes('继续观察') || tagText.includes('尚未确认') || tagText.includes('等待确认') || tagText.includes('后市:观察')) return 'blue';
+  if (tagText.includes('后市变化') || tagText.includes('后市样本')) return 'geekblue';
+  return undefined;
+};
+
 const getPortraitTagColor = (tagText: string) => {
+  if (tagText.includes('后市')) return getPostAlertPortraitTagColor(tagText);
+  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return getPostAlertPortraitTagColor(tagText);
   if (tagText.includes('序列确认:')) return 'red';
   if (tagText.includes('序列警戒:')) return 'gold';
   if (tagText.includes('低分修复:')) return 'geekblue';
@@ -2040,6 +2053,12 @@ const getPortraitTagColor = (tagText: string) => {
 };
 
 const formatPortraitTagText = (tagText: string) => {
+  if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
+  if (tagText.includes('后市路径:')) return tagText.replace('后市路径:', '路｜');
+  if (tagText.includes('后市:')) return tagText.replace('后市:', '后｜');
+  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return tagText.replace(/^首次/, '首｜');
+  if (tagText.includes('后市变化:')) return tagText.replace('后市变化:', '变｜');
+  if (tagText.includes('后市样本:')) return tagText.replace('后市样本:', '样｜');
   if (/^(买|试|等|慎|避)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
@@ -3189,6 +3208,11 @@ export const CriticalStocks3Component = () => {
               {stockPortrait?.post_alert_comments && (
                 <div style={{ marginTop: 8 }}>
                   <span style={{ color: '#666', fontWeight: 600, marginRight: 8 }}>后市画像</span>
+                  {stockPortrait?.post_alert_portrait?.alarm_datestr && (
+                    <span style={{ color: '#888', marginRight: 8 }}>
+                      报警日:{stockPortrait.post_alert_portrait.alarm_datestr}
+                    </span>
+                  )}
                   {stockPortrait?.post_alert_portrait?.observe_datestr && (
                     <span style={{ color: '#888', marginRight: 8 }}>
                       观察日:{stockPortrait.post_alert_portrait.observe_datestr}
