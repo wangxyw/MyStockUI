@@ -2378,16 +2378,6 @@ const renderCommentTag = (
   );
 };
 
-const renderHiddenCommentCountTag = (hiddenTags: string[], key: string) => {
-  if (hiddenTags.length === 0) return null;
-
-  return (
-    <Tag key={key} color="default" title={hiddenTags.join(' / ')} style={{ marginBottom: 4 }}>
-      +{hiddenTags.length}
-    </Tag>
-  );
-};
-
 const renderComments = (comments?: string) => {
   if (!comments) return null;
 
@@ -2415,10 +2405,6 @@ const renderComments = (comments?: string) => {
       !riskTags.includes(tag)
   );
   const bestPickTag = decisionTag;
-  const visibleRiskTags = sortedRiskTags.slice(0, 3);
-  const hiddenRiskTags = sortedRiskTags.slice(3);
-  const visibleSignalTags = signalTags.slice(0, 5);
-  const hiddenSignalTags = signalTags.slice(5);
 
   return (
     <div style={{ lineHeight: 1.6 }}>
@@ -2443,17 +2429,13 @@ const renderComments = (comments?: string) => {
           })}
       </div>
       {riskTags.length > 0 && (
-        <div>
-          {visibleRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}
-          {renderHiddenCommentCountTag(hiddenRiskTags, 'risk-hidden')}
-        </div>
+        <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
       )}
       {signalTags.length > 0 && (
         <div>
-          {visibleSignalTags.map((tag, index) =>
+          {signalTags.map((tag, index) =>
             renderCommentTag(tag, `signal-${index}`)
           )}
-          {renderHiddenCommentCountTag(hiddenSignalTags, 'signal-hidden')}
         </div>
       )}
       {factorTags.length > 0 && (
