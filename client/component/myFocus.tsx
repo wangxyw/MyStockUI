@@ -2849,9 +2849,6 @@ export const MyFocusListComponent = () => {
       render: (text, record) => (
         <div>
           {renderComments(text)}
-          {record?.post_alert_summary_comments && (
-            <div style={{ marginTop: 4 }}>{renderComments(record.post_alert_summary_comments)}</div>
-          )}
         </div>
       ),
     },

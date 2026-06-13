@@ -3219,11 +3219,6 @@ export const CriticalStocks3Component = () => {
                     </span>
                   )}
                   {renderPortraitComments(stockPortrait.post_alert_comments)}
-                  {stockPortrait?.post_alert_portrait?.summary_comments && (
-                    <div style={{ marginTop: 4 }}>
-                      {renderPortraitComments(stockPortrait.post_alert_portrait.summary_comments)}
-                    </div>
-                  )}
                 </div>
               )}
             </>
