@@ -2311,7 +2311,20 @@ const formatRiskTagText = (tagText: string) => {
   return level ? `${level}｜${tagText}` : tagText;
 };
 
+const getPostAlertTagColor = (tagText: string) => {
+  if (tagText.includes('D60强确认') || tagText.includes('曾D60强确认') || tagText.includes('后市:确认')) return 'red';
+  if (tagText.includes('D30早期确认') || tagText.includes('曾D30早期确认')) return 'volcano';
+  if (tagText.includes('D60降权') || tagText.includes('首次降权')) return 'gold';
+  if (tagText.includes('D90放弃') || tagText.includes('从未确认已放弃') || tagText.includes('首次放弃') || tagText.includes('后市:放弃')) return 'green';
+  if (tagText.includes('确认后转弱')) return 'gold';
+  if (tagText.includes('继续观察') || tagText.includes('尚未确认') || tagText.includes('等待确认') || tagText.includes('后市:观察')) return 'blue';
+  if (tagText.includes('后市变化') || tagText.includes('后市样本')) return 'geekblue';
+  return undefined;
+};
+
 const getCommentTagColor = (tagText: string) => {
+  if (tagText.includes('后市')) return getPostAlertTagColor(tagText);
+  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return getPostAlertTagColor(tagText);
   if (tagText.includes('序列确认:')) return 'red';
   if (tagText.includes('序列警戒:')) return 'gold';
   if (tagText.includes('低分修复:')) return 'geekblue';
@@ -2327,6 +2340,12 @@ const getCommentTagColor = (tagText: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
+  if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
+  if (tagText.includes('后市路径:')) return tagText.replace('后市路径:', '路｜');
+  if (tagText.includes('后市:')) return tagText.replace('后市:', '后｜');
+  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return tagText.replace(/^首次/, '首｜');
+  if (tagText.includes('后市变化:')) return tagText.replace('后市变化:', '变｜');
+  if (tagText.includes('后市样本:')) return tagText.replace('后市样本:', '样｜');
   if (/^(买|试|等|慎|避)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
@@ -2390,7 +2409,7 @@ const renderComments = (comments?: string) => {
   );
   const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避):/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|R|DMI|MA):/.test(tag)
+    /^(C|T|P|R|DMI|MA|PA):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
   const sortedRiskTags = [...riskTags].sort(
@@ -2766,6 +2785,7 @@ export const MyFocusListComponent = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      width: 100,
       render: (text, record) => {
         return (
           <span>
@@ -2819,6 +2839,21 @@ export const MyFocusListComponent = () => {
       width: 1000,
       editable: false,
       render: renderComments,
+    },
+    {
+      title: '后市画像',
+      dataIndex: 'post_alert_comments',
+      key: 'post_alert_comments',
+      width: 620,
+      editable: false,
+      render: (text, record) => (
+        <div>
+          {renderComments(text)}
+          {record?.post_alert_summary_comments && (
+            <div style={{ marginTop: 4 }}>{renderComments(record.post_alert_summary_comments)}</div>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Date',
@@ -2963,27 +2998,27 @@ export const MyFocusListComponent = () => {
       dataIndex: 'minPriceDay',
       key: 'minPriceDay',
     },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (text, record) => (
-        <Popconfirm
-          title="Sure to delete?"
-          onConfirm={() => {
-            post('/api/delete_focus', {
-              body: JSON.stringify({
-                symbol: record?.symbol,
-                datestr: record?.datestr,
-              }),
-            }).then(() => {
-              handleAllStockData(currentPage);
-            });
-          }}
-        >
-          <a>Delete</a>
-        </Popconfirm>
-      ),
-    },
+    // {
+    //   title: 'Action',
+    //   key: 'action',
+    //   render: (text, record) => (
+    //     <Popconfirm
+    //       title="Sure to delete?"
+    //       onConfirm={() => {
+    //         post('/api/delete_focus', {
+    //           body: JSON.stringify({
+    //             symbol: record?.symbol,
+    //             datestr: record?.datestr,
+    //           }),
+    //         }).then(() => {
+    //           handleAllStockData(currentPage);
+    //         });
+    //       }}
+    //     >
+    //       <a>Delete</a>
+    //     </Popconfirm>
+    //   ),
+    // },
   ], [sortByDate, dateSortOrder, handleDateSort, handleAllStockData, currentPage]);
 
   const mergedColumns = useMemo(() => 

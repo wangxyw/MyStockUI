@@ -93,7 +93,20 @@ const formatRiskTagText = (tagText: string) => {
   return level ? `${level}｜${tagText}` : tagText;
 };
 
+const getPostAlertTagColor = (tagText: string) => {
+  if (tagText.includes('D60强确认') || tagText.includes('曾D60强确认') || tagText.includes('后市:确认')) return 'red';
+  if (tagText.includes('D30早期确认') || tagText.includes('曾D30早期确认')) return 'volcano';
+  if (tagText.includes('D60降权') || tagText.includes('首次降权')) return 'gold';
+  if (tagText.includes('D90放弃') || tagText.includes('从未确认已放弃') || tagText.includes('首次放弃') || tagText.includes('后市:放弃')) return 'green';
+  if (tagText.includes('确认后转弱')) return 'gold';
+  if (tagText.includes('继续观察') || tagText.includes('尚未确认') || tagText.includes('等待确认') || tagText.includes('后市:观察')) return 'blue';
+  if (tagText.includes('后市变化') || tagText.includes('后市样本')) return 'geekblue';
+  return undefined;
+};
+
 const getCommentTagColor = (tag: string) => {
+  if (tag.includes('后市')) return getPostAlertTagColor(tag);
+  if (/^首次(D60|D30|放弃|降权):/.test(tag)) return getPostAlertTagColor(tag);
   if (tag.includes('序列确认:')) return 'red';
   if (tag.includes('序列警戒:')) return 'gold';
   if (tag.includes('低分修复:')) return 'geekblue';
@@ -110,6 +123,12 @@ const getCommentTagColor = (tag: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
+  if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
+  if (tagText.includes('后市路径:')) return tagText.replace('后市路径:', '路｜');
+  if (tagText.includes('后市:')) return tagText.replace('后市:', '后｜');
+  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return tagText.replace(/^首次/, '首｜');
+  if (tagText.includes('后市变化:')) return tagText.replace('后市变化:', '变｜');
+  if (tagText.includes('后市样本:')) return tagText.replace('后市样本:', '样｜');
   if (/^(买|试|等|慎|避)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
@@ -172,7 +191,7 @@ const renderComments = (comments?: string) => {
   );
   const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避):/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|D|R|DMI|MA):/.test(tag)
+    /^(C|T|P|D|R|DMI|MA|PA):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
   const sortedRiskTags = [...riskTags].sort(
@@ -1167,10 +1186,11 @@ export const MyFocus2ListComponent = () => {
         );
       },
     },
-    { title: 'Name', dataIndex: 'name', key: 'name', render: (text, record) => <span>{text}{caculateAfterDate(record.datestr,60)<caculateDate(today,0)&&'*'}</span> },
+    { title: 'Name', dataIndex: 'name', key: 'name', width: 100, render: (text, record) => <span>{text}{caculateAfterDate(record.datestr,60)<caculateDate(today,0)&&'*'}</span> },
     // { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
     { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
-    { title: 'Comments', dataIndex: 'comments', key: 'comments', editable: false, render: renderComments },
+    { title: 'Comments', dataIndex: 'comments', key: 'comments', width: 1000, editable: false, render: renderComments },
+    { title: '后市画像', dataIndex: 'post_alert_comments', key: 'post_alert_comments', width: 620, editable: false, render: (text, record) => (<div>{renderComments(text)}{record?.post_alert_summary_comments && <div style={{ marginTop: 4 }}>{renderComments(record.post_alert_summary_comments)}</div>}</div>) },
     {
       title: 'Date',
       dataIndex: 'datestr',
@@ -1239,7 +1259,7 @@ export const MyFocus2ListComponent = () => {
     { title: 'MaxPriceDay', dataIndex: 'maxPriceDay', key: 'maxPriceDay' },
     { title: 'MinPrice', dataIndex: 'minPrice', key: 'minPrice', render: (c, record) => <Tag color={Number(record.minPriceDiff)>0?'red':'green'}>{c}/ {record.minPriceDiff}%</Tag> },
     { title: 'MinPriceDay', dataIndex: 'minPriceDay', key: 'minPriceDay' },
-    { title: 'Action', key: 'action', render: (_, record) => <Popconfirm title="Sure to delete?" onConfirm={()=>handleDelete(record.symbol, record.datestr)}><a>Delete</a></Popconfirm> },
+    // { title: 'Action', key: 'action', render: (_, record) => <Popconfirm title="Sure to delete?" onConfirm={()=>handleDelete(record.symbol, record.datestr)}><a>Delete</a></Popconfirm> },
   ], [sortByDate, dateSortOrder, handleDateSort, handleDelete]);
 
   const mergedColumns = useMemo(() => columns.map(col => col.editable ? { ...col, onCell: (record) => ({ record, editable: col.editable, dataIndex: col.dataIndex, title: col.title, handleSave }) } : col), [columns, handleSave]);

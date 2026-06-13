@@ -1962,10 +1962,13 @@ async function getAllSCR(
   return stockData;
 }
 
-async function getStockPortrait(stock, endDate: any = 0) {
+async function getStockPortrait(stock, endDate: any = 0, alarmDate: any = null) {
   if (!stock || !endDate) return null;
+  const alarmDateParam = alarmDate
+    ? `&alarm_datestr=${encodeURIComponent(alarmDate)}`
+    : '';
   return get(
-    `/api/stock_ai_portrait?symbol=${encodeURIComponent(stock)}&datestr=${encodeURIComponent(endDate)}`
+    `/api/stock_ai_portrait?symbol=${encodeURIComponent(stock)}&datestr=${encodeURIComponent(endDate)}${alarmDateParam}`
   );
 }
 
@@ -2098,7 +2101,7 @@ const renderPortraitComments = (comments?: string) => {
   );
   const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避):/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|R|DMI|MA):/.test(tag)
+    /^(C|T|P|R|DMI|MA|PA):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
   const sortedRiskTags = [...riskTags].sort(
@@ -3002,7 +3005,7 @@ export const CriticalStocks3Component = () => {
 
               if (searchStock) {
                 try {
-                  const portrait = await getStockPortrait(searchStock, endDate);
+                  const portrait = await getStockPortrait(searchStock, endDate, startDate);
                   setStockPortrait(portrait);
                   setStockPortraitError('');
                 } catch (error: any) {
@@ -3178,7 +3181,28 @@ export const CriticalStocks3Component = () => {
           {stockPortraitError ? (
             <Tag color="orange">{stockPortraitError}</Tag>
           ) : (
-            renderPortraitComments(stockPortrait?.comments)
+            <>
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ color: '#666', fontWeight: 600, marginRight: 8 }}>报警画像</span>
+                {renderPortraitComments(stockPortrait?.comments)}
+              </div>
+              {stockPortrait?.post_alert_comments && (
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ color: '#666', fontWeight: 600, marginRight: 8 }}>后市画像</span>
+                  {stockPortrait?.post_alert_portrait?.observe_datestr && (
+                    <span style={{ color: '#888', marginRight: 8 }}>
+                      观察日:{stockPortrait.post_alert_portrait.observe_datestr}
+                    </span>
+                  )}
+                  {renderPortraitComments(stockPortrait.post_alert_comments)}
+                  {stockPortrait?.post_alert_portrait?.summary_comments && (
+                    <div style={{ marginTop: 4 }}>
+                      {renderPortraitComments(stockPortrait.post_alert_portrait.summary_comments)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

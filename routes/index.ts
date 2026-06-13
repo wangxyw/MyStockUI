@@ -213,6 +213,23 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
   const warningTag = tagText.includes('警戒:');
   const shortWatchTag = tagText.includes('短线观察:');
   const lowScoreRepair = tagText.includes('低分修复:');
+  const ret5 = details?.ret_5 === null || details?.ret_5 === undefined
+    ? null
+    : Number(details.ret_5);
+  const ret10 = details?.ret_10 === null || details?.ret_10 === undefined
+    ? null
+    : Number(details.ret_10);
+  const avgTurn5 = details?.avg_turn_5 === null || details?.avg_turn_5 === undefined
+    ? null
+    : Number(details.avg_turn_5);
+  const sharpDropLowTurnObserve =
+    statusText === '无效' &&
+    ret10 !== null &&
+    ret10 <= -14.74 &&
+    ret5 !== null &&
+    ret5 <= -8.85 &&
+    avgTurn5 !== null &&
+    avgTurn5 <= 2.37;
   const profitDelta = details?.profit_delta === null || details?.profit_delta === undefined
     ? null
     : Number(details.profit_delta);
@@ -230,6 +247,7 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
   if (statusText === '无效' && lowPositionRepairConfirm) return '【试:低位修复确认】';
   if (statusText === '无效' && hardAvoid) return '【避:明确弱势】';
   if (statusText === '无效' && sequenceWarning) return '【避:低分序列警戒】';
+  if (statusText === '无效' && sharpDropLowTurnObserve) return '【等:急跌缩量修复观察】';
   if (statusText === '强信号') {
     if (sequenceWarning) return '【慎:序列警戒】';
     if (highMidRisk || warningTag) return '【慎:强信号风险降级】';
@@ -842,7 +860,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_13',
+    model: 'record1_v12_14',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1267,7 +1285,106 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   };
 };
 
-const buildStockPortrait = async (symbolInput: string, datestr: string) => {
+
+const buildPostAlertSummaryComments = (summary: any, latestDecision: string) => {
+  if (!summary) return null;
+  const tags: string[] = [];
+  const firstConfirmDate = formatDbDate(summary.first_confirm_date);
+  const firstD60ConfirmDate = formatDbDate(summary.first_d60_confirm_date);
+  const firstD30ConfirmDate = formatDbDate(summary.first_d30_confirm_date);
+  const firstDowngradeDate = formatDbDate(summary.first_downgrade_date);
+  const firstAbandonDate = formatDbDate(summary.first_abandon_date);
+  const stateCount = toNumber(summary.decision_state_count);
+  const historyCount = toNumber(summary.history_count);
+
+  if (firstD60ConfirmDate) tags.push(`【后市路径:曾D60强确认】`, `【首次D60:${firstD60ConfirmDate}】`);
+  else if (firstD30ConfirmDate) tags.push(`【后市路径:曾D30早期确认】`, `【首次D30:${firstD30ConfirmDate}】`);
+  else if (firstAbandonDate) tags.push(`【后市路径:从未确认已放弃】`, `【首次放弃:${firstAbandonDate}】`);
+  else tags.push('【后市路径:尚未确认】');
+
+  if (firstConfirmDate && firstAbandonDate && latestDecision === 'D90放弃') {
+    tags.push('【后市路径:确认后转弱】');
+  }
+  if (!firstConfirmDate && firstDowngradeDate) tags.push(`【首次降权:${firstDowngradeDate}】`);
+  if (stateCount > 1) tags.push(`【后市变化:${stateCount}种状态】`);
+  if (historyCount > 0) tags.push(`【后市样本:${historyCount}日】`);
+
+  return tags.join('');
+};
+
+const queryStoredPostAlertPortrait = async (
+  tableName: 'focus_stocks_ai' | 'focus_stocks2_ai',
+  symbol: string,
+  alarmDatestr: string,
+  observeDatestr: string
+) => {
+  if (!alarmDatestr || !observeDatestr) return null;
+  const recordType = tableName === 'focus_stocks_ai' ? 'record1' : 'record2';
+  const alertRows: any = await queryDB(`
+    SELECT id, datestr
+    FROM ${tableName}
+    WHERE symbol = '${sqlEscape(symbol)}'
+      AND datestr = '${sqlEscape(alarmDatestr)}'
+    ORDER BY id DESC
+    LIMIT 1
+  `);
+  const alert = alertRows?.[0];
+  if (!alert) return null;
+
+  const rows: any = await queryDB(`
+    SELECT alarm_datestr, observe_date, observe_days,
+           post_alert_decision, post_alert_comments, updated_at
+    FROM post_alert_portrait_history
+    WHERE record_type = '${recordType}'
+      AND alert_id = ${toNumber(alert.id)}
+      AND observe_date <= '${sqlEscape(observeDatestr)}'
+    ORDER BY observe_date DESC, id DESC
+    LIMIT 1
+  `);
+  const row = rows?.[0];
+  if (!row || !row.post_alert_comments) return null;
+
+  const summaryRows: any = await queryDB(`
+    SELECT
+      MIN(CASE WHEN post_alert_decision IN ('D30早期确认','D60强确认') THEN observe_date END) AS first_confirm_date,
+      MIN(CASE WHEN post_alert_decision = 'D60强确认' THEN observe_date END) AS first_d60_confirm_date,
+      MIN(CASE WHEN post_alert_decision = 'D30早期确认' THEN observe_date END) AS first_d30_confirm_date,
+      MIN(CASE WHEN post_alert_decision = 'D60降权' THEN observe_date END) AS first_downgrade_date,
+      MIN(CASE WHEN post_alert_decision = 'D90放弃' THEN observe_date END) AS first_abandon_date,
+      COUNT(DISTINCT post_alert_decision) AS decision_state_count,
+      COUNT(*) AS history_count
+    FROM post_alert_portrait_history
+    WHERE record_type = '${recordType}'
+      AND alert_id = ${toNumber(alert.id)}
+      AND observe_date <= '${sqlEscape(observeDatestr)}'
+  `);
+  const summary = summaryRows?.[0] || null;
+  const decision = row.post_alert_decision || null;
+
+  return {
+    alarm_id: toNumber(alert.id),
+    alarm_datestr: formatDbDate(row.alarm_datestr),
+    observe_datestr: formatDbDate(row.observe_date),
+    observe_days: row.observe_days === null || row.observe_days === undefined
+      ? null
+      : toNumber(row.observe_days),
+    decision,
+    comments: row.post_alert_comments,
+    summary: summary ? {
+      first_confirm_date: formatDbDate(summary.first_confirm_date),
+      first_d60_confirm_date: formatDbDate(summary.first_d60_confirm_date),
+      first_d30_confirm_date: formatDbDate(summary.first_d30_confirm_date),
+      first_downgrade_date: formatDbDate(summary.first_downgrade_date),
+      first_abandon_date: formatDbDate(summary.first_abandon_date),
+      decision_state_count: toNumber(summary.decision_state_count),
+      history_count: toNumber(summary.history_count),
+    } : null,
+    summary_comments: buildPostAlertSummaryComments(summary, decision),
+    updated_at: row.updated_at ? formatDbDate(row.updated_at) : null,
+  };
+};
+
+const buildStockPortrait = async (symbolInput: string, datestr: string, alarmDatestr = '') => {
   const symbolLike = sqlEscape(symbolInput);
   const safeDate = sqlEscape(datestr);
   const commonRows: any = await queryDB(`
@@ -1290,11 +1407,23 @@ const buildStockPortrait = async (symbolInput: string, datestr: string) => {
   };
 
   if (finalPrice >= 0 && finalPrice <= 50 && circulationStock >= 1 && circulationStock < 30) {
-    return buildRecord1Portrait(common.symbol, datestr, modelMeta);
+    const portrait: any = await buildRecord1Portrait(common.symbol, datestr, modelMeta);
+    const postAlertPortrait = await queryStoredPostAlertPortrait('focus_stocks_ai', common.symbol, alarmDatestr || datestr, datestr);
+    return {
+      ...portrait,
+      post_alert_portrait: postAlertPortrait,
+      post_alert_comments: postAlertPortrait?.comments || null,
+    };
   }
 
   if (finalPrice >= 0 && finalPrice <= 100 && circulationStock >= 30 && circulationStock <= 500) {
-    return buildRecord2Portrait(common.symbol, datestr, modelMeta);
+    const portrait: any = await buildRecord2Portrait(common.symbol, datestr, modelMeta);
+    const postAlertPortrait = await queryStoredPostAlertPortrait('focus_stocks2_ai', common.symbol, alarmDatestr || datestr, datestr);
+    return {
+      ...portrait,
+      post_alert_portrait: postAlertPortrait,
+      post_alert_comments: postAlertPortrait?.comments || null,
+    };
   }
 
   return {
@@ -1330,6 +1459,7 @@ router.get('/stock_list', function (req, res, next) {
 router.get('/stock_ai_portrait', async function (req, res, next) {
   const symbol = String(req.query.symbol || '').trim();
   const datestr = String(req.query.datestr || '').trim();
+  const alarmDatestr = String(req.query.alarm_datestr || '').trim();
 
   if (!symbol || !datestr) {
     res.status(400).json({ error: 'symbol 和 datestr 不能为空' });
@@ -1337,7 +1467,7 @@ router.get('/stock_ai_portrait', async function (req, res, next) {
   }
 
   try {
-    const result = await buildStockPortrait(symbol, datestr);
+    const result = await buildStockPortrait(symbol, datestr, alarmDatestr);
     if ((result as any).error) {
       res.status(404).json(result);
       return;
@@ -1671,16 +1801,100 @@ router.get('/all_focus_stock', function (req, res, next) {
     // 根据是否需要排序构建不同的 SQL
     let sql;
     if (sortByDate) {
-      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    latest_h.observe_date AS post_alert_observe_date,
+                    latest_h.observe_days AS post_alert_observe_days,
+                    latest_h.post_alert_decision AS post_alert_decision,
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    CASE
+                      WHEN phs.first_d60_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D60强确认】【首次D60:', DATE_FORMAT(phs.first_d60_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_d30_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D30早期确认】【首次D30:', DATE_FORMAT(phs.first_d30_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_abandon_date IS NOT NULL THEN CONCAT('【后市路径:从未确认已放弃】【首次放弃:', DATE_FORMAT(phs.first_abandon_date, '%Y-%m-%d'), '】')
+                      WHEN phs.history_count IS NOT NULL THEN '【后市路径:尚未确认】'
+                      ELSE NULL
+                    END AS post_alert_summary_comments,
+                    phs.first_confirm_date,
+                    phs.first_d60_confirm_date,
+                    phs.first_d30_confirm_date,
+                    phs.first_downgrade_date,
+                    phs.first_abandon_date,
+                    phs.decision_state_count,
+                    phs.history_count
              FROM focus_stocks a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             LEFT JOIN focus_stocks_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record1'
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id
+             LEFT JOIN (
+               SELECT record_type, alert_id,
+                      MIN(CASE WHEN post_alert_decision IN ('D30早期确认','D60强确认') THEN observe_date END) AS first_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60强确认' THEN observe_date END) AS first_d60_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D30早期确认' THEN observe_date END) AS first_d30_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60降权' THEN observe_date END) AS first_downgrade_date,
+                      MIN(CASE WHEN post_alert_decision = 'D90放弃' THEN observe_date END) AS first_abandon_date,
+                      COUNT(DISTINCT post_alert_decision) AS decision_state_count,
+                      COUNT(*) AS history_count
+               FROM post_alert_portrait_history
+               WHERE record_type = 'record1'
+               GROUP BY record_type, alert_id
+             ) phs ON phs.record_type = 'record1' AND phs.alert_id = ai.id
              ORDER BY a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
       // 默认按更新时间倒序（保持原有性能）
-      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    latest_h.observe_date AS post_alert_observe_date,
+                    latest_h.observe_days AS post_alert_observe_days,
+                    latest_h.post_alert_decision AS post_alert_decision,
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    CASE
+                      WHEN phs.first_d60_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D60强确认】【首次D60:', DATE_FORMAT(phs.first_d60_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_d30_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D30早期确认】【首次D30:', DATE_FORMAT(phs.first_d30_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_abandon_date IS NOT NULL THEN CONCAT('【后市路径:从未确认已放弃】【首次放弃:', DATE_FORMAT(phs.first_abandon_date, '%Y-%m-%d'), '】')
+                      WHEN phs.history_count IS NOT NULL THEN '【后市路径:尚未确认】'
+                      ELSE NULL
+                    END AS post_alert_summary_comments,
+                    phs.first_confirm_date,
+                    phs.first_d60_confirm_date,
+                    phs.first_d30_confirm_date,
+                    phs.first_downgrade_date,
+                    phs.first_abandon_date,
+                    phs.decision_state_count,
+                    phs.history_count
              FROM focus_stocks a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             LEFT JOIN focus_stocks_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record1'
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id
+             LEFT JOIN (
+               SELECT record_type, alert_id,
+                      MIN(CASE WHEN post_alert_decision IN ('D30早期确认','D60强确认') THEN observe_date END) AS first_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60强确认' THEN observe_date END) AS first_d60_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D30早期确认' THEN observe_date END) AS first_d30_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60降权' THEN observe_date END) AS first_downgrade_date,
+                      MIN(CASE WHEN post_alert_decision = 'D90放弃' THEN observe_date END) AS first_abandon_date,
+                      COUNT(DISTINCT post_alert_decision) AS decision_state_count,
+                      COUNT(*) AS history_count
+               FROM post_alert_portrait_history
+               WHERE record_type = 'record1'
+               GROUP BY record_type, alert_id
+             ) phs ON phs.record_type = 'record1' AND phs.alert_id = ai.id
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }
@@ -1759,15 +1973,99 @@ router.get('/all_focus_stock2', function (req, res, next) {
 
     let sql;
     if (sortByDate) {
-      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    latest_h.observe_date AS post_alert_observe_date,
+                    latest_h.observe_days AS post_alert_observe_days,
+                    latest_h.post_alert_decision AS post_alert_decision,
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    CASE
+                      WHEN phs.first_d60_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D60强确认】【首次D60:', DATE_FORMAT(phs.first_d60_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_d30_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D30早期确认】【首次D30:', DATE_FORMAT(phs.first_d30_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_abandon_date IS NOT NULL THEN CONCAT('【后市路径:从未确认已放弃】【首次放弃:', DATE_FORMAT(phs.first_abandon_date, '%Y-%m-%d'), '】')
+                      WHEN phs.history_count IS NOT NULL THEN '【后市路径:尚未确认】'
+                      ELSE NULL
+                    END AS post_alert_summary_comments,
+                    phs.first_confirm_date,
+                    phs.first_d60_confirm_date,
+                    phs.first_d30_confirm_date,
+                    phs.first_downgrade_date,
+                    phs.first_abandon_date,
+                    phs.decision_state_count,
+                    phs.history_count
              FROM focus_stocks2 a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             LEFT JOIN focus_stocks2_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record2'
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id
+             LEFT JOIN (
+               SELECT record_type, alert_id,
+                      MIN(CASE WHEN post_alert_decision IN ('D30早期确认','D60强确认') THEN observe_date END) AS first_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60强确认' THEN observe_date END) AS first_d60_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D30早期确认' THEN observe_date END) AS first_d30_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60降权' THEN observe_date END) AS first_downgrade_date,
+                      MIN(CASE WHEN post_alert_decision = 'D90放弃' THEN observe_date END) AS first_abandon_date,
+                      COUNT(DISTINCT post_alert_decision) AS decision_state_count,
+                      COUNT(*) AS history_count
+               FROM post_alert_portrait_history
+               WHERE record_type = 'record2'
+               GROUP BY record_type, alert_id
+             ) phs ON phs.record_type = 'record2' AND phs.alert_id = ai.id
              ORDER BY a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
-      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at 
+      sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    latest_h.observe_date AS post_alert_observe_date,
+                    latest_h.observe_days AS post_alert_observe_days,
+                    latest_h.post_alert_decision AS post_alert_decision,
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    CASE
+                      WHEN phs.first_d60_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D60强确认】【首次D60:', DATE_FORMAT(phs.first_d60_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_d30_confirm_date IS NOT NULL THEN CONCAT('【后市路径:曾D30早期确认】【首次D30:', DATE_FORMAT(phs.first_d30_confirm_date, '%Y-%m-%d'), '】')
+                      WHEN phs.first_abandon_date IS NOT NULL THEN CONCAT('【后市路径:从未确认已放弃】【首次放弃:', DATE_FORMAT(phs.first_abandon_date, '%Y-%m-%d'), '】')
+                      WHEN phs.history_count IS NOT NULL THEN '【后市路径:尚未确认】'
+                      ELSE NULL
+                    END AS post_alert_summary_comments,
+                    phs.first_confirm_date,
+                    phs.first_d60_confirm_date,
+                    phs.first_d30_confirm_date,
+                    phs.first_downgrade_date,
+                    phs.first_abandon_date,
+                    phs.decision_state_count,
+                    phs.history_count
              FROM focus_stocks2 a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
+             LEFT JOIN focus_stocks2_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record2'
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id
+             LEFT JOIN (
+               SELECT record_type, alert_id,
+                      MIN(CASE WHEN post_alert_decision IN ('D30早期确认','D60强确认') THEN observe_date END) AS first_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60强确认' THEN observe_date END) AS first_d60_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D30早期确认' THEN observe_date END) AS first_d30_confirm_date,
+                      MIN(CASE WHEN post_alert_decision = 'D60降权' THEN observe_date END) AS first_downgrade_date,
+                      MIN(CASE WHEN post_alert_decision = 'D90放弃' THEN observe_date END) AS first_abandon_date,
+                      COUNT(DISTINCT post_alert_decision) AS decision_state_count,
+                      COUNT(*) AS history_count
+               FROM post_alert_portrait_history
+               WHERE record_type = 'record2'
+               GROUP BY record_type, alert_id
+             ) phs ON phs.record_type = 'record2' AND phs.alert_id = ai.id
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }
