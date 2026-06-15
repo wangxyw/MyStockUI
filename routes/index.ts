@@ -345,6 +345,15 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
     conc90 <= 11 &&
     closeWeakness10 <= 60 &&
     alarmIndex <= 3;
+  const noDecisionRiskAcceptanceWeak =
+    ['观察', '无效'].includes(statusText) &&
+    (
+      (turnoverMax !== null && turnoverMax >= 10 && profitChip !== null && profitChip >= 3 && profitChip <= 10) ||
+      (tagText.includes('普通筹码区') && tagText.includes('换手确认')) ||
+      (conc70 !== null && conc70 >= 5 && conc70 <= 8.6 && turnoverMax !== null && turnoverMax >= 10) ||
+      (tagText.includes('历史放量承接') && turnoverMax !== null && turnoverMax >= 5) ||
+      (avgTurn10 !== null && avgTurn10 < 1 && tagText.includes('历史放量承接'))
+    );
 
   if (statusText === '无效' && hasTechnicalAvoid) return '【避:技术弱势】';
   if (statusText === '无效' && hasSequenceHardWarning) return '【慎:低分序列警戒】';
@@ -358,6 +367,7 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【慎:强信号承接弱】';
   if (statusText === '强信号' && hasCoreLowElasticity) return '【慎:核心承接低弹】';
   if (lowTurnAcceptanceWait || avgTurnPositionWait) return '【等:低位承接观察】';
+  if (noDecisionRiskAcceptanceWeak) return '【慎:无主风险承接弱】';
   const ordinaryStrongWait = statusText === '强信号' && hasOrdinaryElasticity && !hasHighMidRisk;
   const ordinaryStrongWeakConfirm = ordinaryStrongWait && (
     (pricePos60 !== null && pricePos60 < 10) ||
@@ -400,6 +410,113 @@ const DEFAULT_MIN_SCORE = 80;
 const avg = (values: number[]) =>
   values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 
+const stddev = (values: number[]) => {
+  const nums = values.filter((value) => Number.isFinite(value));
+  if (nums.length < 2) return null;
+  const mean = nums.reduce((sum, value) => sum + value, 0) / nums.length;
+  const variance = nums.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / (nums.length - 1);
+  return Math.sqrt(variance);
+};
+
+const median = (values: number[]) => {
+  const nums = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!nums.length) return null;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 === 1 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+};
+
+const parseEValues = (comments: any) => {
+  const match = String(comments ?? '').match(/【E:([^】]+)】/);
+  if (!match) return [];
+  return match[1].split(',').map((value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  });
+};
+
+const marketEnvTemperature = (
+  marketVolMed: number | null,
+  volMa20: number | null,
+  alarmCount: number,
+  alarmMa20: number | null
+) => {
+  if (marketVolMed === null || volMa20 === null || alarmMa20 === null) return '未知';
+  const volExpanding = marketVolMed > volMa20;
+  const alarmExpanding = alarmCount > alarmMa20;
+  if (marketVolMed > 35) return alarmExpanding ? '热' : '热偏弱';
+  if (marketVolMed < 20) return '极冷';
+  if (volExpanding) return '温';
+  if (alarmExpanding) return '冷偏暖';
+  return '极冷';
+};
+
+const calcMarketEnvironment = async (
+  tableName: 'focus_stocks_ai' | 'focus_stocks2_ai',
+  datestr: string,
+  eIndex: number
+) => {
+  const safeDate = sqlEscape(datestr);
+  const currentRows: any = await queryDB(`
+    SELECT comments
+    FROM ${tableName}
+    WHERE datestr = '${safeDate}'
+      AND comments LIKE '%【E:%'
+  `);
+  const currentValues = (currentRows || [])
+    .map((row: any) => parseEValues(row.comments)[eIndex])
+    .filter((value: any) => value !== null && value !== undefined) as number[];
+  const currentMed = median(currentValues);
+  if (currentMed === null) {
+    return { vol_med: null, temp: '未知', alarm_dir: '未知', vol_ma20: null, alarm_ma20: null };
+  }
+
+  const historyRows: any = await queryDB(`
+    SELECT datestr, comments
+    FROM ${tableName}
+    WHERE datestr < '${safeDate}'
+      AND comments LIKE '%【E:%'
+    ORDER BY datestr DESC
+    LIMIT 800
+  `);
+  const historyByDate: Record<string, number[]> = {};
+  (historyRows || []).forEach((row: any) => {
+    const date = formatDbDate(row.datestr);
+    const value = parseEValues(row.comments)[eIndex];
+    if (value === null || value === undefined) return;
+    if (!historyByDate[date]) historyByDate[date] = [];
+    historyByDate[date].push(value);
+  });
+  const priorVolMeds = Object.keys(historyByDate)
+    .sort()
+    .slice(-19)
+    .map((date) => median(historyByDate[date]))
+    .filter((value): value is number => value !== null);
+  const volMa20 = avg([...priorVolMeds, currentMed]);
+
+  const countRows: any = await queryDB(`
+    SELECT datestr, COUNT(*) AS alarm_count
+    FROM ${tableName}
+    WHERE datestr < '${safeDate}'
+    GROUP BY datestr
+    ORDER BY datestr DESC
+    LIMIT 19
+  `);
+  const priorCounts = [...(countRows || [])]
+    .reverse()
+    .map((row: any) => toNumber(row.alarm_count));
+  const alarmCount = currentRows?.length || 0;
+  const alarmMa20 = avg([...priorCounts, alarmCount]);
+  const alarmExpanding = alarmMa20 !== null && alarmCount > alarmMa20;
+  const temp = marketEnvTemperature(currentMed, volMa20, alarmCount, alarmMa20);
+  return {
+    vol_med: round2(currentMed),
+    temp,
+    alarm_dir: alarmExpanding ? '报扩' : '报缩',
+    vol_ma20: volMa20 === null ? null : round2(volMa20),
+    alarm_ma20: alarmMa20 === null ? null : round2(alarmMa20),
+  };
+};
+
 const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   const rows = [...(rowsDesc || [])].reverse();
   if (rows.length < 20) return null;
@@ -412,6 +529,8 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   const low60 = Math.min(...lastNumbers('day_min_price', 60));
   const pricePos60 = high60 > low60 ? ((latestClose - low60) / (high60 - low60)) * 100 : null;
   const drawdownFrom60High = high60 > 0 ? (latestClose / high60 - 1) * 100 : null;
+  const high20 = Math.max(...lastNumbers('day_max_price', 20));
+  const drawdownFrom20High = high20 > 0 ? (latestClose / high20 - 1) * 100 : null;
   const low20 = Math.min(...lastNumbers('day_min_price', 20));
   const upFromLow20d = low20 > 0 ? (latestClose / low20 - 1) * 100 : null;
   const closeWeaknessValues = last(10)
@@ -424,12 +543,17 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
     .filter((value) => value !== null) as number[];
   const avgTurn10 = avg(lastNumbers('turnoverrate', 10));
   const avgTurn5 = avg(lastNumbers('turnoverrate', 5));
+  const avgTurn20 = avg(lastNumbers('turnoverrate', 20));
   const avgVol5 = avg(lastNumbers('totaltradevol', 5));
   const avgVol60 = avg(lastNumbers('totaltradevol', 60));
   const avgAmount5 = avg(lastNumbers('totaltradevalue', 5));
   const avgAmount60 = avg(lastNumbers('totaltradevalue', 60));
   const ma20Current = avg(closes.slice(-20));
   const ma20Lag5 = rows.length >= 25 ? avg(closes.slice(-25, -5)) : null;
+  const pctChanges = rows.map((row) => toNumber(row.pricechangepct));
+  const vol10 = stddev(pctChanges.slice(-10));
+  const vol20 = stddev(pctChanges.slice(-20));
+  const vol60 = rows.length >= 60 ? stddev(pctChanges.slice(-60)) : null;
   const ret = (count: number) => {
     const base = closes[closes.length - count];
     return base > 0 ? (latestClose / base - 1) * 100 : null;
@@ -438,15 +562,23 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   return {
     price_pos_60: pricePos60,
     drawdown_from_60_high: drawdownFrom60High,
+    drawdown_from_20_high: drawdownFrom20High,
     up_from_low_20d: upFromLow20d,
     avg_turn_10: avgTurn10,
     avg_turn_5: avgTurn5,
+    avg_turn_20: avgTurn20,
+    turn_ratio_20: avgTurn20 && avgTurn20 > 0 && avgTurn5 !== null ? avgTurn5 / avgTurn20 : null,
     volume_ratio_5_60: avgVol60 && avgVol60 > 0 && avgVol5 !== null ? avgVol5 / avgVol60 : null,
     amount_ratio_5_60: avgAmount60 && avgAmount60 > 0 && avgAmount5 !== null ? avgAmount5 / avgAmount60 : null,
     close_weakness_10: avg(closeWeaknessValues),
+    close_vs_ma20: ma20Current !== null && ma20Current > 0 ? (latestClose / ma20Current - 1) * 100 : null,
     ret_5: rows.length >= 5 ? ret(5) : null,
     ret_10: rows.length >= 10 ? ret(10) : null,
     ret_20: rows.length >= 20 ? ret(20) : null,
+    vol_10: vol10 === null ? null : vol10 * Math.sqrt(252),
+    vol_20: vol20 === null ? null : vol20 * Math.sqrt(252),
+    vol_60: vol60 === null ? null : vol60 * Math.sqrt(252),
+    circulation: latestClose > 0 ? toNumber(rows[rows.length - 1].marketvalue) / latestClose : null,
     max_drop_20: Math.min(...lastNumbers('pricechangepct', 20)),
     ma20_slope_5: ma20Current !== null && ma20Lag5 !== null && ma20Lag5 > 0 ? (ma20Current / ma20Lag5 - 1) * 100 : null,
     profit_change_5: rows.length >= 6 ? toNumber(rows[rows.length - 1].profit_chip) - toNumber(rows[rows.length - 6].profit_chip) : null,
@@ -538,7 +670,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
 
   const stockDayRows: any = await queryDB(`
     SELECT datestr, finalprice, pricechangepct, totaltradevalue, totaltradevol,
-           turnoverrate, day_max_price, day_min_price, profit_chip
+           turnoverrate, day_max_price, day_min_price, profit_chip, marketvalue
     FROM stock_day_common_data
     WHERE symbol = '${safeSymbol}'
       AND datestr <= '${safeDate}'
@@ -592,6 +724,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   const ret5 = priceVolumeStats?.ret_5 ?? null;
   const ret10 = priceVolumeStats?.ret_10 ?? null;
   const ret20 = priceVolumeStats?.ret_20 ?? null;
+  const vol10 = priceVolumeStats?.vol_10 ?? null;
+  const vol20 = priceVolumeStats?.vol_20 ?? null;
+  const vol60 = priceVolumeStats?.vol_60 ?? null;
+  const drawdownFrom20High = priceVolumeStats?.drawdown_from_20_high ?? null;
+  const closeVsMa20 = priceVolumeStats?.close_vs_ma20 ?? null;
+  const turnRatio20 = priceVolumeStats?.turn_ratio_20 ?? null;
+  const circulation = priceVolumeStats?.circulation ?? null;
   const maxDrop20 = priceVolumeStats?.max_drop_20 ?? null;
   const ma20Slope5 = priceVolumeStats?.ma20_slope_5 ?? null;
   const profitChange5 = priceVolumeStats?.profit_change_5 ?? null;
@@ -859,6 +998,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     ret_5: ret5 === null ? null : round2(ret5),
     ret_10: ret10 === null ? null : round2(ret10),
     ret_20: ret20 === null ? null : round2(ret20),
+    vol_10: vol10 === null ? null : round2(vol10),
+    vol_20: vol20 === null ? null : round2(vol20),
+    vol_60: vol60 === null ? null : round2(vol60),
+    drawdown_from_20_high: drawdownFrom20High === null ? null : round2(drawdownFrom20High),
+    close_vs_ma20: closeVsMa20 === null ? null : round2(closeVsMa20),
+    turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
+    circulation: circulation === null ? null : round2(circulation),
     max_drop_20: maxDrop20 === null ? null : round2(maxDrop20),
     ma20_slope_5: ma20Slope5 === null ? null : round2(ma20Slope5),
     profit_change_5: profitChange5 === null ? null : round2(profitChange5),
@@ -890,6 +1036,8 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     weak_close_low_profit_risk: weakCloseLowProfitRisk,
     near_high_low_profit_divergence: nearHighLowProfitDivergence
   };
+  const marketEnv = await calcMarketEnvironment('focus_stocks_ai', actualDate, 0);
+  (details as any).market_env = marketEnv;
   const decisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
   const comments = [
     `【${score}】`,
@@ -899,13 +1047,15 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【P:${details.profit_chip_day0},${details.profit_chip_max3},${details.profit_delta},${details.pulse_ratio}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
+    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation}】`,
+    `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_16_1',
+    model: 'record1_v12_18',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -992,7 +1142,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   `);
   const stockDayRows: any = await queryDB(`
     SELECT datestr, finalprice, pricechangepct, totaltradevalue, totaltradevol,
-           turnoverrate, day_max_price, day_min_price, profit_chip
+           turnoverrate, day_max_price, day_min_price, profit_chip, marketvalue
     FROM stock_day_common_data
     WHERE symbol = '${safeSymbol}'
       AND datestr <= '${safeDate}'
@@ -1040,6 +1190,13 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   const closeWeakness10 = priceVolumeStats?.close_weakness_10 ?? null;
   const ret5 = priceVolumeStats?.ret_5 ?? null;
   const ret10 = priceVolumeStats?.ret_10 ?? null;
+  const vol10 = priceVolumeStats?.vol_10 ?? null;
+  const vol20 = priceVolumeStats?.vol_20 ?? null;
+  const vol60 = priceVolumeStats?.vol_60 ?? null;
+  const drawdownFrom20High = priceVolumeStats?.drawdown_from_20_high ?? null;
+  const closeVsMa20 = priceVolumeStats?.close_vs_ma20 ?? null;
+  const turnRatio20 = priceVolumeStats?.turn_ratio_20 ?? null;
+  const circulation = priceVolumeStats?.circulation ?? null;
 
   const tightGap = concGap <= 2.01;
   const coreGap = betweenValue(concGap, 2.01, 4.40);
@@ -1290,11 +1447,18 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     dmi_adx: dmi0 ? round2(dmiAdx) : null,
     price_pos_60: pricePos60 === null ? null : round2(pricePos60),
     drawdown_from_60_high: drawdownFrom60High === null ? null : round2(drawdownFrom60High),
+    drawdown_from_20_high: drawdownFrom20High === null ? null : round2(drawdownFrom20High),
     avg_turn_10: avgTurn10 === null ? null : round2(avgTurn10),
     avg_turn_5: avgTurn5 === null ? null : round2(avgTurn5),
     close_weakness_10: closeWeakness10 === null ? null : round2(closeWeakness10),
+    close_vs_ma20: closeVsMa20 === null ? null : round2(closeVsMa20),
     ret_5: ret5 === null ? null : round2(ret5),
     ret_10: ret10 === null ? null : round2(ret10),
+    vol_10: vol10 === null ? null : round2(vol10),
+    vol_20: vol20 === null ? null : round2(vol20),
+    vol_60: vol60 === null ? null : round2(vol60),
+    turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
+    circulation: circulation === null ? null : round2(circulation),
     risk_low_position_low_turn_elasticity: riskLowPositionLowTurnElasticity,
     risk_low_turn_stagnation: riskLowTurnStagnation,
     high_turn_elasticity: highTurnElasticity,
@@ -1309,6 +1473,8 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     sequence_prior_90d: Number(sequence?.prior_90d || 0),
     sequence_prior_180d: Number(sequence?.prior_180d || 0),
   };
+  const marketEnv = await calcMarketEnvironment('focus_stocks2_ai', actualDate, 1);
+  (details as any).market_env = marketEnv;
   const decisionTag = tradeDecisionTagRecord2(statusTag, tags, details);
   const comments = [
     `【${score}】`,
@@ -1317,13 +1483,15 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
+    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation}】`,
+    `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_9_3',
+    model: 'record2_v2_11',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

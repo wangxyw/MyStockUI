@@ -2118,9 +2118,9 @@ const renderPortraitComments = (comments?: string) => {
   const statusTag = tagTexts.find((tag) =>
     ['强信号', '观察', '无效'].includes(tag)
   );
-  const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避):/.test(tag));
+  const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避)[:｜]/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|R|DMI|MA|PA):/.test(tag)
+    /^(C|T|P|R|E|M|DMI|MA|PA):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
   const sortedRiskTags = [...riskTags].sort(
@@ -2138,7 +2138,14 @@ const renderPortraitComments = (comments?: string) => {
 
   return (
     <div style={{ lineHeight: 1.9, fontSize: 15 }}>
-      <div>
+      {(bestPickTag || scoreTag || statusTag) && (
+        <div>
+        {bestPickTag &&
+          renderPortraitTag(bestPickTag, 'best-pick', {
+            color: getBestPickTagColor(bestPickTag),
+            fontWeight: 700,
+            fontSize: 15,
+          })}
         {scoreTag && (
           <span
             style={{
@@ -2156,13 +2163,8 @@ const renderPortraitComments = (comments?: string) => {
             fontWeight: 600,
             fontSize: 15,
           })}
-        {bestPickTag &&
-          renderPortraitTag(bestPickTag, 'best-pick', {
-            color: getBestPickTagColor(bestPickTag),
-            fontWeight: 700,
-            fontSize: 15,
-          })}
-      </div>
+        </div>
+      )}
       {riskTags.length > 0 && (
         <div>
           {sortedRiskTags.map((tag, index) => renderPortraitTag(tag, `risk-${index}`))}
