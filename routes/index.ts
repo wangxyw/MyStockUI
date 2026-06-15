@@ -274,6 +274,9 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   const closeWeakness10 = details?.close_weakness_10 === null || details?.close_weakness_10 === undefined
     ? null
     : Number(details.close_weakness_10);
+  const conc70 = details?.conc_70 === null || details?.conc_70 === undefined
+    ? null
+    : Number(details.conc_70);
   const conc90 = details?.conc_90 === null || details?.conc_90 === undefined
     ? null
     : Number(details.conc_90);
@@ -299,6 +302,13 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   const turnoverMax = details?.turnover_max === null || details?.turnover_max === undefined
     ? null
     : Number(details.turnover_max);
+  const turnoverMean = details?.turnover_mean === null || details?.turnover_mean === undefined
+    ? null
+    : Number(details.turnover_mean);
+  const avgTurn10 = details?.avg_turn_10 === null || details?.avg_turn_10 === undefined
+    ? null
+    : Number(details.avg_turn_10);
+  const alarmIndex = Number(details?.alarm_index || 0);
   const weakLowScoreRepair = hasLowScoreRepair && (
     (pricePos60 !== null && pricePos60 <= 3) ||
     (profitChip !== null && profitChip <= 3) ||
@@ -312,6 +322,29 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
     '低流动弱趋势',
     '低位低换弹性不足',
   ]);
+  const lowTurnAcceptanceWait =
+    statusText === '观察' &&
+    tagText.includes('低换手观察') &&
+    avgTurn10 !== null &&
+    closeWeakness10 !== null &&
+    alarmIndex > 0 &&
+    avgTurn10 <= 1 &&
+    closeWeakness10 <= 60 &&
+    alarmIndex <= 3;
+  const avgTurnPositionWait =
+    ['观察', '无效'].includes(statusText) &&
+    turnoverMean !== null &&
+    pricePos60 !== null &&
+    conc90 !== null &&
+    closeWeakness10 !== null &&
+    alarmIndex > 0 &&
+    turnoverMean >= 1.5 &&
+    turnoverMean <= 3 &&
+    pricePos60 >= 3 &&
+    pricePos60 <= 15 &&
+    conc90 <= 11 &&
+    closeWeakness10 <= 60 &&
+    alarmIndex <= 3;
 
   if (statusText === '无效' && hasTechnicalAvoid) return '【避:技术弱势】';
   if (statusText === '无效' && hasSequenceHardWarning) return '【慎:低分序列警戒】';
@@ -324,6 +357,14 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60 && conc90 !== null && conc90 >= 20) return '【试:强信号承接修复】';
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【慎:强信号承接弱】';
   if (statusText === '强信号' && hasCoreLowElasticity) return '【慎:核心承接低弹】';
+  if (lowTurnAcceptanceWait || avgTurnPositionWait) return '【等:低位承接观察】';
+  const ordinaryStrongWait = statusText === '强信号' && hasOrdinaryElasticity && !hasHighMidRisk;
+  const ordinaryStrongWeakConfirm = ordinaryStrongWait && (
+    (pricePos60 !== null && pricePos60 < 10) ||
+    (conc70 !== null && conc70 >= 14)
+  );
+  if (ordinaryStrongWeakConfirm) return '【慎:普通强信号弱确认】';
+  if (ordinaryStrongWait) return '【等:普通强信号观察】';
   if (statusText !== '强信号' || hasHighMidRisk || hasOrdinaryElasticity) return null;
   if (hasHighElasticity && hasStrongMainType) return '【买:高弹强主】';
   if (hasRepairElasticity && hasStrongMainType) return '【试:回撤修复强主】';
@@ -1196,7 +1237,8 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     riskMaAllBear ||
     riskLowLiquidityWeakTrend ||
     riskLowPositionLowTurnElasticity;
-  tags.push(...sequenceTagsRecord2(await querySequenceContext('focus_stocks2_ai', symbol, actualDate), statusTag.replace(/[【】]/g, ''), technicalBlocked));
+  const sequence = await querySequenceContext('focus_stocks2_ai', symbol, actualDate);
+  tags.push(...sequenceTagsRecord2(sequence, statusTag.replace(/[【】]/g, ''), technicalBlocked));
   const record2SequenceWarning = tags.some((tag) => tag.includes('序列警戒:'));
   const lowScoreHighConcPullbackRepair =
     record2LowInvalid &&
@@ -1261,6 +1303,11 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     short_midcap_repair_elasticity: shortMidcapRepairElasticity,
     short_watch_midcap_acceptance_repair: shortWatchMidcapAcceptanceRepair,
     warning_low_elastic_core_acceptance: warningLowElasticCoreAcceptance,
+    alarm_index: Number(sequence?.prior_count || 0) + 1,
+    sequence_prior_count: Number(sequence?.prior_count || 0),
+    sequence_prior_30d: Number(sequence?.prior_30d || 0),
+    sequence_prior_90d: Number(sequence?.prior_90d || 0),
+    sequence_prior_180d: Number(sequence?.prior_180d || 0),
   };
   const decisionTag = tradeDecisionTagRecord2(statusTag, tags, details);
   const comments = [
@@ -1276,7 +1323,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_5',
+    model: 'record2_v2_9_3',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
