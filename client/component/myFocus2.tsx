@@ -1193,7 +1193,19 @@ export const MyFocus2ListComponent = () => {
     // { title: 'PCA', dataIndex: 'profit_chip_analyze', key: 'profit_chip_analyze', render: (text) => { if (!text) return <div>--</div>; try {const val = JSON.parse(text); if (!val || typeof val !== 'object') return <div>--</div>; return (<div>{Object.keys(val).map(i => (<p key={i}>{i}: {val[i]}</p>))}</div>);} catch (e) {return <div>无效数据</div>;}}},    
     { title: 'Continuance BYG', dataIndex: 'continuance_BYG', key: 'continuance_BYG', render: (c) => { const num = c.split('|')[0]?.match(/-?\d+(\.\d+)?/); if(!num) return false; const isUp=parseFloat(num[0])>0; return <span style={{color:isUp?'red':'green'}}>{c}</span>; } },
     { title: 'Comments', dataIndex: 'comments', key: 'comments', width: 1000, editable: false, render: renderComments },
-    { title: '后市画像', dataIndex: 'post_alert_comments', key: 'post_alert_comments', width: 620, editable: false, render: renderComments },
+    {
+      title: '后市画像',
+      dataIndex: 'post_alert_comments',
+      key: 'post_alert_comments',
+      width: 620,
+      editable: false,
+      render: (text, record) => (
+        <div>
+          {record?.post_alert_decision ? renderComments(`【${record.post_alert_decision}】`) : null}
+          {renderComments(text)}
+        </div>
+      ),
+    },
     {
       title: 'Date',
       dataIndex: 'datestr',

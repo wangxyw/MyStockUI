@@ -3221,6 +3221,7 @@ export const CriticalStocks3Component = () => {
                       观察日:{stockPortrait.post_alert_portrait.observe_datestr}
                     </span>
                   )}
+                  {stockPortrait?.post_alert_decision ? renderPortraitComments(`【${stockPortrait.post_alert_decision}】`) : null}
                   {renderPortraitComments(stockPortrait.post_alert_comments)}
                 </div>
               )}

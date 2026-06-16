@@ -2851,6 +2851,7 @@ export const MyFocusListComponent = () => {
       editable: false,
       render: (text, record) => (
         <div>
+          {record?.post_alert_decision ? renderComments(`【${record.post_alert_decision}】`) : null}
           {renderComments(text)}
         </div>
       ),

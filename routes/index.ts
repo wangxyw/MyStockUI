@@ -305,7 +305,7 @@ const applyRecord1TrackingDecision = (decisionTag: string | null, details: any =
     (closeVsMa20 !== null && closeVsMa20 <= -12) ||
     (ret5 !== null && ret5 <= -5);
 
-  return hotExpanding && ampAvg5d !== null && ampAvg5d >= 7 && deepOrWeak
+  return hotExpanding && ampAvg5d !== null && ampAvg5d >= 5 && deepOrWeak
     ? '【跟踪:热市急跌高振幅】'
     : decisionTag;
 };
@@ -1166,7 +1166,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_20',
+    model: 'record1_v12_20_4',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1604,7 +1604,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_13',
+    model: 'record2_v2_13_3',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1709,6 +1709,7 @@ const buildStockPortrait = async (symbolInput: string, datestr: string, alarmDat
     return {
       ...portrait,
       post_alert_portrait: postAlertPortrait,
+      post_alert_decision: postAlertPortrait?.decision || null,
       post_alert_comments: postAlertPortrait?.comments || null,
     };
   }
@@ -1719,6 +1720,7 @@ const buildStockPortrait = async (symbolInput: string, datestr: string, alarmDat
     return {
       ...portrait,
       post_alert_portrait: postAlertPortrait,
+      post_alert_decision: postAlertPortrait?.decision || null,
       post_alert_comments: postAlertPortrait?.comments || null,
     };
   }
