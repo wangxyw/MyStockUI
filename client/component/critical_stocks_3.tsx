@@ -2059,7 +2059,7 @@ const formatPortraitTagText = (tagText: string) => {
   if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return tagText.replace(/^首次/, '首｜');
   if (tagText.includes('后市变化:')) return tagText.replace('后市变化:', '变｜');
   if (tagText.includes('后市样本:')) return tagText.replace('后市样本:', '样｜');
-  if (/^(买|试|等|慎|避)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]):/, '$1｜');
+  if (/^(买|试|等|慎|避|跟踪)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]|跟踪):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
@@ -2083,6 +2083,7 @@ const getBestPickTagColor = (tagText: string) => {
   if (/^买[:｜]/.test(tagText)) return 'red';
   if (/^试[:｜]/.test(tagText)) return 'volcano';
   if (/^等[:｜]/.test(tagText)) return 'geekblue';
+  if (/^跟踪[:｜]/.test(tagText)) return 'blue';
   if (/^慎[:｜]/.test(tagText)) return 'gold';
   if (/^避[:｜]/.test(tagText)) return 'green';
   return undefined;
@@ -2118,7 +2119,7 @@ const renderPortraitComments = (comments?: string) => {
   const statusTag = tagTexts.find((tag) =>
     ['强信号', '观察', '无效'].includes(tag)
   );
-  const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避)[:｜]/.test(tag));
+  const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避|跟踪)[:｜]/.test(tag));
   const factorTags = tagTexts.filter((tag) =>
     /^(C|T|P|R|E|M|DMI|MA|PA):/.test(tag)
   );
