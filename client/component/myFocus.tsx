@@ -2312,10 +2312,16 @@ const formatRiskTagText = (tagText: string) => {
 };
 
 const getPostAlertTagColor = (tagText: string) => {
+  if (tagText.includes('后市层级:高质修复候选')) return 'volcano';
+  if (tagText.includes('后市层级:高质修复')) return 'red';
+  if (tagText.includes('后市层级:普通确认')) return 'red';
+  if (tagText.includes('后市层级:谨慎跟踪')) return 'blue';
+  if (tagText.includes('D4D7热扩确认') || tagText.includes('曾D4D7热扩确认') || tagText.includes('早期热扩确认')) return 'red';
   if (tagText.includes('D60强确认') || tagText.includes('曾D60强确认') || tagText.includes('后市:确认')) return 'red';
   if (tagText.includes('D30早期确认') || tagText.includes('曾D30早期确认')) return 'volcano';
   if (tagText.includes('D60降权') || tagText.includes('首次降权')) return 'gold';
   if (tagText.includes('D90放弃') || tagText.includes('从未确认已放弃') || tagText.includes('首次放弃') || tagText.includes('后市:放弃')) return 'green';
+  if (tagText.includes('已大幅兑现') || tagText.includes('确认涨幅偏高') || tagText.includes('当前涨幅>') || tagText.includes('首次兑现')) return 'orange';
   if (tagText.includes('确认后转弱')) return 'gold';
   if (tagText.includes('继续观察') || tagText.includes('尚未确认') || tagText.includes('等待确认') || tagText.includes('后市:观察')) return 'blue';
   if (tagText.includes('后市变化') || tagText.includes('后市样本')) return 'geekblue';
@@ -2324,7 +2330,7 @@ const getPostAlertTagColor = (tagText: string) => {
 
 const getCommentTagColor = (tagText: string) => {
   if (tagText.includes('后市')) return getPostAlertTagColor(tagText);
-  if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return getPostAlertTagColor(tagText);
+  if (/^首次(D4D7|D60|D30|放弃|降权):/.test(tagText)) return getPostAlertTagColor(tagText);
   if (tagText.includes('序列确认:')) return 'red';
   if (tagText.includes('序列警戒:')) return 'gold';
   if (tagText.includes('低分修复:')) return 'geekblue';
@@ -2341,6 +2347,7 @@ const getCommentTagColor = (tagText: string) => {
 
 const formatCommentTagText = (tagText: string) => {
   if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
+  if (tagText.includes('后市层级:')) return tagText.replace('后市层级:', '层｜');
   if (tagText.includes('后市路径:')) return tagText.replace('后市路径:', '路｜');
   if (tagText.includes('后市:')) return tagText.replace('后市:', '后｜');
   if (/^首次(D60|D30|放弃|降权):/.test(tagText)) return tagText.replace(/^首次/, '首｜');

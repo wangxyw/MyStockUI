@@ -1166,7 +1166,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_20_4',
+    model: 'record1_v12_20_10',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1604,7 +1604,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_13_3',
+    model: 'record2_v2_13_9',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
