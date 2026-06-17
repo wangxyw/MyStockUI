@@ -98,6 +98,10 @@ const getPostAlertTagColor = (tagText: string) => {
   if (tagText.includes('后市层级:高质修复')) return 'red';
   if (tagText.includes('后市层级:普通确认')) return 'red';
   if (tagText.includes('后市层级:谨慎跟踪')) return 'blue';
+  if (tagText.startsWith('后市试:')) return 'red';
+  if (tagText.startsWith('后市等:')) return 'blue';
+  if (tagText.startsWith('后市慎:')) return 'orange';
+  if (tagText.startsWith('后市避:')) return 'green';
   if (tagText.includes('D4D7热扩确认') || tagText.includes('曾D4D7热扩确认') || tagText.includes('早期热扩确认')) return 'red';
   if (tagText.includes('D60强确认') || tagText.includes('曾D60强确认') || tagText.includes('后市:确认')) return 'red';
   if (tagText.includes('D30早期确认') || tagText.includes('曾D30早期确认')) return 'volcano';
@@ -130,6 +134,10 @@ const getCommentTagColor = (tag: string) => {
 
 const formatCommentTagText = (tagText: string) => {
   if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
+  if (tagText.startsWith('后市试:')) return tagText.replace('后市试:', '后试｜');
+  if (tagText.startsWith('后市等:')) return tagText.replace('后市等:', '后等｜');
+  if (tagText.startsWith('后市慎:')) return tagText.replace('后市慎:', '后慎｜');
+  if (tagText.startsWith('后市避:')) return tagText.replace('后市避:', '后避｜');
   if (tagText.includes('后市层级:')) return tagText.replace('后市层级:', '层｜');
   if (tagText.includes('后市路径:')) return tagText.replace('后市路径:', '路｜');
   if (tagText.includes('后市:')) return tagText.replace('后市:', '后｜');
