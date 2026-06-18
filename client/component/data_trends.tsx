@@ -166,13 +166,13 @@ const SimpleAlarmTrend: React.FC = () => {
       series: [
         { name:'报警数', type:'bar', yAxisIndex:1, data:counts, itemStyle:{color:'rgba(24,144,255,0.25)', borderRadius:[3,3,0,0]}, barWidth:'80%', barGap:'0%', z:1, emphasis:{itemStyle:{color:'rgba(24,144,255,0.45)'}} },
         { name:'vol10_med', type:'line', yAxisIndex:0, data:values,
-          lineStyle:{color:'#e74c3c',width:1.5}, itemStyle:{color:'#e74c3c'},
+          lineStyle:{color:'#9b59b6',width:1.5}, itemStyle:{color:'#e74c3c'},
           symbol:'circle', symbolSize: dataCount>100?3:5, smooth:false,
           areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(231,76,60,0.10)'},{offset:1,color:'rgba(231,76,60,0)'}]}},
           markLine:{silent:true,symbol:'none',lineStyle:{type:'dashed',width:1},
             data:[
-              {yAxis:35,label:{formatter:'热 35',position:'start',fontSize:10,color:'#e74c3c'},lineStyle:{color:'#e74c3c'}},
-              {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:10,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
+              {yAxis:35,label:{formatter:'热 35',position:'start',fontSize:12,color:'#e74c3c'},lineStyle:{color:'#e74c3c'}},
+              {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:12,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
             ]
           }
         }
