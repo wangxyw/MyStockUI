@@ -305,9 +305,30 @@ const applyRecord1TrackingDecision = (decisionTag: string | null, details: any =
     (closeVsMa20 !== null && closeVsMa20 <= -12) ||
     (ret5 !== null && ret5 <= -5);
 
-  return hotExpanding && ampAvg5d !== null && ampAvg5d >= 5 && deepOrWeak
-    ? '【跟踪:热市急跌高振幅】'
-    : decisionTag;
+  if (hotExpanding && ampAvg5d !== null && ampAvg5d >= 5 && deepOrWeak) {
+    return '【跟踪:热市急跌高振幅】';
+  }
+
+  const lastHotDays = details?.market_exposure?.last_hot_days;
+  const up20 = details?.up_from_low_20d === null || details?.up_from_low_20d === undefined
+    ? null
+    : Number(details.up_from_low_20d);
+  const pos60 = details?.price_pos_60 === null || details?.price_pos_60 === undefined
+    ? null
+    : Number(details.price_pos_60);
+  const volRatio = details?.vol_ratio_20_60 === null || details?.vol_ratio_20_60 === undefined
+    ? null
+    : Number(details.vol_ratio_20_60);
+  const recentHot = lastHotDays !== null && lastHotDays !== undefined && Number(lastHotDays) < 20;
+  const structuralRepair =
+    up20 !== null && up20 >= 5 && up20 < 10 &&
+    pos60 !== null && pos60 >= 20 && pos60 < 40 &&
+    volRatio !== null && volRatio >= 1 && volRatio < 1.3;
+  const weakRepair =
+    decisionText === '避:明确弱势' &&
+    up20 !== null && up20 >= 10 && up20 < 20;
+
+  return recentHot && (structuralRepair || weakRepair) ? '【跟踪:近期热市低位修复】' : decisionTag;
 };
 
 const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any) => {
@@ -466,7 +487,7 @@ const applyRecord2LargeCapWeakAcceptanceRiskDecision = (decisionTag: string | nu
 
 const applyRecord2TrackingDecision = (decisionTag: string | null, details: any = {}) => {
   const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
-  if (decisionText !== '等:低分高集中修复观察') return decisionTag;
+  if (/^(买|试):/.test(decisionText)) return decisionTag;
 
   const marketEnv = details?.market_env || {};
   const turnRatio20 = details?.turn_ratio_20 === null || details?.turn_ratio_20 === undefined
@@ -478,7 +499,19 @@ const applyRecord2TrackingDecision = (decisionTag: string | null, details: any =
   const volumeConfirm = turnRatio20 !== null && turnRatio20 >= 1.2;
   const hotBig = marketEnv.temp === '热' && marketEnv.alarm_dir === '报扩' && circulation !== null && circulation >= 80;
 
-  return volumeConfirm || hotBig ? '【跟踪:低分高集中修复】' : decisionTag;
+  if (decisionText === '等:低分高集中修复观察' && (volumeConfirm || hotBig)) {
+    return '【跟踪:低分高集中修复】';
+  }
+
+  const lastHotDays = details?.market_exposure?.last_hot_days;
+  const bb20 = details?.bb_pos_20 === null || details?.bb_pos_20 === undefined ? null : Number(details.bb_pos_20);
+  const closeVsMa20 = details?.close_vs_ma20 === null || details?.close_vs_ma20 === undefined ? null : Number(details.close_vs_ma20);
+  const ret3 = details?.ret_3 === null || details?.ret_3 === undefined ? null : Number(details.ret_3);
+  const recentHot = lastHotDays !== null && lastHotDays !== undefined && Number(lastHotDays) < 20;
+  const bbDeepRepair = bb20 !== null && bb20 < -1 && closeVsMa20 !== null && closeVsMa20 >= -20 && closeVsMa20 < -12;
+  const sharpDropRepair = ret3 !== null && ret3 < -10;
+
+  return recentHot && (bbDeepRepair || sharpDropRepair) ? '【跟踪:近期热市深跌修复】' : decisionTag;
 };
 
 const TIGHT_CONC_GAP_MAX = 2.01;
@@ -532,6 +565,12 @@ const parseEValues = (comments: any) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
   });
+};
+
+const parseMValues = (comments: any) => {
+  const match = String(comments ?? '').match(/【M:([^】]+)】/);
+  if (!match) return [];
+  return match[1].split(',').map((value) => String(value ?? '').trim());
 };
 
 const marketEnvTemperature = (
@@ -617,6 +656,44 @@ const calcMarketEnvironment = async (
   };
 };
 
+const calcMarketExposure = async (
+  tableName: 'focus_stocks_ai' | 'focus_stocks2_ai',
+  datestr: string
+) => {
+  const safeDate = sqlEscape(datestr);
+  const rows: any = await queryDB(`
+    SELECT datestr, comments
+    FROM ${tableName}
+    WHERE datestr <= '${safeDate}'
+      AND comments LIKE '%【M:%'
+    ORDER BY datestr ASC
+  `);
+  const byDate: Record<string, { date: Date; temp: string; dir: string }> = {};
+  (rows || []).forEach((row: any) => {
+    const date = formatDbDate(row.datestr);
+    if (byDate[date]) return;
+    const m = parseMValues(row.comments);
+    byDate[date] = { date: new Date(`${date}T00:00:00`), temp: m[1] || '', dir: m[2] || '' };
+  });
+  const current = new Date(`${datestr}T00:00:00`);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const history = Object.values(byDate).filter((row) => row.date <= current);
+  const windowRows = history.filter((row) => (current.getTime() - row.date.getTime()) / dayMs <= 60);
+  const lastHot = [...history].reverse().find((row) => row.temp === '热');
+  const lastHotDays = lastHot ? Math.round((current.getTime() - lastHot.date.getTime()) / dayMs) : null;
+  const hotishRatio60 = windowRows.length
+    ? (100 * windowRows.filter((row) => row.temp.startsWith('热')).length) / windowRows.length
+    : null;
+  const coldRatio60 = windowRows.length
+    ? (100 * windowRows.filter((row) => ['冷偏暖', '极冷'].includes(row.temp)).length) / windowRows.length
+    : null;
+  return {
+    last_hot_days: lastHotDays,
+    hotish_ratio_60: hotishRatio60 === null ? null : round2(hotishRatio60),
+    cold_ratio_60: coldRatio60 === null ? null : round2(coldRatio60)
+  };
+};
+
 const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   const rows = [...(rowsDesc || [])].reverse();
   if (rows.length < 20) return null;
@@ -661,6 +738,7 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   const vol10 = stddev(pctChanges.slice(-10));
   const vol20 = stddev(pctChanges.slice(-20));
   const vol60 = rows.length >= 60 ? stddev(pctChanges.slice(-60)) : null;
+  const volRatio20_60 = vol20 !== null && vol60 !== null && vol60 > 0 ? vol20 / vol60 : null;
   const ampValues5 = last(5)
     .map((row) => {
       const high = toNumber(row.day_max_price);
@@ -687,12 +765,14 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
     amount_ratio_5_60: avgAmount60 && avgAmount60 > 0 && avgAmount5 !== null ? avgAmount5 / avgAmount60 : null,
     close_weakness_10: avg(closeWeaknessValues),
     close_vs_ma20: ma20Current !== null && ma20Current > 0 ? (latestClose / ma20Current - 1) * 100 : null,
+    ret_3: rows.length >= 4 ? ret(4) : null,
     ret_5: rows.length >= 5 ? ret(5) : null,
     ret_10: rows.length >= 10 ? ret(10) : null,
     ret_20: rows.length >= 20 ? ret(20) : null,
     vol_10: vol10 === null ? null : vol10 * Math.sqrt(252),
     vol_20: vol20 === null ? null : vol20 * Math.sqrt(252),
     vol_60: vol60 === null ? null : vol60 * Math.sqrt(252),
+    vol_ratio_20_60: volRatio20_60,
     circulation: latestClose > 0 ? toNumber(rows[rows.length - 1].marketvalue) / latestClose : null,
     amp_avg_5d: ampValues5.length === 5 ? avg(ampValues5) : null,
     bb_pos_20: bbPos20,
@@ -1113,11 +1193,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     amount_ratio_5_60: amountRatio560 === null ? null : round2(amountRatio560),
     close_weakness_10: closeWeakness10 === null ? null : round2(closeWeakness10),
     ret_5: ret5 === null ? null : round2(ret5),
+    ret_3: priceVolumeStats?.ret_3 === null || priceVolumeStats?.ret_3 === undefined ? null : round2(priceVolumeStats.ret_3),
     ret_10: ret10 === null ? null : round2(ret10),
     ret_20: ret20 === null ? null : round2(ret20),
     vol_10: vol10 === null ? null : round2(vol10),
     vol_20: vol20 === null ? null : round2(vol20),
     vol_60: vol60 === null ? null : round2(vol60),
+    vol_ratio_20_60: priceVolumeStats?.vol_ratio_20_60 === null || priceVolumeStats?.vol_ratio_20_60 === undefined ? null : round2(priceVolumeStats.vol_ratio_20_60),
     drawdown_from_20_high: drawdownFrom20High === null ? null : round2(drawdownFrom20High),
     close_vs_ma20: closeVsMa20 === null ? null : round2(closeVsMa20),
     turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
@@ -1156,7 +1238,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     near_high_low_profit_divergence: nearHighLowProfitDivergence
   };
   const marketEnv = await calcMarketEnvironment('focus_stocks_ai', actualDate, 0);
+  const marketExposure = await calcMarketExposure('focus_stocks_ai', actualDate);
   (details as any).market_env = marketEnv;
+  (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
   const decisionTag = applyRecord1TrackingDecision(applyRecord1MarketRiskDecision(baseDecisionTag, details), details);
   const comments = [
@@ -1168,14 +1252,16 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     `【P:${details.profit_chip_day0},${details.profit_chip_max3},${details.profit_delta},${details.pulse_ratio}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
     `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d},${details.bb_pos_20}】`,
+    `【S:${details.up_from_low_20d},${details.price_pos_60},${details.ret_3},${details.vol_ratio_20_60}】`,
     `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
+    `【ME:${marketExposure.last_hot_days},${marketExposure.hotish_ratio_60},${marketExposure.cold_ratio_60}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_24',
+    model: 'record1_v12_25',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1569,15 +1655,18 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     price_pos_60: pricePos60 === null ? null : round2(pricePos60),
     drawdown_from_60_high: drawdownFrom60High === null ? null : round2(drawdownFrom60High),
     drawdown_from_20_high: drawdownFrom20High === null ? null : round2(drawdownFrom20High),
+    up_from_low_20d: priceVolumeStats?.up_from_low_20d === null || priceVolumeStats?.up_from_low_20d === undefined ? null : round2(priceVolumeStats.up_from_low_20d),
     avg_turn_10: avgTurn10 === null ? null : round2(avgTurn10),
     avg_turn_5: avgTurn5 === null ? null : round2(avgTurn5),
     close_weakness_10: closeWeakness10 === null ? null : round2(closeWeakness10),
     close_vs_ma20: closeVsMa20 === null ? null : round2(closeVsMa20),
+    ret_3: priceVolumeStats?.ret_3 === null || priceVolumeStats?.ret_3 === undefined ? null : round2(priceVolumeStats.ret_3),
     ret_5: ret5 === null ? null : round2(ret5),
     ret_10: ret10 === null ? null : round2(ret10),
     vol_10: vol10 === null ? null : round2(vol10),
     vol_20: vol20 === null ? null : round2(vol20),
     vol_60: vol60 === null ? null : round2(vol60),
+    vol_ratio_20_60: priceVolumeStats?.vol_ratio_20_60 === null || priceVolumeStats?.vol_ratio_20_60 === undefined ? null : round2(priceVolumeStats.vol_ratio_20_60),
     turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
     circulation: circulation === null ? null : round2(circulation),
     amp_avg_5d: priceVolumeStats?.amp_avg_5d === null || priceVolumeStats?.amp_avg_5d === undefined ? null : round2(priceVolumeStats.amp_avg_5d),
@@ -1597,7 +1686,9 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     sequence_prior_180d: Number(sequence?.prior_180d || 0),
   };
   const marketEnv = await calcMarketEnvironment('focus_stocks2_ai', actualDate, 1);
+  const marketExposure = await calcMarketExposure('focus_stocks2_ai', actualDate);
   (details as any).market_env = marketEnv;
+  (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord2(statusTag, tags, details);
   const decisionTag = applyRecord2TrackingDecision(applyRecord2LargeCapWeakAcceptanceRiskDecision(baseDecisionTag, details), details);
   const comments = [
@@ -1608,14 +1699,16 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
     `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d},${details.bb_pos_20}】`,
+    `【S:${details.up_from_low_20d},${details.price_pos_60},${details.ret_3},${details.vol_ratio_20_60}】`,
     `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
+    `【ME:${marketExposure.last_hot_days},${marketExposure.hotish_ratio_60},${marketExposure.cold_ratio_60}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
 
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_16',
+    model: 'record2_v2_17',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

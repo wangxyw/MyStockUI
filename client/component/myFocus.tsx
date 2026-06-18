@@ -2487,6 +2487,45 @@ const renderComments = (comments?: string) => {
 const commentsWithAlertDecision = (alertDecision?: string, comments?: string) =>
   `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
 
+const hasActiveD4D7PostAlert = (record: any) => {
+  const decision = record?.post_alert_decision || '';
+  return (
+    decision.includes('D4D7') &&
+    !decision.startsWith('后避') &&
+    !decision.startsWith('后慎') &&
+    !decision.includes('降权') &&
+    !decision.includes('放弃') &&
+    !decision.includes('兑现') &&
+    !decision.includes('转弱')
+  );
+};
+
+const isRecord1MainStrategyCandidate = (record: any) => {
+  const decision = record?.alert_decision || '';
+  return (
+    decision.startsWith('买｜低位修复') ||
+    decision.startsWith('试｜急跌修复') ||
+    decision.startsWith('跟踪｜热市修复') ||
+    decision.startsWith('跟踪｜转折型')
+  );
+};
+
+const isRecord1BestCombo = (record: any) =>
+  isRecord1MainStrategyCandidate(record) && hasActiveD4D7PostAlert(record);
+
+const bestComboCellStyle: React.CSSProperties = {
+  background: '#fff1f0',
+  borderLeft: '4px solid #ff4d4f',
+  borderRadius: 4,
+  padding: '6px 8px',
+};
+
+const renderBestComboCell = (record: any, content: React.ReactNode) => (
+  <div style={isRecord1BestCombo(record) ? bestComboCellStyle : undefined}>
+    {content}
+  </div>
+);
+
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
@@ -2859,7 +2898,11 @@ export const MyFocusListComponent = () => {
       key: 'comments',
       width: 1000,
       editable: false,
-      render: (text, record) => renderComments(commentsWithAlertDecision(record?.alert_decision, text)),
+      render: (text, record) =>
+        renderBestComboCell(
+          record,
+          renderComments(commentsWithAlertDecision(record?.alert_decision, text))
+        ),
     },
     {
       title: '后市画像',
@@ -2867,12 +2910,13 @@ export const MyFocusListComponent = () => {
       key: 'post_alert_comments',
       width: 620,
       editable: false,
-      render: (text, record) => (
-        <div>
+      render: (text, record) =>
+        renderBestComboCell(record, (
+          <div>
           {record?.post_alert_decision ? renderComments(`【${record.post_alert_decision}】`) : null}
           {renderComments(text)}
-        </div>
-      ),
+          </div>
+        )),
     },
     {
       title: 'Date',
