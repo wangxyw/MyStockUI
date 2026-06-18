@@ -1175,11 +1175,12 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_23',
+    model: 'record1_v12_24',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
     chip_datestr: formatDbDate(chip.datestr),
+    alert_decision: decisionTag ? stripBrackets(decisionTag) : null,
     comments,
     score,
     status: statusTag.replace(/[【】]/g, ''),
@@ -1614,11 +1615,12 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_15',
+    model: 'record2_v2_16',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
     chip_datestr: formatDbDate(chip.datestr),
+    alert_decision: decisionTag ? stripBrackets(decisionTag) : null,
     comments,
     score,
     status: statusTag.replace(/[【】]/g, ''),
@@ -2111,6 +2113,7 @@ router.get('/all_focus_stock', function (req, res, next) {
     let sql;
     if (sortByDate) {
       sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    ai.alert_decision AS alert_decision,
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
@@ -2133,6 +2136,7 @@ router.get('/all_focus_stock', function (req, res, next) {
     } else {
       // 默认按更新时间倒序（保持原有性能）
       sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    ai.alert_decision AS alert_decision,
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
@@ -2229,6 +2233,7 @@ router.get('/all_focus_stock2', function (req, res, next) {
     let sql;
     if (sortByDate) {
       sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    ai.alert_decision AS alert_decision,
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
@@ -2250,6 +2255,7 @@ router.get('/all_focus_stock2', function (req, res, next) {
              LIMIT ? OFFSET ?`;
     } else {
       sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
+                    ai.alert_decision AS alert_decision,
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,

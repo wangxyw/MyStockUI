@@ -2202,6 +2202,9 @@ const renderPortraitComments = (comments?: string) => {
   );
 };
 
+const portraitCommentsWithDecision = (alertDecision?: string, comments?: string) =>
+  `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
+
 const getCriticalStockRowKey = (record: any) =>
   [
     record?.symbol || 'unknown',
@@ -3221,7 +3224,7 @@ export const CriticalStocks3Component = () => {
             <>
               <div style={{ marginBottom: 6 }}>
                 <span style={{ color: '#666', fontWeight: 600, marginRight: 8 }}>报警画像</span>
-                {renderPortraitComments(stockPortrait?.comments)}
+                {renderPortraitComments(portraitCommentsWithDecision(stockPortrait?.alert_decision, stockPortrait?.comments))}
               </div>
               {stockPortrait?.post_alert_comments && (
                 <div style={{ marginTop: 8 }}>

@@ -2484,6 +2484,9 @@ const renderComments = (comments?: string) => {
   );
 };
 
+const commentsWithAlertDecision = (alertDecision?: string, comments?: string) =>
+  `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
+
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
   const [rateByCur, setRateByCur] = useState();
@@ -2856,7 +2859,7 @@ export const MyFocusListComponent = () => {
       key: 'comments',
       width: 1000,
       editable: false,
-      render: renderComments,
+      render: (text, record) => renderComments(commentsWithAlertDecision(record?.alert_decision, text)),
     },
     {
       title: '后市画像',
