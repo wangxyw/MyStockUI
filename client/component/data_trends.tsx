@@ -21,6 +21,14 @@ interface AiFocusData {
   symbol_count: number;
 }
 
+interface MTempItem {
+  datestr: string;
+  vol10_med: number;
+  temp_label: string;
+  alarm_dir: string;
+  alarm_count: number;
+}
+
 const SimpleAlarmTrend: React.FC = () => {
   const [days, setDays] = useState<number>(120);
   const [daysTill, setDaysTill] = useState<string>(moment().format('YYYY-MM-DD'));
@@ -30,6 +38,11 @@ const SimpleAlarmTrend: React.FC = () => {
   // AI Focus Stocks 数据状态
   const [aiFocusData, setAiFocusData] = useState<AiFocusData[]>([]);
   const [aiFocusLoading, setAiFocusLoading] = useState<boolean>(false);
+
+  // M 市场温度数据
+  const [mTempR1, setMTempR1] = useState<MTempItem[]>([]);
+  const [mTempR2, setMTempR2] = useState<MTempItem[]>([]);
+  const [mTempLoading, setMTempLoading] = useState<boolean>(false);
 
   // 天数选项
   const daysOptions = [
@@ -78,6 +91,26 @@ const SimpleAlarmTrend: React.FC = () => {
     }
   }, [days, daysTill]);
 
+  // 获取 M 市场温度数据
+  const fetchMTempData = useCallback(async () => {
+    setMTempLoading(true);
+    try {
+      const [r1Res, r2Res] = await Promise.all([
+        fetch('/api/m_trend?record_type=record1'),
+        fetch('/api/m_trend?record_type=record2'),
+      ]);
+      const r1Data = await r1Res.json();
+      const r2Data = await r2Res.json();
+      console.log('M Temp R1:', r1Data?.length, 'rows, R2:', r2Data?.length, 'rows');
+      if (r1Res.ok && Array.isArray(r1Data)) setMTempR1(r1Data);
+      if (r2Res.ok && Array.isArray(r2Data)) setMTempR2(r2Data);
+    } catch (error) {
+      console.error('Failed to fetch M temp data:', error);
+    } finally {
+      setMTempLoading(false);
+    }
+  }, []);
+
   // 获取 AI Focus Stocks 数据（独立，不需要参数）
   const fetchAiFocusData = useCallback(async () => {
     setAiFocusLoading(true);
@@ -103,9 +136,67 @@ const SimpleAlarmTrend: React.FC = () => {
   useEffect(() => {
     fetchTrendData();
     fetchAiFocusData();
+    fetchMTempData();
   }, []);
 
-  // 生成图表配置 - AI Focus Stocks
+  const getMTempChartOption = (data: MTempItem[], title: string) => {
+    if (!data || data.length === 0) return null;
+    const dates = data.map(d => d.datestr);
+    const counts = data.map(d => d.alarm_count);
+    const values = data.map(d => d.vol10_med);
+    const dataCount = dates.length;
+    const tc: Record<string, string> = { '热':'#e74c3c','热偏弱':'#ee8a7d','温':'#f39c12','冷偏暖':'#3498db','极冷':'#95a5a6' };
+
+    return {
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const i = params[0]?.dataIndex ?? 0;
+          const d = data[i]; if (!d) return '';
+          const c = tc[d.temp_label]||'#666';
+          return `<b>${d.datestr}</b><br/>vol10_med: <b>${d.vol10_med?.toFixed(1)}</b><br/><span style="color:${c}">●</span> ${d.temp_label} ${d.alarm_dir}<br/>报警: ${d.alarm_count}条`;
+        }
+      },
+      grid: { top: 10, bottom: dataCount>50?35:10, left: 52, right: 15 },
+      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:10,color:'#aaa',interval:Math.floor(dataCount/15)}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
+      yAxis: [
+        { type:'value', name:'vol10_med', nameTextStyle:{fontSize:10,color:'#aaa'}, min:0, max:80, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
+        { type:'value', name:'报警', nameTextStyle:{fontSize:10,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
+      ],
+      series: [
+        { name:'报警数', type:'bar', yAxisIndex:1, data:counts, itemStyle:{color:'rgba(24,144,255,0.25)', borderRadius:[3,3,0,0]}, barWidth:'80%', barGap:'0%', z:1, emphasis:{itemStyle:{color:'rgba(24,144,255,0.45)'}} },
+        { name:'vol10_med', type:'line', yAxisIndex:0, data:values,
+          lineStyle:{color:'#e74c3c',width:1.5}, itemStyle:{color:'#e74c3c'},
+          symbol:'circle', symbolSize: dataCount>100?3:5, smooth:false,
+          areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(231,76,60,0.10)'},{offset:1,color:'rgba(231,76,60,0)'}]}},
+          markLine:{silent:true,symbol:'none',lineStyle:{type:'dashed',width:1},
+            data:[
+              {yAxis:35,label:{formatter:'热 35',position:'start',fontSize:10,color:'#e74c3c'},lineStyle:{color:'#e74c3c'}},
+              {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:10,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
+            ]
+          }
+        }
+      ],
+      dataZoom: dataCount>50?[{type:'slider',start:0,end:100,bottom:0,height:20}]:[],
+    };
+  };
+
+  const getMTempStats = (data: MTempItem[]) => {
+    if (!data || data.length === 0) return { latest: 0, hotDays: 0, latestLabel: '--', latestDir: '--' };
+    const latest = data[data.length - 1];
+    return {
+      latest: latest.vol10_med,
+      latestLabel: latest.temp_label,
+      latestDir: latest.alarm_dir,
+      hotDays: data.filter(d => d.temp_label === '热').length,
+    };
+  };
+  const r1Stats = getMTempStats(mTempR1);
+  const r2Stats = getMTempStats(mTempR2);
+  const tempStatColor = (t: string) => {
+    const map: Record<string, string> = { '热': '#e74c3c', '热偏弱': '#ee8a7d', '温': '#f39c12', '冷偏暖': '#3498db', '极冷': '#95a5a6' };
+    return map[t] || '#95a5a6';
+  };
   const getAiFocusChartOption = (data: AiFocusData[], showValues: boolean = true) => {
     if (!data || data.length === 0) return null;
     
@@ -495,6 +586,47 @@ const SimpleAlarmTrend: React.FC = () => {
             </div>
           </Card>
         )}
+
+        <Divider />
+
+        {/* M 市场温度趋势 */}
+        <Card
+          title={<span>🌡 M 市场温度趋势</span>}
+          size="small"
+          style={{ marginTop: 20 }}
+          extra={
+            <Space>
+              <Button size="small" icon={<ReloadOutlined />} onClick={fetchMTempData} loading={mTempLoading}>刷新温度</Button>
+            </Space>
+          }
+        >
+          <Row gutter={16}>
+            {mTempR1.length > 0 ? (
+              <Col span={12}>
+                <div style={{ marginBottom: 8, fontSize: 13, color: tempStatColor(r1Stats.latestLabel), fontWeight: 600 }}>
+                  中小盘(Record1): 当前 {r1Stats.latest.toFixed(1)} {r1Stats.latestLabel} {r1Stats.latestDir} | 热 days: {r1Stats.hotDays}
+                </div>
+                <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 320 }} opts={{ renderer: 'canvas' }} />
+              </Col>
+            ) : (
+              <Col span={12} style={{ textAlign: 'center', padding: 40, color: '#ccc' }}>
+                {mTempLoading ? '加载中...' : '暂无 Record1 温度数据'}
+              </Col>
+            )}
+            {mTempR2.length > 0 ? (
+              <Col span={12}>
+                <div style={{ marginBottom: 8, fontSize: 13, color: tempStatColor(r2Stats.latestLabel), fontWeight: 600 }}>
+                  中大盘(Record2): 当前 {r2Stats.latest.toFixed(1)} {r2Stats.latestLabel} {r2Stats.latestDir} | 热 days: {r2Stats.hotDays}
+                </div>
+                <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 320 }} opts={{ renderer: 'canvas' }} />
+              </Col>
+            ) : (
+              <Col span={12} style={{ textAlign: 'center', padding: 40, color: '#ccc' }}>
+                {mTempLoading ? '加载中...' : '暂无 Record2 温度数据'}
+              </Col>
+            )}
+          </Row>
+        </Card>
 
         <Divider />
 

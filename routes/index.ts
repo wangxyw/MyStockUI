@@ -1166,7 +1166,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_21_1',
+    model: 'record1_v12_22_4',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1604,7 +1604,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_14_1',
+    model: 'record2_v2_14_6',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -3665,6 +3665,18 @@ router.get('/board/board_trend', (req: Request, res: Response) => {
   });
 });
 
+// 10. 加在 index.ts 的 router 中
+router.get('/m_trend', function (req, res, next) {
+  const recordType = req.query.record_type || 'record1';
+  const sql = 'SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count FROM daily_m WHERE record_type = ? ORDER BY datestr';
+  pool.query(sql, [recordType], function (err, rows, fields) {
+    if (err) {
+      console.error('m_trend error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
 // ========== 舆情板块股票映射 API ==========
 
 // 获取板块对应的股票列表（从舆情映射表查询）
