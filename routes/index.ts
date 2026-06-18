@@ -650,6 +650,13 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
   const avgAmount60 = avg(lastNumbers('totaltradevalue', 60));
   const ma20Current = avg(closes.slice(-20));
   const ma20Lag5 = rows.length >= 25 ? avg(closes.slice(-25, -5)) : null;
+  const closeStd20Values = closes.slice(-20);
+  const closeStd20Mean = avg(closeStd20Values);
+  const closeStd20 =
+    closeStd20Mean === null
+      ? null
+      : Math.sqrt(closeStd20Values.reduce((sum, value) => sum + Math.pow(value - closeStd20Mean, 2), 0) / closeStd20Values.length);
+  const bbPos20 = closeStd20 !== null && closeStd20 > 0 && ma20Current !== null ? (latestClose - ma20Current) / (2 * closeStd20) : null;
   const pctChanges = rows.map((row) => toNumber(row.pricechangepct));
   const vol10 = stddev(pctChanges.slice(-10));
   const vol20 = stddev(pctChanges.slice(-20));
@@ -688,6 +695,7 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
     vol_60: vol60 === null ? null : vol60 * Math.sqrt(252),
     circulation: latestClose > 0 ? toNumber(rows[rows.length - 1].marketvalue) / latestClose : null,
     amp_avg_5d: ampValues5.length === 5 ? avg(ampValues5) : null,
+    bb_pos_20: bbPos20,
     max_drop_20: Math.min(...lastNumbers('pricechangepct', 20)),
     ma20_slope_5: ma20Current !== null && ma20Lag5 !== null && ma20Lag5 > 0 ? (ma20Current / ma20Lag5 - 1) * 100 : null,
     profit_change_5: rows.length >= 6 ? toNumber(rows[rows.length - 1].profit_chip) - toNumber(rows[rows.length - 6].profit_chip) : null,
@@ -1115,6 +1123,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
     circulation: circulation === null ? null : round2(circulation),
     amp_avg_5d: priceVolumeStats?.amp_avg_5d === null || priceVolumeStats?.amp_avg_5d === undefined ? null : round2(priceVolumeStats.amp_avg_5d),
+    bb_pos_20: priceVolumeStats?.bb_pos_20 === null || priceVolumeStats?.bb_pos_20 === undefined ? null : round2(priceVolumeStats.bb_pos_20),
     max_drop_20: maxDrop20 === null ? null : round2(maxDrop20),
     ma20_slope_5: ma20Slope5 === null ? null : round2(ma20Slope5),
     profit_change_5: profitChange5 === null ? null : round2(profitChange5),
@@ -1158,7 +1167,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【P:${details.profit_chip_day0},${details.profit_chip_max3},${details.profit_delta},${details.pulse_ratio}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
-    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d}】`,
+    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d},${details.bb_pos_20}】`,
     `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
@@ -1166,7 +1175,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_22_4',
+    model: 'record1_v12_23',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1571,6 +1580,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     turn_ratio_20: turnRatio20 === null ? null : round2(turnRatio20),
     circulation: circulation === null ? null : round2(circulation),
     amp_avg_5d: priceVolumeStats?.amp_avg_5d === null || priceVolumeStats?.amp_avg_5d === undefined ? null : round2(priceVolumeStats.amp_avg_5d),
+    bb_pos_20: priceVolumeStats?.bb_pos_20 === null || priceVolumeStats?.bb_pos_20 === undefined ? null : round2(priceVolumeStats.bb_pos_20),
     risk_low_position_low_turn_elasticity: riskLowPositionLowTurnElasticity,
     risk_low_turn_stagnation: riskLowTurnStagnation,
     high_turn_elasticity: highTurnElasticity,
@@ -1596,7 +1606,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
     `【C:${details.conc_70},${details.conc_90},${details.conc_gap}】`,
     `【T:${details.turnover_mean},${details.turnover_max}】`,
     `【R:${details.price_pos_60},${details.drawdown_from_60_high},${details.avg_turn_10},${details.close_weakness_10}】`,
-    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d}】`,
+    `【E:${details.vol_10},${details.vol_20},${details.vol_60},${details.drawdown_from_20_high},${details.close_vs_ma20},${details.ret_5},${details.turn_ratio_20},${details.circulation},${details.amp_avg_5d},${details.bb_pos_20}】`,
     `【M:${marketEnv.vol_med},${marketEnv.temp},${marketEnv.alarm_dir}】`,
     tags.join(' ')
   ].filter(Boolean).join('');
@@ -1604,7 +1614,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_14_6',
+    model: 'record2_v2_15',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
