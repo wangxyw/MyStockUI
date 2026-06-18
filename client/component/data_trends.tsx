@@ -600,32 +600,32 @@ const SimpleAlarmTrend: React.FC = () => {
             </Space>
           }
         >
-          <Row gutter={16}>
+          <div style={{ marginBottom: 16 }}>
             {mTempR1.length > 0 ? (
-              <Col span={12}>
-                <div style={{ marginBottom: 8, fontSize: 13, color: tempStatColor(r1Stats.latestLabel), fontWeight: 600 }}>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 6, fontSize: 13, color: tempStatColor(r1Stats.latestLabel), fontWeight: 600 }}>
                   中小盘(Record1): 当前 {r1Stats.latest.toFixed(1)} {r1Stats.latestLabel} {r1Stats.latestDir} | 热 days: {r1Stats.hotDays}
                 </div>
-                <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 320 }} opts={{ renderer: 'canvas' }} />
-              </Col>
+                <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
+              </div>
             ) : (
-              <Col span={12} style={{ textAlign: 'center', padding: 40, color: '#ccc' }}>
+              <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
                 {mTempLoading ? '加载中...' : '暂无 Record1 温度数据'}
-              </Col>
+              </div>
             )}
             {mTempR2.length > 0 ? (
-              <Col span={12}>
-                <div style={{ marginBottom: 8, fontSize: 13, color: tempStatColor(r2Stats.latestLabel), fontWeight: 600 }}>
+              <div>
+                <div style={{ marginBottom: 6, fontSize: 13, color: tempStatColor(r2Stats.latestLabel), fontWeight: 600 }}>
                   中大盘(Record2): 当前 {r2Stats.latest.toFixed(1)} {r2Stats.latestLabel} {r2Stats.latestDir} | 热 days: {r2Stats.hotDays}
                 </div>
-                <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 320 }} opts={{ renderer: 'canvas' }} />
-              </Col>
+                <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
+              </div>
             ) : (
-              <Col span={12} style={{ textAlign: 'center', padding: 40, color: '#ccc' }}>
+              <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
                 {mTempLoading ? '加载中...' : '暂无 Record2 温度数据'}
-              </Col>
+              </div>
             )}
-          </Row>
+          </div>
         </Card>
 
         <Divider />
