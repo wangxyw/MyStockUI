@@ -243,14 +243,15 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
     tagText.includes('三次以上反复报警') ||
     tagText.includes('180日内多次报警');
 
-  if (statusText === '无效' && lowScoreRepair) return '【试:低分修复试仓】';
-  if (statusText === '无效' && lowPositionRepairConfirm) return '【买:低位修复确认】';
   if (statusText === '无效' && hardAvoid) return '【避:明确弱势】';
   if (statusText === '无效' && sequenceWarning) return '【慎:低分序列警戒】';
+  if (statusText === '无效' && lowScoreRepair) return '【试:低分修复试仓】';
+  if (statusText === '无效' && lowPositionRepairConfirm) return '【买:低位修复确认】';
   if (statusText === '无效' && sharpDropLowTurnObserve) return '【试:急跌缩量修复试仓】';
   if (statusText === '强信号') {
     if (sequenceWarning) return '【慎:序列警戒】';
     if (highMidRisk || warningTag) return '【慎:强信号风险降级】';
+    if (insufficientPullback && ret5 !== null && ret5 > -4) return '【慎:强信号回撤不足待确认】';
     if (insufficientPullback) return '【试:强信号回撤不足】';
     return '【慎:强信号回撤管理】';
   }
@@ -284,6 +285,19 @@ const applyRecord1MarketRiskDecision = (decisionTag: string | null, details: any
     (vol20 !== null && vol20 >= 35);
 
   return warmExpanding && shrinkOrHighVol ? '【慎:温扩回撤风险】' : decisionTag;
+};
+
+const applyRecord1LowRepairWeakEnvironmentDecision = (decisionTag: string | null, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (decisionText !== '试:低分修复试仓') return decisionTag;
+
+  const hotishRatio60 = details?.market_exposure?.hotish_ratio_60 === null || details?.market_exposure?.hotish_ratio_60 === undefined
+    ? null
+    : Number(details.market_exposure.hotish_ratio_60);
+
+  return hotishRatio60 !== null && hotishRatio60 <= 10
+    ? '【慎:低分修复弱环境】'
+    : decisionTag;
 };
 
 const applyRecord1TrackingDecision = (decisionTag: string | null, details: any = {}) => {
@@ -427,7 +441,7 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   if (statusText === '观察' && hasSequenceWarning) return '【慎:序列警戒】';
   if (statusText === '观察' && hasCoreAcceptanceWaitConfirm) return '【等:核心承接待确认】';
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60 && conc90 !== null && conc90 >= 20) return '【试:强信号承接修复】';
-  if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【慎:强信号承接弱】';
+  if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【等:强信号承接观察】';
   if (statusText === '强信号' && hasCoreLowElasticity) return '【慎:核心承接低弹】';
   if (lowTurnAcceptanceWait || avgTurnPositionWait) return '【等:低位承接观察】';
   if (noDecisionRiskAcceptanceWeak) return '【慎:无主风险承接弱】';
@@ -1242,7 +1256,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_env = marketEnv;
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
-  const decisionTag = applyRecord1TrackingDecision(applyRecord1MarketRiskDecision(baseDecisionTag, details), details);
+  const decisionTag = applyRecord1TrackingDecision(
+    applyRecord1MarketRiskDecision(
+      applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+      details
+    ),
+    details
+  );
   const comments = [
     decisionTag,
     `【${score}】`,
@@ -1261,7 +1281,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_25',
+    model: 'record1_v12_26',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1708,7 +1728,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_17',
+    model: 'record2_v2_18',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

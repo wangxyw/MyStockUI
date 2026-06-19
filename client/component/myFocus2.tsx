@@ -285,8 +285,12 @@ const hasActiveD4D7PostAlert = (record: any) => {
 const isRecord2MainStrategyCandidate = (record: any) => {
   const decision = record?.alert_decision || '';
   return (
+    decision.startsWith('买｜高弹强主') ||
+    decision.startsWith('试｜承接修复') ||
+    decision.startsWith('试｜回撤修复') ||
+    decision.startsWith('跟踪｜热市深跌修复') ||
     decision.startsWith('跟踪｜集中修复') ||
-    decision.startsWith('等｜核心承接')
+    decision.startsWith('跟踪｜低分高集中修复')
   );
 };
 
