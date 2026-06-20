@@ -365,8 +365,7 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   const hasSequenceWarning = tagText.includes('序列警戒:');
   const hasSequenceHardWarning =
     tagText.includes('序列警戒:状态降级') ||
-    tagText.includes('序列警戒:长期重复报警') ||
-    tagText.includes('风险:历史假阳性100');
+    tagText.includes('序列警戒:长期重复报警');
   const hasLowScoreRepair = tagText.includes('低分修复:');
   const hasLowScoreShortWatch = tagText.includes('短线观察:高集中放量修复');
   const hasCoreAcceptanceWaitConfirm = tagText.includes('备选:核心承接待确认');

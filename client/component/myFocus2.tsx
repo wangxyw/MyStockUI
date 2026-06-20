@@ -146,6 +146,7 @@ const formatCommentTagText = (tagText: string) => {
   if (tagText.includes('后市样本:')) return tagText.replace('后市样本:', '样｜');
   if (/^(买|试|等|慎|避|跟踪)[:｜]/.test(tagText)) return tagText.replace(/^([买试等慎避]|跟踪):/, '$1｜');
   if (['强信号', '观察', '无效'].includes(tagText)) return tagText;
+  if (tagText.startsWith('历史:')) return '史｜' + tagText;
   const riskText = formatRiskTagText(tagText);
   if (riskText !== tagText) return riskText;
   if (tagText.includes('序列确认:')) return `序确｜${tagText}`;
