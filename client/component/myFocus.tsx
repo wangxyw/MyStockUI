@@ -2511,8 +2511,8 @@ const getCompressedState = (record: any) => {
   if (postGroup === '后市转弱') return { label: '后市转弱', color: 'green', desc: '后市已进入降权/放弃/转弱，优先看风险处理。' };
   if (postGroup === '已兑现/偏高') return { label: '已兑现/偏高', color: 'orange', desc: '后市已有明显兑现或偏高，不等同于负面。' };
   if (postGroup === '确认跟踪' && ['强信号', '观察'].includes(statusTag || '')) return { label: '确认跟踪', color: 'red', desc: '后市已有确认信号，可继续跟踪主策略。' };
-  if (isPositive && hasWarning) return { label: '主策略有警戒', color: 'gold', desc: '主策略仍有效，但后台存在风险/警戒标签。' };
-  if (isPositive && ['强信号', '观察'].includes(statusTag || '')) return { label: '主策略有效', color: 'red', desc: '主策略正向且暂未发现核心警戒。' };
+  if (isPositive && hasWarning) return { label: '观察有风险', color: 'gold', desc: '主策略仍成立，但后台存在警戒；优先级低于优先观察。' };
+  if (isPositive && ['强信号', '观察'].includes(statusTag || '')) return { label: '优先观察', color: 'red', desc: '主策略正向且无核心警戒，观察池内优先。' };
   if (isCautious) return { label: '谨慎观望', color: 'blue', desc: '主策略偏谨慎或无效，默认不做积极解读。' };
   return { label: '低信息', color: 'default', desc: '标签组合未形成明确增益，建议只保留详情。' };
 };
