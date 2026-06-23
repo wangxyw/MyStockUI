@@ -2488,6 +2488,86 @@ const renderComments = (comments?: string) => {
 const commentsWithAlertDecision = (alertDecision?: string, comments?: string) =>
   `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
 
+const getPostGroup = (decision?: string) => {
+  const text = decision || '';
+  if (!text) return '无后市';
+  if (text.includes('降权') || text.includes('放弃') || text.includes('转弱')) return '后市转弱';
+  if (text.includes('兑现') || text.includes('偏高')) return '已兑现/偏高';
+  if (text.includes('确认')) return '确认跟踪';
+  if (text.includes('继续观察') || text.includes('观察')) return '继续观察';
+  return '其他后市';
+};
+
+const getCompressedState = (record: any) => {
+  const decision = record?.alert_decision || '';
+  const comments = record?.comments || '';
+  const postGroup = getPostGroup(record?.post_alert_decision);
+  const tagTexts = (comments.match(/【[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
+  const statusTag = tagTexts.find((tag) => ['强信号', '观察', '无效'].includes(tag));
+  const hasWarning = tagTexts.some((tag) => tag.includes('警戒:') || tag.includes('风险:'));
+  const isPositive = /^(买|试|等|跟踪)[:｜]/.test(decision);
+  const isCautious = /^(慎|避)[:｜]/.test(decision) || statusTag === '无效';
+
+  if (postGroup === '后市转弱') return { label: '后市转弱', color: 'green', desc: '后市已进入降权/放弃/转弱，优先看风险处理。' };
+  if (postGroup === '已兑现/偏高') return { label: '已兑现/偏高', color: 'orange', desc: '后市已有明显兑现或偏高，不等同于负面。' };
+  if (postGroup === '确认跟踪' && ['强信号', '观察'].includes(statusTag || '')) return { label: '确认跟踪', color: 'red', desc: '后市已有确认信号，可继续跟踪主策略。' };
+  if (isPositive && hasWarning) return { label: '主策略有警戒', color: 'gold', desc: '主策略仍有效，但后台存在风险/警戒标签。' };
+  if (isPositive && ['强信号', '观察'].includes(statusTag || '')) return { label: '主策略有效', color: 'red', desc: '主策略正向且暂未发现核心警戒。' };
+  if (isCautious) return { label: '谨慎观望', color: 'blue', desc: '主策略偏谨慎或无效，默认不做积极解读。' };
+  return { label: '低信息', color: 'default', desc: '标签组合未形成明确增益，建议只保留详情。' };
+};
+
+const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => {
+  const state = getCompressedState(record);
+  const decision = record?.alert_decision;
+  return (
+    <div style={{ lineHeight: 1.7 }}>
+      <div>
+        {decision && renderCommentTag(decision, 'compressed-decision', {
+          color: getBestPickTagColor(decision),
+          fontWeight: 700,
+        })}
+        <Tag color={state.color} style={{ fontWeight: 700 }}>{state.label}</Tag>
+      </div>
+      <div style={{ color: '#666', fontSize: 13 }}>{state.desc}</div>
+      <details style={{ marginTop: 4 }}>
+        <summary style={{ cursor: 'pointer', color: '#999' }}>原始画像标签</summary>
+        <div style={{ marginTop: 4 }}>{rawComments}</div>
+      </details>
+    </div>
+  );
+};
+
+const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) => {
+  const postGroup = getPostGroup(record?.post_alert_decision);
+  const colorMap = {
+    '后市转弱': 'green',
+    '已兑现/偏高': 'orange',
+    '确认跟踪': 'red',
+    '继续观察': 'blue',
+    '无后市': 'default',
+    '其他后市': 'default',
+  };
+  const descMap = {
+    '后市转弱': '降权/放弃/转弱优先处理。',
+    '已兑现/偏高': '收益已兑现或位置偏高。',
+    '确认跟踪': '后市已有确认，可继续观察。',
+    '继续观察': '仍处观察阶段，暂不扩展解读。',
+    '无后市': '暂无后市画像。',
+    '其他后市': '后市信息未归入核心状态。',
+  };
+  return (
+    <div style={{ lineHeight: 1.7 }}>
+      <Tag color={colorMap[postGroup]} style={{ fontWeight: 700 }}>{postGroup}</Tag>
+      <span style={{ color: '#666', fontSize: 13 }}>{descMap[postGroup]}</span>
+      <details style={{ marginTop: 4 }}>
+        <summary style={{ cursor: 'pointer', color: '#999' }}>原始后市标签</summary>
+        <div style={{ marginTop: 4 }}>{rawComments}</div>
+      </details>
+    </div>
+  );
+};
+
 const hasActiveD4D7PostAlert = (record: any) => {
   const decision = record?.post_alert_decision || '';
   return (
@@ -2904,7 +2984,10 @@ export const MyFocusListComponent = () => {
       render: (text, record) =>
         renderBestComboCell(
           record,
-          renderComments(commentsWithAlertDecision(record?.alert_decision, text))
+          renderCompressedPortrait(
+            record,
+            renderComments(commentsWithAlertDecision(record?.alert_decision, text))
+          )
         ),
     },
     {
@@ -2914,12 +2997,15 @@ export const MyFocusListComponent = () => {
       width: 620,
       editable: false,
       render: (text, record) =>
-        renderBestComboCell(record, (
-          <div>
-          {record?.post_alert_decision ? renderComments(`【${record.post_alert_decision}】`) : null}
-          {renderComments(text)}
-          </div>
-        )),
+        renderBestComboCell(
+          record,
+          renderCompressedPostAlert(record, (
+            <div>
+            {record?.post_alert_decision ? renderComments(`【${record.post_alert_decision}】`) : null}
+            {renderComments(text)}
+            </div>
+          ))
+        ),
     },
     {
       title: 'Date',

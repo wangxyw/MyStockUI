@@ -109,6 +109,25 @@ const querySequenceContext = async (tableName: 'focus_stocks_ai' | 'focus_stocks
     prev_status: prev?.status ?? null,
   };
 };
+
+const shouldAppendRecord2BombOrderWarning = async (symbol: string, datestr: string, statusTag: string, decisionTag: string | null | undefined) => {
+  const statusText = stripBrackets(statusTag);
+  if (!['观察', '强信号'].includes(statusText)) return false;
+
+  const decisionText = stripBrackets(decisionTag || '');
+  const ruleLabel = decisionText.includes(':') ? decisionText.split(':')[1] : decisionText.split('｜')[1];
+  if (['近期热市深跌修复', '近期热市低位修复', '核心承接待确认'].includes(ruleLabel || '')) return false;
+
+  const rows: any = await queryDB(`
+    SELECT totalvol_1000w
+    FROM stock_bomb_data_dr
+    WHERE symbol = '${sqlEscape(symbol)}'
+      AND datestr = '${sqlEscape(datestr)}'
+      AND totalvol_1000w > 0
+    LIMIT 1
+  `);
+  return Boolean(rows?.length);
+};
 const sequenceTagsRecord1 = (sequence: any, currentScore: number) => {
   if (!sequence || toNumber(sequence.prior_count) <= 0) return [];
   const tags: string[] = [];
@@ -1710,6 +1729,9 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord2(statusTag, tags, details);
   const decisionTag = applyRecord2TrackingDecision(applyRecord2LargeCapWeakAcceptanceRiskDecision(baseDecisionTag, details), details);
+  if (await shouldAppendRecord2BombOrderWarning(symbol, actualDate, statusTag, decisionTag)) {
+    tags.push('【警戒:超大单高波动博弈】');
+  }
   const comments = [
     decisionTag,
     `【${score}】`,
@@ -1727,7 +1749,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_18',
+    model: 'record2_v2_19',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
