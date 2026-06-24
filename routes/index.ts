@@ -1805,6 +1805,8 @@ const queryStoredPostAlertPortrait = async (
     FROM post_alert_portrait_history
     WHERE record_type = '${recordType}'
       AND alert_id = ${toNumber(alert.id)}
+      AND symbol = '${sqlEscape(symbol)}'
+      AND DATE(alarm_datestr) = DATE('${sqlEscape(alert.datestr)}')
       AND observe_date <= '${sqlEscape(observeDatestr)}'
     ORDER BY observe_date DESC, id DESC
     LIMIT 1
@@ -2264,7 +2266,7 @@ router.get('/all_focus_stock', function (req, res, next) {
                  WHERE record_type = 'record1'
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
-             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id
+             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
@@ -2287,7 +2289,7 @@ router.get('/all_focus_stock', function (req, res, next) {
                  WHERE record_type = 'record1'
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
-             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id
+             ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }
@@ -2384,7 +2386,7 @@ router.get('/all_focus_stock2', function (req, res, next) {
                  WHERE record_type = 'record2'
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
-             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id
+             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
@@ -2406,7 +2408,7 @@ router.get('/all_focus_stock2', function (req, res, next) {
                  WHERE record_type = 'record2'
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
-             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id
+             ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }
