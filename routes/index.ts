@@ -262,7 +262,7 @@ const tradeDecisionTagRecord1 = (score: number, statusTag: string, tags: string[
     tagText.includes('三次以上反复报警') ||
     tagText.includes('180日内多次报警');
 
-  if (statusText === '无效' && hardAvoid) return '【避:明确弱势】';
+  if (statusText === '无效' && hardAvoid) return '【慎:明确弱势待修复】';
   if (statusText === '无效' && sequenceWarning) return '【慎:低分序列警戒】';
   if (statusText === '无效' && lowScoreRepair) return '【试:低分修复试仓】';
   if (statusText === '无效' && lowPositionRepairConfirm) return '【买:低位修复确认】';
@@ -358,7 +358,7 @@ const applyRecord1TrackingDecision = (decisionTag: string | null, details: any =
     pos60 !== null && pos60 >= 20 && pos60 < 40 &&
     volRatio !== null && volRatio >= 1 && volRatio < 1.3;
   const weakRepair =
-    decisionText === '避:明确弱势' &&
+    decisionText === '慎:明确弱势待修复' &&
     up20 !== null && up20 >= 10 && up20 < 20;
 
   return recentHot && (structuralRepair || weakRepair) ? '【跟踪:近期热市低位修复】' : decisionTag;
@@ -450,7 +450,7 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
       (avgTurn10 !== null && avgTurn10 < 1 && tagText.includes('历史放量承接'))
     );
 
-  if (statusText === '无效' && hasTechnicalAvoid) return '【避:技术弱势】';
+  if (statusText === '无效' && hasTechnicalAvoid) return '【慎:技术弱势待确认】';
   if (statusText === '无效' && hasSequenceHardWarning) return '【慎:低分序列警戒】';
   if (statusText === '无效' && weakLowScoreRepair) return '【慎:低分修复承接弱】';
   if (statusText === '无效' && hasLowScoreRepair) return '【等:低分高集中修复观察】';
@@ -513,7 +513,7 @@ const applyRecord2LargeCapWeakAcceptanceRiskDecision = (decisionTag: string | nu
     largeCap;
 
   return weakAcceptanceShrinkLarge || lowSeqWarmExpandLarge || weakAcceptanceColdExpandLarge || lowVolShrinkLarge
-    ? '【避:大盘弱承接风险】'
+    ? '【慎:大盘弱承接观察】'
     : decisionTag;
 };
 
