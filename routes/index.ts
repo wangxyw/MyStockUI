@@ -2253,7 +2253,11 @@ router.get('/all_focus_stock', function (req, res, next) {
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
-                    latest_h.post_alert_comments AS post_alert_comments
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    best_entry_h.observe_date AS best_entry_observe_date,
+                    best_entry_h.observe_days AS best_entry_observe_days,
+                    best_entry_h.post_alert_decision AS best_entry_decision,
+                    best_entry_h.post_alert_comments AS best_entry_comments
              FROM focus_stocks a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
              LEFT JOIN focus_stocks_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
@@ -2267,7 +2271,21 @@ router.get('/all_focus_stock', function (req, res, next) {
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
              ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
-             ORDER BY a.datestr ${dateSortOrder}
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record1'
+                   AND (
+                        post_alert_decision LIKE '后接入%'
+                     OR post_alert_decision LIKE '%D4D7%'
+                   )
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) best_entry_h ON best_entry_h.record_type = 'record1' AND best_entry_h.alert_id = ai.id AND best_entry_h.symbol = ai.symbol AND DATE(best_entry_h.alarm_datestr) = DATE(ai.datestr)
+             ORDER BY COALESCE(best_entry_h.observe_date, a.datestr) ${dateSortOrder}, a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
       // 默认按更新时间倒序（保持原有性能）
@@ -2276,7 +2294,11 @@ router.get('/all_focus_stock', function (req, res, next) {
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
-                    latest_h.post_alert_comments AS post_alert_comments
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    best_entry_h.observe_date AS best_entry_observe_date,
+                    best_entry_h.observe_days AS best_entry_observe_days,
+                    best_entry_h.post_alert_decision AS best_entry_decision,
+                    best_entry_h.post_alert_comments AS best_entry_comments
              FROM focus_stocks a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
              LEFT JOIN focus_stocks_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
@@ -2290,6 +2312,20 @@ router.get('/all_focus_stock', function (req, res, next) {
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
              ) latest_h ON latest_h.record_type = 'record1' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record1'
+                   AND (
+                        post_alert_decision LIKE '后接入%'
+                     OR post_alert_decision LIKE '%D4D7%'
+                   )
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) best_entry_h ON best_entry_h.record_type = 'record1' AND best_entry_h.alert_id = ai.id AND best_entry_h.symbol = ai.symbol AND DATE(best_entry_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }
@@ -2373,7 +2409,11 @@ router.get('/all_focus_stock2', function (req, res, next) {
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
-                    latest_h.post_alert_comments AS post_alert_comments
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    best_entry_h.observe_date AS best_entry_observe_date,
+                    best_entry_h.observe_days AS best_entry_observe_days,
+                    best_entry_h.post_alert_decision AS best_entry_decision,
+                    best_entry_h.post_alert_comments AS best_entry_comments
              FROM focus_stocks2 a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
              LEFT JOIN focus_stocks2_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
@@ -2387,7 +2427,21 @@ router.get('/all_focus_stock2', function (req, res, next) {
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
              ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
-             ORDER BY a.datestr ${dateSortOrder}
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record2'
+                   AND (
+                        post_alert_decision LIKE '后接入%'
+                     OR post_alert_decision LIKE '%D4D7%'
+                   )
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) best_entry_h ON best_entry_h.record_type = 'record2' AND best_entry_h.alert_id = ai.id AND best_entry_h.symbol = ai.symbol AND DATE(best_entry_h.alarm_datestr) = DATE(ai.datestr)
+             ORDER BY COALESCE(best_entry_h.observe_date, a.datestr) ${dateSortOrder}, a.datestr ${dateSortOrder}
              LIMIT ? OFFSET ?`;
     } else {
       sql = `SELECT a.*, b.*, a.updated_at as last_updated_at,
@@ -2395,7 +2449,11 @@ router.get('/all_focus_stock2', function (req, res, next) {
                     latest_h.observe_date AS post_alert_observe_date,
                     latest_h.observe_days AS post_alert_observe_days,
                     latest_h.post_alert_decision AS post_alert_decision,
-                    latest_h.post_alert_comments AS post_alert_comments
+                    latest_h.post_alert_comments AS post_alert_comments,
+                    best_entry_h.observe_date AS best_entry_observe_date,
+                    best_entry_h.observe_days AS best_entry_observe_days,
+                    best_entry_h.post_alert_decision AS best_entry_decision,
+                    best_entry_h.post_alert_comments AS best_entry_comments
              FROM focus_stocks2 a 
              JOIN stock_day_common_data b ON a.symbol = b.symbol AND a.datestr = b.datestr
              LEFT JOIN focus_stocks2_ai ai ON ai.symbol = a.symbol AND ai.datestr = a.datestr
@@ -2409,6 +2467,20 @@ router.get('/all_focus_stock2', function (req, res, next) {
                  GROUP BY record_type, alert_id
                ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
              ) latest_h ON latest_h.record_type = 'record2' AND latest_h.alert_id = ai.id AND latest_h.symbol = ai.symbol AND DATE(latest_h.alarm_datestr) = DATE(ai.datestr)
+             LEFT JOIN (
+               SELECT h.*
+               FROM post_alert_portrait_history h
+               JOIN (
+                 SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+                 FROM post_alert_portrait_history
+                 WHERE record_type = 'record2'
+                   AND (
+                        post_alert_decision LIKE '后接入%'
+                     OR post_alert_decision LIKE '%D4D7%'
+                   )
+                 GROUP BY record_type, alert_id
+               ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+             ) best_entry_h ON best_entry_h.record_type = 'record2' AND best_entry_h.alert_id = ai.id AND best_entry_h.symbol = ai.symbol AND DATE(best_entry_h.alarm_datestr) = DATE(ai.datestr)
              ORDER BY a.updated_at DESC
              LIMIT ? OFFSET ?`;
     }

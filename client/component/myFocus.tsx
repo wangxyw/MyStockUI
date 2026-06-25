@@ -2504,6 +2504,16 @@ const formatPortraitDate = (value?: string) => {
 const getPostEntryTimingText = (record: any) => {
   const observeDate = formatPortraitDate(record?.post_alert_observe_date);
   const observeDays = record?.post_alert_observe_days;
+  return getEntryTimingText(observeDate, observeDays);
+};
+
+const getBestEntryTimingText = (record: any) => {
+  const observeDate = formatPortraitDate(record?.best_entry_observe_date);
+  const observeDays = record?.best_entry_observe_days;
+  return getEntryTimingText(observeDate, observeDays);
+};
+
+const getEntryTimingText = (observeDate: string, observeDays: any) => {
   const dayText = observeDays !== undefined && observeDays !== null && observeDays !== ''
     ? `报警后第${observeDays}天`
     : '';
@@ -2512,6 +2522,11 @@ const getPostEntryTimingText = (record: any) => {
     return `接入/观察日：${observeDate}${dayText ? `｜${dayText}` : ''}`;
   }
   return '暂无明确后市接入日';
+};
+
+const getTerminalSortTime = (record: any) => {
+  const sortDate = record?.best_entry_observe_date || record?.datestr;
+  return new Date(sortDate).getTime();
 };
 
 const getPostGroup = (decision?: string) => {
@@ -2603,7 +2618,7 @@ const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) =>
 };
 
 const hasActiveD4D7PostAlert = (record: any) => {
-  const decision = record?.post_alert_decision || '';
+  const decision = record?.best_entry_decision || '';
   return (
     decision.includes('D4D7') &&
     !decision.startsWith('后避') &&
@@ -2660,13 +2675,13 @@ const terminalHighlightStyle: Record<string, React.CSSProperties> = {
 const getTerminalHighlight = (record: any) => {
   const postDecision = record?.post_alert_decision || '';
   if (isRecord1MainStrategyCandidate(record) && hasActiveD4D7PostAlert(record)) {
-    return { level: 'best', color: 'red', label: '主策略+后接入', desc: `主策略强，且后市给出接入/D4D7。${getPostEntryTimingText(record)}` };
+    return { level: 'best', color: 'red', label: '主策略+后接入', desc: '主策略强，且曾给出后市接入/D4D7。', timing: getBestEntryTimingText(record) };
   }
   if (isRecord1ValidatedObserveCandidate(record) && hasActiveD4D7PostAlert(record)) {
-    return { level: 'observe', color: 'blue', label: '观察机会+后接入', desc: `验证过的观察分支，且后市给出接入/D4D7。${getPostEntryTimingText(record)}` };
+    return { level: 'observe', color: 'blue', label: '观察机会+后接入', desc: '验证过的观察分支，且曾给出后市接入/D4D7。', timing: getBestEntryTimingText(record) };
   }
   if (postDecision.includes('兑现') || postDecision.includes('偏高')) {
-    return { level: 'late', color: 'orange', label: '已兑现/偏高', desc: `不是坏票，但更偏接入偏晚或兑现提示。${getPostEntryTimingText(record)}` };
+    return { level: 'late', color: 'orange', label: '已兑现/偏高', desc: '不是坏票，但更偏接入偏晚或兑现提示。', timing: getPostEntryTimingText(record) };
   }
   return null;
 };
@@ -2679,6 +2694,7 @@ const renderBestComboCell = (record: any, content: React.ReactNode) => {
         <div style={{ marginBottom: 4 }}>
           <Tag color={highlight.color} style={{ fontWeight: 700 }}>{highlight.label}</Tag>
           <span style={{ color: '#666', fontSize: 13 }}>{highlight.desc}</span>
+          <Tag color={highlight.color} style={{ fontWeight: 700, marginLeft: 4 }}>{highlight.timing}</Tag>
         </div>
       )}
       {content}
@@ -2761,8 +2777,8 @@ export const MyFocusListComponent = () => {
       // 前端兜底排序（当后端不支持排序或排序失效时）
       if (shouldSortByDate && stockData.length) {
         stockData = [...stockData].sort((a, b) => {
-          const dateA = new Date(a.datestr).getTime();
-          const dateB = new Date(b.datestr).getTime();
+          const dateA = getTerminalSortTime(a);
+          const dateB = getTerminalSortTime(b);
           return currentOrder === 'ASC' ? dateA - dateB : dateB - dateA;
         });
       }
