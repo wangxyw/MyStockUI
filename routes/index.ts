@@ -455,8 +455,8 @@ const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any
   if (statusText === '无效' && weakLowScoreRepair) return '【慎:低分修复承接弱】';
   if (statusText === '无效' && hasLowScoreRepair) return '【等:低分高集中修复观察】';
   if (statusText === '无效' && hasLowScoreShortWatch) return '【等:低分短线观察】';
-  if (statusText === '强信号' && hasSequenceWarning) return '【慎:序列警戒】';
-  if (statusText === '观察' && hasSequenceWarning) return '【慎:序列警戒】';
+  if (statusText === '强信号' && hasSequenceWarning) return '【等:序列观察】';
+  if (statusText === '观察' && hasSequenceWarning) return '【等:序列观察】';
   if (statusText === '观察' && hasCoreAcceptanceWaitConfirm) return '【等:核心承接待确认】';
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60 && conc90 !== null && conc90 >= 20) return '【试:强信号承接修复】';
   if (statusText === '强信号' && closeWeakness10 !== null && closeWeakness10 >= 60) return '【等:强信号承接观察】';

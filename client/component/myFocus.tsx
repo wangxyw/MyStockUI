@@ -2496,9 +2496,29 @@ const renderComments = (comments?: string) => {
 const commentsWithAlertDecision = (alertDecision?: string, comments?: string) =>
   `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
 
+const formatPortraitDate = (value?: string) => {
+  if (!value) return '';
+  return String(value).split('T')[0];
+};
+
+const getPostEntryTimingText = (record: any) => {
+  const observeDate = formatPortraitDate(record?.post_alert_observe_date);
+  const alertDate = formatPortraitDate(record?.datestr);
+  const observeDays = record?.post_alert_observe_days;
+  const dayText = observeDays !== undefined && observeDays !== null && observeDays !== ''
+    ? `报警后第${observeDays}天`
+    : '';
+
+  if (observeDate) {
+    return `接入/观察日：${observeDate}${dayText ? `｜${dayText}` : ''}${alertDate ? `｜报警日：${alertDate}` : ''}`;
+  }
+  return alertDate ? `报警日：${alertDate}｜暂无明确后市接入日` : '暂无明确后市接入日';
+};
+
 const getPostGroup = (decision?: string) => {
   const text = decision || '';
   if (!text) return '无后市';
+  if (text.includes('后接入') || text.includes('D4D7')) return '优先接入';
   if (text.includes('降权') || text.includes('放弃') || text.includes('转弱')) return '后市转弱';
   if (text.includes('兑现') || text.includes('偏高')) return '已兑现/偏高';
   if (text.includes('确认')) return '确认跟踪';
@@ -2516,6 +2536,7 @@ const getCompressedState = (record: any) => {
   const isPositive = /^(买|试|等|跟踪)[:｜]/.test(decision);
   const isCautious = /^(慎|避)[:｜]/.test(decision) || statusTag === '无效';
 
+  if (postGroup === '优先接入') return { label: '优先接入', color: 'red', desc: '后市已给出接入/D4D7信号，是当前列表里应优先看的组合。' };
   if (postGroup === '后市转弱') return { label: '后市转弱', color: 'green', desc: '后市已进入降权/放弃/转弱，优先看风险处理。' };
   if (postGroup === '已兑现/偏高') return { label: '已兑现/偏高', color: 'orange', desc: '后市已有明显兑现或偏高，不等同于负面。' };
   if (postGroup === '确认跟踪' && ['强信号', '观察'].includes(statusTag || '')) return { label: '确认跟踪', color: 'red', desc: '后市已有确认信号，可继续跟踪主策略。' };
@@ -2548,7 +2569,9 @@ const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => 
 
 const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) => {
   const postGroup = getPostGroup(record?.post_alert_decision);
+  const timingText = getPostEntryTimingText(record);
   const colorMap = {
+    '优先接入': 'red',
     '后市转弱': 'green',
     '已兑现/偏高': 'orange',
     '确认跟踪': 'red',
@@ -2557,6 +2580,7 @@ const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) =>
     '其他后市': 'default',
   };
   const descMap = {
+    '优先接入': '后市接入/D4D7已确认，优先查看。',
     '后市转弱': '降权/放弃/转弱优先处理。',
     '已兑现/偏高': '收益已兑现或位置偏高。',
     '确认跟踪': '后市已有确认，可继续观察。',
@@ -2568,6 +2592,9 @@ const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) =>
     <div style={{ lineHeight: 1.7 }}>
       <Tag color={colorMap[postGroup]} style={{ fontWeight: 700 }}>{postGroup}</Tag>
       <span style={{ color: '#666', fontSize: 13 }}>{descMap[postGroup]}</span>
+      <div style={{ color: '#333', fontSize: 13, fontWeight: postGroup === '优先接入' ? 700 : 500 }}>
+        {timingText}
+      </div>
       <details style={{ marginTop: 4 }}>
         <summary style={{ cursor: 'pointer', color: '#999' }}>原始后市标签</summary>
         <div style={{ marginTop: 4 }}>{rawComments}</div>
@@ -2601,21 +2628,64 @@ const isRecord1MainStrategyCandidate = (record: any) => {
   );
 };
 
-const isRecord1BestCombo = (record: any) =>
-  isRecord1MainStrategyCandidate(record) && hasActiveD4D7PostAlert(record);
-
-const bestComboCellStyle: React.CSSProperties = {
-  background: '#fff1f0',
-  borderLeft: '4px solid #ff4d4f',
-  borderRadius: 4,
-  padding: '6px 8px',
+const isRecord1ValidatedObserveCandidate = (record: any) => {
+  const decision = record?.alert_decision || '';
+  return (
+    decision.startsWith('等｜弱势早期修复') ||
+    decision.startsWith('等｜弱势修复') ||
+    decision.startsWith('等｜低分序列修复')
+  );
 };
 
-const renderBestComboCell = (record: any, content: React.ReactNode) => (
-  <div style={isRecord1BestCombo(record) ? bestComboCellStyle : undefined}>
-    {content}
-  </div>
-);
+const terminalHighlightStyle: Record<string, React.CSSProperties> = {
+  best: {
+    background: '#fff1f0',
+    borderLeft: '4px solid #ff4d4f',
+    borderRadius: 4,
+    padding: '6px 8px',
+  },
+  observe: {
+    background: '#e6f7ff',
+    borderLeft: '4px solid #1890ff',
+    borderRadius: 4,
+    padding: '6px 8px',
+  },
+  late: {
+    background: '#fff7e6',
+    borderLeft: '4px solid #fa8c16',
+    borderRadius: 4,
+    padding: '6px 8px',
+  },
+};
+
+const getTerminalHighlight = (record: any) => {
+  const postDecision = record?.post_alert_decision || '';
+  if (isRecord1MainStrategyCandidate(record) && hasActiveD4D7PostAlert(record)) {
+    return { level: 'best', color: 'red', label: '主策略+后接入', desc: `主策略强，且后市给出接入/D4D7。${getPostEntryTimingText(record)}` };
+  }
+  if (isRecord1ValidatedObserveCandidate(record) && hasActiveD4D7PostAlert(record)) {
+    return { level: 'observe', color: 'blue', label: '观察机会+后接入', desc: `验证过的观察分支，且后市给出接入/D4D7。${getPostEntryTimingText(record)}` };
+  }
+  if (postDecision.includes('兑现') || postDecision.includes('偏高')) {
+    return { level: 'late', color: 'orange', label: '已兑现/偏高', desc: `不是坏票，但更偏接入偏晚或兑现提示。${getPostEntryTimingText(record)}` };
+  }
+  return null;
+};
+
+const renderBestComboCell = (record: any, content: React.ReactNode) => {
+  const highlight = getTerminalHighlight(record);
+  return (
+    <div style={highlight ? terminalHighlightStyle[highlight.level] : undefined}>
+      {highlight && (
+        <div style={{ marginBottom: 4 }}>
+          <Tag color={highlight.color} style={{ fontWeight: 700 }}>{highlight.label}</Tag>
+          <span style={{ color: '#666', fontSize: 13 }}>{highlight.desc}</span>
+        </div>
+      )}
+      {content}
+    </div>
+  );
+};
 
 export const MyFocusListComponent = () => {
   const [data, setData] = useState([]);
