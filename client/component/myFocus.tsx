@@ -2503,16 +2503,15 @@ const formatPortraitDate = (value?: string) => {
 
 const getPostEntryTimingText = (record: any) => {
   const observeDate = formatPortraitDate(record?.post_alert_observe_date);
-  const alertDate = formatPortraitDate(record?.datestr);
   const observeDays = record?.post_alert_observe_days;
   const dayText = observeDays !== undefined && observeDays !== null && observeDays !== ''
     ? `报警后第${observeDays}天`
     : '';
 
   if (observeDate) {
-    return `接入/观察日：${observeDate}${dayText ? `｜${dayText}` : ''}${alertDate ? `｜报警日：${alertDate}` : ''}`;
+    return `接入/观察日：${observeDate}${dayText ? `｜${dayText}` : ''}`;
   }
-  return alertDate ? `报警日：${alertDate}｜暂无明确后市接入日` : '暂无明确后市接入日';
+  return '暂无明确后市接入日';
 };
 
 const getPostGroup = (decision?: string) => {
