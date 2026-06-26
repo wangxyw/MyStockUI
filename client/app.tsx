@@ -15,6 +15,7 @@ import { DataAlarmCom } from './component/data_analysis_alarm';
 import { CriticalStocksComponent } from './component/critical_stocks';
 import { CriticalStocks3Component } from './component/critical_stocks_3';
 import { MyFocus2ListComponent } from './component/myFocus2';
+import TradeExecutionView from './component/tradeExecution';
 import { VlogComponent } from './component/vlog';
 import { TopPlatesListComponent } from './component/top_plates_list';
 import BoardHistory from './component/board_history';
@@ -35,6 +36,7 @@ const MENU_CRI_STOCK = 'cri_stocks';
 const MENU_CRI_STOCK_3 = 'cri_stocks_3';
 export const MENU_DA_DR = 'da_dr';
 const MENU_FOCUSED2 = 'my_focus2';
+const MENU_TRADE_EXEC = 'trade_exec';
 const MENU_VLOG = 'vlog';
 const MENU_TOP_PLATES = 'tops';
 const MENU_BOARD_HISTORY = 'board_history';
@@ -54,6 +56,7 @@ const ALL_MENU_ITEMS = [
   { key: MENU_CRI_STOCK, path: '/cri_stocks', label: 'Critical Stocks', component: CriticalStocksComponent, props: {} },
   { key: MENU_FOCUSED1, path: '/my_focus1', label: 'MF1', component: MyFocusListComponent, props: {} },
   { key: MENU_FOCUSED2, path: '/my_focus2', label: 'MF2', component: MyFocus2ListComponent, props: {} },
+  { key: MENU_TRADE_EXEC, path: '/trade_exec', label: 'Trade', component: TradeExecutionView, props: { recordType: 'record1' } },
   { key: MENU_VLOG, path: '/vlog', label: 'VLOG', component: VlogComponent, props: {} },
   { key: MENU_TOP_PLATES, path: '/tops', label: 'TOPS', component: TopPlatesListComponent, props: {} },
   { key: MENU_DA_PLATE, path: '/da_plate', label: 'DA Plate', component: DAPlatesCom, props: {} },
@@ -70,8 +73,9 @@ const DEFAULT_VISIBLE_MENUS = [
   MENU_CRI_STOCK_3,
   MENU_FOCUSED1,
   MENU_FOCUSED2,
+  MENU_TRADE_EXEC,
   MENU_TOP_PLATES,
-  MENU_VLOG,  
+  MENU_VLOG,
   MENU_BOARD_HISTORY,  // 添加新菜单到默认显示
 ];
 

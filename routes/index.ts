@@ -1350,7 +1350,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_32',
+    model: 'record1_v12_33',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -2966,6 +2966,102 @@ router.get('/alarm_trends', function (req, res, next) {
   
   executeQueries();
 });
+
+// ===== 交易执行层: A层可买候选 =====
+// 规则来源:机械策略复盘TP30/SL-5/H90结论 + 交易执行层设计方案
+router.get('/trade_execution', function (req, res, next) {
+  const recordType = req.query.record_type === 'record2' ? 'record2' : 'record1';
+  const table = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
+
+  // R1 A层进入条件(设计文档§5): 买|低位修复 / 试|低分修复 / 试|急跌修复
+  // R1 附加要求: 最新后市不属于排除项
+  // 只保留报警后0-2天的候选(设计文档§5入场时效)
+  const sql = `
+    SELECT fca.id, fca.symbol, fca.name, fca.datestr, fca.final_price,
+           fca.alert_decision, fca.comments,
+           fca.max_240_pct, fca.min_240_pct,
+           latest_h.observe_date AS post_alert_observe_date,
+           latest_h.post_alert_decision AS post_alert_decision
+    FROM ${table} fca
+    LEFT JOIN (
+      SELECT h.*
+      FROM post_alert_portrait_history h
+      JOIN (
+        SELECT record_type, alert_id, MAX(observe_date) AS observe_date
+        FROM post_alert_portrait_history
+        WHERE record_type = '${recordType}'
+        GROUP BY record_type, alert_id
+      ) m ON m.record_type = h.record_type AND m.alert_id = h.alert_id AND m.observe_date = h.observe_date
+    ) latest_h ON latest_h.record_type = '${recordType}'
+              AND latest_h.alert_id = fca.id
+              AND latest_h.symbol = fca.symbol
+              AND DATE(latest_h.alarm_datestr) = DATE(fca.datestr)
+    WHERE fca.datestr >= DATE_SUB(CURDATE(), INTERVAL 3 DAY)
+      AND (
+        fca.alert_decision LIKE '${recordType === "record2" ?
+          "买｜高弹强主%" :
+          "买｜低位修复%" }'
+        OR fca.alert_decision LIKE '${recordType === "record2" ?
+          "试｜承接修复%" :
+          "试｜低分修复%" }'
+        OR fca.alert_decision LIKE '${recordType === "record2" ?
+          "跟踪｜集中修复%" :
+          "试｜急跌修复%" }'
+      )
+      AND (
+        latest_h.post_alert_decision IS NULL
+        OR (
+          latest_h.post_alert_decision NOT LIKE '后排除%'
+          AND latest_h.post_alert_decision NOT LIKE '后避%'
+          AND latest_h.post_alert_decision NOT LIKE '%D90%'
+          AND latest_h.post_alert_decision NOT LIKE '%机会不足%'
+          AND latest_h.post_alert_decision NOT LIKE '%放弃%'
+          AND latest_h.post_alert_decision NOT LIKE '%转弱%'
+        )
+      )
+    ORDER BY
+      CASE
+        WHEN fca.alert_decision LIKE '试｜急跌修复%' THEN 1
+        WHEN fca.alert_decision LIKE '试｜低分修复%' THEN 2
+        WHEN fca.alert_decision LIKE '试｜承接修复%' THEN 2
+        WHEN fca.alert_decision LIKE '买｜低位修复%' THEN 3
+        WHEN fca.alert_decision LIKE '买｜高弹强主%' THEN 3
+        WHEN fca.alert_decision LIKE '跟踪｜集中修复%' THEN 4
+        ELSE 5
+      END ASC,
+      fca.datestr DESC
+  `;
+
+  pool.query(sql, function (err, rows) {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ candidates: rows.map((r: any) => ({
+      ...r,
+      trade_tier: 'A',
+      trade_action: '可买',
+      tp_pct: 30,
+      sl_pct: -5,
+      max_hold_days: 90,
+      market_regime: 'hot_expand',    // 后端实时计算可复用existing calcMarketEnvironment
+      trade_reason: buildTradeReason(r),
+      alert_date: r.datestr ? String(r.datestr).split('T')[0] : '',
+    }))});
+  });
+});
+
+function buildTradeReason(record: any): string {
+  const parts: string[] = [];
+  const rule = record?.alert_decision || '';
+  if (rule.includes('急跌修复')) parts.push('高位急跌后修复');
+  else if (rule.includes('低分修复')) parts.push('低分序列集中修复');
+  else if (rule.includes('低位修复')) parts.push('低位修复确认');
+  if (record?.max_240_pct != null && record?.max_240_pct > 50)
+    parts.push('成熟度验证:avg>50%');
+  if (!(record?.post_alert_decision || '')) parts.push('后市无障碍');
+  return parts.join(' · ') || '基于成熟度验证的A层推荐';
+}
 
 router.get('/ai_focus_stocks_trend', function (req, res, next) {
   let sql = `SELECT datestr, COUNT(symbol) AS symbol_count FROM focus_stocks_ai GROUP BY datestr ORDER BY datestr DESC;`;
