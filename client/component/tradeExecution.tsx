@@ -48,9 +48,9 @@ const REGIME_LABELS: Record<string, string> = {
 };
 
 const REGIME_COLORS: Record<string, string> = {
-  hot_expand: 'green',
+  hot_expand: 'red',
   neutral: 'blue',
-  weak_contract: 'volcano',
+  weak_contract: 'green',
 };
 
 // ============== 排序优先级 ==============
@@ -178,7 +178,7 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
             }}
           >
             <div style={{ fontSize: 11, color: '#999', marginBottom: 2 }}>执行参数</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#52c41a' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#cf1322' }}>
               TP30 / SL-5
             </div>
             <div style={{ fontSize: 11, color: '#999' }}>最大持有 90 天</div>
@@ -251,14 +251,14 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
                 <div>
                   <span style={{ color: '#999', fontSize: 10 }}>止盈</span>
                   <br />
-                  <span style={{ color: '#52c41a', fontWeight: 600 }}>
+                  <span style={{ color: '#cf1322', fontWeight: 600 }}>
                     <ArrowUpOutlined /> +{c.tp_pct}%
                   </span>
                 </div>
                 <div>
                   <span style={{ color: '#999', fontSize: 10 }}>止损</span>
                   <br />
-                  <span style={{ color: '#ff4d4f', fontWeight: 600 }}>
+                  <span style={{ color: '#389e0d', fontWeight: 600 }}>
                     <ArrowDownOutlined /> {c.sl_pct}%
                   </span>
                 </div>
@@ -273,7 +273,7 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
                   <span
                     style={{
                       fontWeight: 600,
-                      color: (c.max_240_pct || 0) > 50 ? '#52c41a' : '#999',
+                      color: (c.max_240_pct || 0) > 50 ? '#cf1322' : '#999',
                     }}
                   >
                     {c.max_240_pct != null ? `${c.max_240_pct.toFixed(0)}%` : '暂无'}
