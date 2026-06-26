@@ -2647,7 +2647,10 @@ const isRecord1ValidatedObserveCandidate = (record: any) => {
   return (
     decision.startsWith('等｜弱势早期修复') ||
     decision.startsWith('等｜弱势修复') ||
-    decision.startsWith('等｜低分序列修复')
+    decision.startsWith('等｜低分序列修复') ||
+    decision.startsWith('等｜低分超卖') ||
+    decision.startsWith('等｜低分深回撤超卖') ||
+    decision.startsWith('等｜深回撤超卖')
   );
 };
 
