@@ -25,6 +25,7 @@ interface TradeCandidate {
   name: string;
   datestr: string;
   alert_date: string;
+  days_since_alert: number | null;
   final_price: number;
   alert_decision: string;
   comments: string;
@@ -42,15 +43,21 @@ interface TradeCandidate {
 }
 
 const REGIME_LABELS: Record<string, string> = {
-  hot_expand: '热市·报扩',
+  hot_expand: '热市 · 报扩',
   neutral: '中性',
-  weak_contract: '弱市·收缩',
+  weak_contract: '弱市 · 收缩',
 };
 
 const REGIME_COLORS: Record<string, string> = {
   hot_expand: 'red',
   neutral: 'blue',
   weak_contract: 'green',
+};
+
+const REGIME_TIPS: Record<string, string> = {
+  hot_expand: 'A 层优先 · 当前适宜执行',
+  neutral: 'A 层保留 · 谨慎执行',
+  weak_contract: '弱市降频 · 优先急跌修复/低分修复',
 };
 
 // ============== 排序优先级 ==============
@@ -79,12 +86,14 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
   const [candidates, setCandidates] = useState<TradeCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [marketEnv, setMarketEnv] = useState<any>({});
 
   useEffect(() => {
     setLoading(true);
     get(`/api/trade_execution?record_type=${recordType}`)
       .then((data: any) => {
         setCandidates(sortCandidates(data.candidates || []));
+        setMarketEnv(data.market_env || {});
         setLoading(false);
       })
       .catch((err: any) => {
@@ -119,19 +128,30 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
   }
 
   if (!candidates.length) {
+    const actualRegime = marketEnv.regime || 'hot_expand';
     return (
       <div style={{ padding: 48, textAlign: 'center' }}>
         <ThunderboltOutlined style={{ fontSize: 32, color: '#ccc', marginBottom: 12 }} />
         <div style={{ color: '#666', fontSize: 14, fontWeight: 500 }}>
           当前无可执行 A 层候选
         </div>
+        <div style={{ marginTop: 12 }}>
+          <Tag color={REGIME_COLORS[actualRegime]} style={{ fontWeight: 600 }}>
+            {REGIME_LABELS[actualRegime]}
+          </Tag>
+          <div style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
+            M温度: {marketEnv.temp || '—'}
+            {marketEnv.vol_med != null ? `  vol10中位 ${marketEnv.vol_med}` : ''}
+            {marketEnv.alarm_dir ? `  ${marketEnv.alarm_dir}` : ''}
+          </div>
+        </div>
         <div style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
           {recordType === 'record2'
             ? 'R2 交易执行候选待后市确认后自动进入'
-            : '仅展示报警日后 0-2 天内满足买入条件的核心信号'}
+            : '最近 7 天内未触发买/试级别的强信号'}
         </div>
         <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
-          机会池完整候选请查看 myFocus 视图
+          机会池完整候选请查看 MF1 / MF2 视图
         </div>
       </div>
     );
@@ -191,6 +211,16 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
             {REGIME_LABELS[stats.regime] || stats.regime}
           </Tag>
 
+          <div style={{ fontSize: 14, color: '#666' }}>
+            M温度: {marketEnv.temp || '—'}
+            {marketEnv.vol_med != null ? `  vol10中位 ${marketEnv.vol_med}` : ''}
+            {marketEnv.alarm_dir ? `  ${marketEnv.alarm_dir}` : ''}
+          </div>
+
+          <div style={{ fontSize: 14, color: '#666' }}>
+            {REGIME_TIPS[stats.regime] || ''}
+          </div>
+
           <div style={{ fontSize: 12, color: '#bbb', flex: 1, textAlign: 'right' }}>
             排序：试｜急跌修复 → 试｜低分修复 → 买｜低位修复
           </div>
@@ -234,7 +264,14 @@ const TradeExecutionView: React.FC<{ recordType?: 'record1' | 'record2' }> = ({
                   <div style={{ fontSize: 18, fontWeight: 700 }}>
                     ¥{c.final_price?.toFixed(2)}
                   </div>
-                  <div style={{ fontSize: 11, color: '#bbb' }}>{c.alert_date}</div>
+                  <div style={{ fontSize: 11, color: '#bbb' }}>
+                    {c.alert_date}
+                    {c.days_since_alert != null && c.days_since_alert >= 0 && (
+                      <span style={{ marginLeft: 4, color: c.days_since_alert <= 2 ? '#cf1322' : '#999' }}>
+                        ({c.days_since_alert}天前)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

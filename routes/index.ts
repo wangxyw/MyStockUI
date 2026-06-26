@@ -2969,13 +2969,33 @@ router.get('/alarm_trends', function (req, res, next) {
 
 // ===== 交易执行层: A层可买候选 =====
 // 规则来源:机械策略复盘TP30/SL-5/H90结论 + 交易执行层设计方案
-router.get('/trade_execution', function (req, res, next) {
+router.get('/trade_execution', async function (req, res, next) {
   const recordType = req.query.record_type === 'record2' ? 'record2' : 'record1';
   const table = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
+  const tableAI = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
+  const eIdx = recordType === 'record2' ? 1 : 0;
+  const today = new Date().toISOString().split('T')[0];
+
+  // 获取真实市场环境
+  let regime = 'hot_expand';
+  let marketRaw: any = {};
+  try {
+    const marketEnv = await calcMarketEnvironment(tableAI, today, eIdx);
+    marketRaw = { temp: marketEnv.temp, alarm_dir: marketEnv.alarm_dir, vol_med: marketEnv.vol_med };
+    const { temp, alarm_dir } = marketEnv;
+    if (temp === '热' && alarm_dir === '报扩') regime = 'hot_expand';
+    else if (temp === '热' && alarm_dir === '报缩') regime = 'neutral';
+    else if (temp === '热偏弱' && alarm_dir === '报扩') regime = 'hot_expand';
+    else if (temp === '热偏弱' && alarm_dir === '报缩') regime = 'weak_contract';
+    else if (temp === '温') regime = 'neutral';
+    else regime = 'weak_contract'; // 冷偏暖 / 极冷
+  } catch (err) {
+    console.warn('calcMarketEnvironment failed, using default regime:', err);
+  }
 
   // R1 A层进入条件(设计文档§5): 买|低位修复 / 试|低分修复 / 试|急跌修复
   // R1 附加要求: 最新后市不属于排除项
-  // 只保留报警后0-2天的候选(设计文档§5入场时效)
+  // 只保留报警后0-7天的候选
   const sql = `
     SELECT fca.id, fca.symbol, fca.name, fca.datestr, fca.final_price,
            fca.alert_decision, fca.comments,
@@ -2996,7 +3016,7 @@ router.get('/trade_execution', function (req, res, next) {
               AND latest_h.alert_id = fca.id
               AND latest_h.symbol = fca.symbol
               AND DATE(latest_h.alarm_datestr) = DATE(fca.datestr)
-    WHERE fca.datestr >= DATE_SUB(CURDATE(), INTERVAL 3 DAY)
+    WHERE fca.datestr >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
       AND (
         fca.alert_decision LIKE '${recordType === "record2" ?
           "买｜高弹强主%" :
@@ -3037,16 +3057,20 @@ router.get('/trade_execution', function (req, res, next) {
       console.error(err);
       return res.status(500).json({ error: err.message });
     }
-    res.json({ candidates: rows.map((r: any) => ({
+    const alertDate = (d: any) => d ? String(d).split('T')[0] : '';
+    res.json({
+      market_env: { ...marketRaw, regime },
+      candidates: rows.map((r: any) => ({
       ...r,
       trade_tier: 'A',
       trade_action: '可买',
       tp_pct: 30,
       sl_pct: -5,
       max_hold_days: 90,
-      market_regime: 'hot_expand',    // 后端实时计算可复用existing calcMarketEnvironment
+      market_regime: regime,
       trade_reason: buildTradeReason(r),
-      alert_date: r.datestr ? String(r.datestr).split('T')[0] : '',
+      alert_date: alertDate(r.datestr),
+      days_since_alert: today ? Math.floor((Date.now() - new Date(alertDate(r.datestr)).getTime()) / 86400000) : null,
     }))});
   });
 });

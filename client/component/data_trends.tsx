@@ -146,7 +146,23 @@ const SimpleAlarmTrend: React.FC = () => {
     const values = data.map(d => d.vol10_med);
     const dataCount = dates.length;
     const tc: Record<string, string> = { '热':'#e74c3c','热偏弱':'#ee8a7d','温':'#f39c12','冷偏暖':'#3498db','极冷':'#95a5a6' };
-    const attackRanges = getMAttackWindowRanges(data);
+    const ranges = getMWindowRanges(data);
+
+    // 构建合并后的 markArea data
+    const allMarkData: any[] = [];
+    if (ranges.attack.length) ranges.attack.forEach((r: any) => {
+      allMarkData.push([{ xAxis: r[0].xAxis, itemStyle: { color: 'rgba(255,77,79,0.09)' } }, { xAxis: r[1].xAxis, itemStyle: { color: 'rgba(255,77,79,0.09)' } }]);
+    });
+    if (ranges.cautious.length) ranges.cautious.forEach((r: any) => {
+      allMarkData.push([{ xAxis: r[0].xAxis, itemStyle: { color: 'rgba(22,119,255,0.07)' } }, { xAxis: r[1].xAxis, itemStyle: { color: 'rgba(22,119,255,0.07)' } }]);
+    });
+    if (ranges.diverge.length) ranges.diverge.forEach((r: any) => {
+      allMarkData.push([{ xAxis: r[0].xAxis, itemStyle: { color: 'rgba(212,107,8,0.08)' } }, { xAxis: r[1].xAxis, itemStyle: { color: 'rgba(212,107,8,0.08)' } }]);
+    });
+    if (ranges.defend.length) ranges.defend.forEach((r: any) => {
+      allMarkData.push([{ xAxis: r[0].xAxis, itemStyle: { color: 'rgba(140,140,140,0.05)' } }, { xAxis: r[1].xAxis, itemStyle: { color: 'rgba(140,140,140,0.05)' } }]);
+    });
+    const hasMarkData = allMarkData.length > 0;
 
     return {
       tooltip: {
@@ -171,11 +187,9 @@ const SimpleAlarmTrend: React.FC = () => {
           lineStyle:{color:'#9b59b6',width:1.5}, itemStyle:{color:'#e74c3c'},
           symbol:'circle', symbolSize: dataCount>100?3:5, smooth:false,
           areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(231,76,60,0.10)'},{offset:1,color:'rgba(231,76,60,0)'}]}},
-          markArea: attackRanges.length > 0 ? {
+          markArea: hasMarkData ? {
             silent: true,
-            itemStyle: { color: 'rgba(255,77,79,0.12)' },
-            label: { show: true, formatter: '允许进攻', color: '#cf1322', fontSize: 11, fontWeight: 600 },
-            data: attackRanges,
+            data: allMarkData,
           } : undefined,
           markLine:{silent:true,symbol:'none',lineStyle:{type:'dashed',width:1},
             data:[
@@ -201,6 +215,13 @@ const SimpleAlarmTrend: React.FC = () => {
     };
   };
   const isMAttackWindow = (item?: MTempItem) => item?.temp_label === '热' && item?.alarm_dir === '报扩';
+  const isMCautiousWindow = (item?: MTempItem) => item?.temp_label?.startsWith('热') && item?.alarm_dir === '报缩';
+  const isMDivergeWindow = (item?: MTempItem) => item?.temp_label !== '热' && !item?.temp_label?.startsWith('热') && item?.alarm_dir === '报扩';
+  const isMDefendWindow = (item?: MTempItem) => {
+    if (!item) return false;
+    if (item.temp_label === '热' || item.temp_label?.startsWith('热')) return false;
+    return item.alarm_dir === '报缩';
+  };
   const getMWindowStatus = (item?: MTempItem) => {
     if (!item) return { title: '暂无数据', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待 M 市场温度数据加载。' };
     if (isMAttackWindow(item)) return { title: '允许进攻窗口', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: 'M=热 且 报警扩散，历史样本中弹性和回撤表现最佳。' };
@@ -208,24 +229,27 @@ const SimpleAlarmTrend: React.FC = () => {
     if (item.alarm_dir === '报扩') return { title: '分化扩散窗口', color: '#d46b08', bg: '#fff7e6', border: '#ffd591', desc: '报警在扩散，但 M 未到真正热区，需更依赖个股强确认。' };
     return { title: '观察防守窗口', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: '未进入强进攻环境，适合观察或控制仓位。' };
   };
-  const getMAttackWindowRanges = (data: MTempItem[]) => {
-    const ranges: any[] = [];
-    let start: string | null = null;
-
-    data.forEach((item, index) => {
-      if (isMAttackWindow(item) && !start) {
-        start = item.datestr;
-      }
-      const isLast = index === data.length - 1;
-      const nextIsAttack = !isLast && isMAttackWindow(data[index + 1]);
-      if (start && (isLast || !nextIsAttack)) {
-        ranges.push([{ xAxis: start }, { xAxis: item.datestr }]);
-        start = null;
-      }
-    });
-
-    return ranges;
+  const getMWindowRanges = (data: MTempItem[]) => {
+    const attack: any[] = [], cautious: any[] = [], diverge: any[] = [], defend: any[] = [];
+    const build = (ranges: any[], checkFn: (item: MTempItem) => boolean) => {
+      let start: string | null = null;
+      data.forEach((item, index) => {
+        if (checkFn(item) && !start) { start = item.datestr; }
+        const isLast = index === data.length - 1;
+        const nextIn = !isLast && checkFn(data[index + 1]);
+        if (start && (isLast || !nextIn)) {
+          ranges.push([{ xAxis: start }, { xAxis: item.datestr }]);
+          start = null;
+        }
+      });
+    };
+    build(attack, isMAttackWindow);
+    build(cautious, isMCautiousWindow);
+    build(diverge, isMDivergeWindow);
+    build(defend, isMDefendWindow);
+    return { attack, cautious, diverge, defend };
   };
+  const getMAttackWindowRanges = (data: MTempItem[]) => getMWindowRanges(data).attack;
   const renderMMarketStatus = (label: string, data: MTempItem[], stats: ReturnType<typeof getMTempStats>) => {
     const latest = data[data.length - 1];
     const status = getMWindowStatus(latest);
