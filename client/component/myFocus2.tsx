@@ -432,7 +432,9 @@ const isRecord2ValidatedObserveCandidate = (record: any) => {
     decision.startsWith('等｜强信号承接观察') ||
     decision.startsWith('等｜低位承接') ||
     decision.startsWith('等｜短线观察') ||
-    decision.startsWith('等｜深回撤修复')
+    decision.startsWith('等｜深回撤修复') ||
+    decision.startsWith('等｜低分窄幅') ||
+    decision.startsWith('等｜报缩窄幅')
   );
 };
 

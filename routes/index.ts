@@ -364,6 +364,21 @@ const applyRecord1TrackingDecision = (decisionTag: string | null, details: any =
   return recentHot && (structuralRepair || weakRepair) ? '【跟踪:近期热市低位修复】' : decisionTag;
 };
 
+const applyRecord1PositiveLimitedWaitDecision = (decisionTag: string | null, score: number, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (!decisionText.startsWith('等:')) return decisionTag;
+
+  const avgTurn = details?.turnover_mean === null || details?.turnover_mean === undefined
+    ? null
+    : Number(details.turnover_mean);
+  const marketEnv = details?.market_env || {};
+
+  if (score <= 20 && avgTurn !== null && avgTurn < 1) return '【等:低分低换等待】';
+  if (avgTurn !== null && avgTurn < 2 && marketEnv.alarm_dir === '报缩') return '【等:缩量低换等待】';
+
+  return decisionTag;
+};
+
 const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any) => {
   const statusText = stripBrackets(statusTag);
   const tagText = tagTextOf(tags);
@@ -544,6 +559,42 @@ const applyRecord2TrackingDecision = (decisionTag: string | null, details: any =
   const sharpDropRepair = ret3 !== null && ret3 < -10;
 
   return recentHot && (bbDeepRepair || sharpDropRepair) ? '【跟踪:近期热市深跌修复】' : decisionTag;
+};
+
+const applyRecord2GlobalSplitDecision = (decisionTag: string | null, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (!decisionText.startsWith('慎:') && !decisionText.startsWith('避:')) return decisionTag;
+
+  const avgTurn = details?.turnover_mean === null || details?.turnover_mean === undefined
+    ? null
+    : Number(details.turnover_mean);
+  const drawdownFrom60High = details?.drawdown_from_60_high === null || details?.drawdown_from_60_high === undefined
+    ? null
+    : Number(details.drawdown_from_60_high);
+  const lastHotDays = details?.market_exposure?.last_hot_days === null || details?.market_exposure?.last_hot_days === undefined
+    ? null
+    : Number(details.market_exposure.last_hot_days);
+
+  if (drawdownFrom60High !== null && drawdownFrom60High <= -20) return '【等:深回撤修复观察】';
+  if (avgTurn !== null && avgTurn < 2 && lastHotDays !== null && lastHotDays >= 60) return '【慎:热退低换低效】';
+  if (lastHotDays !== null && lastHotDays >= 60) return '【慎:热退低效观察】';
+
+  return decisionTag;
+};
+
+const applyRecord2PositiveLimitedWaitDecision = (decisionTag: string | null, score: number, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (!decisionText.startsWith('等:')) return decisionTag;
+
+  const concGap = details?.conc_gap === null || details?.conc_gap === undefined
+    ? null
+    : Number(details.conc_gap);
+  const marketEnv = details?.market_env || {};
+
+  if (score <= 40 && concGap !== null && concGap < 4) return '【等:低分窄幅等待】';
+  if (concGap !== null && concGap < 6 && marketEnv.alarm_dir === '报缩') return '【等:报缩窄幅等待】';
+
+  return decisionTag;
 };
 
 const TIGHT_CONC_GAP_MAX = 2.01;
@@ -1274,13 +1325,13 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_env = marketEnv;
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
-  const decisionTag = applyRecord1TrackingDecision(
+  const decisionTag = applyRecord1PositiveLimitedWaitDecision(applyRecord1TrackingDecision(
     applyRecord1MarketRiskDecision(
       applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
       details
     ),
     details
-  );
+  ), score, details);
   const comments = [
     decisionTag,
     `【${score}】`,
@@ -1299,7 +1350,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_26',
+    model: 'record1_v12_32',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -1728,7 +1779,14 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_env = marketEnv;
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord2(statusTag, tags, details);
-  const decisionTag = applyRecord2TrackingDecision(applyRecord2LargeCapWeakAcceptanceRiskDecision(baseDecisionTag, details), details);
+  const decisionTag = applyRecord2PositiveLimitedWaitDecision(
+    applyRecord2GlobalSplitDecision(
+      applyRecord2TrackingDecision(applyRecord2LargeCapWeakAcceptanceRiskDecision(baseDecisionTag, details), details),
+      details
+    ),
+    score,
+    details
+  );
   if (await shouldAppendRecord2BombOrderWarning(symbol, actualDate, statusTag, decisionTag)) {
     tags.push('【警戒:超大单高波动博弈】');
   }
@@ -1749,7 +1807,7 @@ const buildRecord2Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record2_v2_19',
+    model: 'record2_v2_24',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

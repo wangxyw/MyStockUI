@@ -2650,7 +2650,9 @@ const isRecord1ValidatedObserveCandidate = (record: any) => {
     decision.startsWith('等｜低分序列修复') ||
     decision.startsWith('等｜低分超卖') ||
     decision.startsWith('等｜低分深回撤超卖') ||
-    decision.startsWith('等｜深回撤超卖')
+    decision.startsWith('等｜深回撤超卖') ||
+    decision.startsWith('等｜低分低换') ||
+    decision.startsWith('等｜缩量低换')
   );
 };
 
