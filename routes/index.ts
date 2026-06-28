@@ -48,6 +48,9 @@ const toNumber = (value: any, defaultValue = 0) => {
   return Number.isFinite(num) ? num : defaultValue;
 };
 const round2 = (value: any) => Math.round(toNumber(value) * 100) / 100;
+const TRADE_STRATEGIES_CONFIG_PATH = './config/trade_strategies_production.json';
+let tradeStrategiesConfigCache: any = null;
+let tradeStrategiesConfigMtimeMs = 0;
 const betweenValue = (value: number, minValue: number, maxValue: number) =>
   value >= minValue && value <= maxValue;
 const shiftDate = (dateStr: string, days: number) => {
@@ -2967,16 +2970,16 @@ router.get('/alarm_trends', function (req, res, next) {
   executeQueries();
 });
 
-// ===== 交易执行层: A层可买候选 =====
-// 规则来源:机械策略复盘TP30/SL-5/H90结论 + 交易执行层设计方案
+// ===== 交易执行层: Core A + Short E 可执行候选 =====
+// 规则来源: trade_execution_strategy_v1_1_2026_06_27.md
 router.get('/trade_execution', async function (req, res, next) {
   const recordType = req.query.record_type === 'record2' ? 'record2' : 'record1';
-  const table = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
+  const focusTable = recordType === 'record2' ? 'focus_stocks2' : 'focus_stocks';
   const tableAI = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
   const eIdx = recordType === 'record2' ? 1 : 0;
   const today = new Date().toISOString().split('T')[0];
 
-  // 获取真实市场环境
+  // 获取当前市场环境。策略匹配仍以报警日画像里的 M 标签为准。
   let regime = 'hot_expand';
   let marketRaw: any = {};
   try {
@@ -2993,16 +2996,39 @@ router.get('/trade_execution', async function (req, res, next) {
     console.warn('calcMarketEnvironment failed, using default regime:', err);
   }
 
-  // R1 A层进入条件(设计文档§5): 买|低位修复 / 试|低分修复 / 试|急跌修复
-  // R1 附加要求: 最新后市不属于排除项
-  // 只保留报警后0-7天的候选
+  // v1.1 只落地 R1。R2 后续需要独立短周期扫描，不能直接套 R1 参数。
+  const recordFilter = recordType === 'record1'
+    ? `
+      AND (
+        fca.alert_decision LIKE '买｜低位修复%'
+        OR fca.alert_decision LIKE '试｜低分修复%'
+        OR fca.alert_decision LIKE '试｜急跌修复%'
+        OR fca.alert_decision LIKE '等｜弱势早期修复%'
+      )
+    `
+    : "AND 1 = 0";
+
   const sql = `
     SELECT fca.id, fca.symbol, fca.name, fca.datestr, fca.final_price,
            fca.alert_decision, fca.comments,
            fca.max_240_pct, fca.min_240_pct,
            latest_h.observe_date AS post_alert_observe_date,
-           latest_h.post_alert_decision AS post_alert_decision
-    FROM ${table} fca
+           latest_h.post_alert_decision AS post_alert_decision,
+           latest_ref.reference_date,
+           (SELECT sd.finalprice
+            FROM stock_day_common_data sd
+            WHERE sd.symbol = fca.symbol
+            ORDER BY sd.datestr DESC
+            LIMIT 1) AS execution_price,
+           (SELECT sd.datestr
+            FROM stock_day_common_data sd
+            WHERE sd.symbol = fca.symbol
+            ORDER BY sd.datestr DESC
+            LIMIT 1) AS execution_price_date,
+           DATEDIFF(latest_ref.reference_date, fca.datestr) AS days_since_alert
+    FROM ${focusTable} fs
+    JOIN ${tableAI} fca ON fca.symbol = fs.symbol AND DATE(fca.datestr) = DATE(fs.datestr)
+    JOIN (SELECT MAX(datestr) AS reference_date FROM ${focusTable}) latest_ref
     LEFT JOIN (
       SELECT h.*
       FROM post_alert_portrait_history h
@@ -3016,18 +3042,8 @@ router.get('/trade_execution', async function (req, res, next) {
               AND latest_h.alert_id = fca.id
               AND latest_h.symbol = fca.symbol
               AND DATE(latest_h.alarm_datestr) = DATE(fca.datestr)
-    WHERE fca.datestr >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      AND (
-        fca.alert_decision LIKE '${recordType === "record2" ?
-          "买｜高弹强主%" :
-          "买｜低位修复%" }'
-        OR fca.alert_decision LIKE '${recordType === "record2" ?
-          "试｜承接修复%" :
-          "试｜低分修复%" }'
-        OR fca.alert_decision LIKE '${recordType === "record2" ?
-          "跟踪｜集中修复%" :
-          "试｜急跌修复%" }'
-      )
+    WHERE fca.datestr >= DATE_SUB(latest_ref.reference_date, INTERVAL 7 DAY)
+      ${recordFilter}
       AND (
         latest_h.post_alert_decision IS NULL
         OR (
@@ -3042,11 +3058,9 @@ router.get('/trade_execution', async function (req, res, next) {
     ORDER BY
       CASE
         WHEN fca.alert_decision LIKE '试｜急跌修复%' THEN 1
-        WHEN fca.alert_decision LIKE '试｜低分修复%' THEN 2
-        WHEN fca.alert_decision LIKE '试｜承接修复%' THEN 2
+        WHEN fca.alert_decision LIKE '等｜弱势早期修复%' THEN 2
+        WHEN fca.alert_decision LIKE '试｜低分修复%' THEN 3
         WHEN fca.alert_decision LIKE '买｜低位修复%' THEN 3
-        WHEN fca.alert_decision LIKE '买｜高弹强主%' THEN 3
-        WHEN fca.alert_decision LIKE '跟踪｜集中修复%' THEN 4
         ELSE 5
       END ASC,
       fca.datestr DESC
@@ -3058,33 +3072,258 @@ router.get('/trade_execution', async function (req, res, next) {
       return res.status(500).json({ error: err.message });
     }
     const alertDate = (d: any) => d ? String(d).split('T')[0] : '';
+    const candidates = rows
+      .map((r: any) => {
+        const strategy = selectTradeStrategy(r, recordType);
+        if (!strategy) return null;
+        const daysSinceAlert = Number(r.days_since_alert);
+        if (!Number.isFinite(daysSinceAlert) || daysSinceAlert < 0 || daysSinceAlert > strategy.entry_window_days) return null;
+        const executionPlan = buildDynamicExecutionPlan(r, strategy);
+        return {
+          ...r,
+          final_price: executionPlan.execution_price,
+          alert_price: executionPlan.alert_price,
+          execution_price: executionPlan.execution_price,
+          execution_price_date: executionPlan.execution_price_date,
+          tp_price: executionPlan.tp_price,
+          sl_price: executionPlan.sl_price,
+          move_since_alert_pct: executionPlan.move_since_alert_pct,
+          entry_risk_state: executionPlan.entry_risk_state,
+          execution_note: executionPlan.execution_note,
+          trade_tier: strategy.legacy_tier,
+          strategy_layer: strategy.strategy_layer,
+          strategy_code: strategy.strategy_code,
+          strategy_name: strategy.strategy_name,
+          trade_action: strategy.trade_action,
+          entry_window_days: strategy.entry_window_days,
+          tp_pct: strategy.tp_pct,
+          sl_pct: strategy.sl_pct,
+          max_hold_days: strategy.max_hold_days,
+          hist_win_pct: strategy.hist_win_pct,
+          hist_avg_ret_pct: strategy.hist_avg_ret_pct,
+          hist_avg_hold_days: strategy.hist_avg_hold_days,
+          efficiency_20d: strategy.efficiency_20d,
+          market_regime: strategy.signal_regime,
+          current_market_regime: regime,
+          signal_market_regime: strategy.signal_regime,
+          trade_reason: buildTradeReason(r, strategy),
+          alert_date: alertDate(r.datestr),
+          days_since_alert: daysSinceAlert,
+        };
+      })
+      .filter(Boolean);
+
     res.json({
       market_env: { ...marketRaw, regime },
-      candidates: rows.map((r: any) => ({
-      ...r,
-      trade_tier: 'A',
-      trade_action: '可买',
-      tp_pct: 30,
-      sl_pct: -5,
-      max_hold_days: 90,
-      market_regime: regime,
-      trade_reason: buildTradeReason(r),
-      alert_date: alertDate(r.datestr),
-      days_since_alert: today ? Math.floor((Date.now() - new Date(alertDate(r.datestr)).getTime()) / 86400000) : null,
-    }))});
+      candidates,
+    });
   });
 });
 
-function buildTradeReason(record: any): string {
+function buildDynamicExecutionPlan(record: any, strategy: any): any {
+  const alertPrice = round2(record?.final_price);
+  const executionRaw = toNumber(record?.execution_price, alertPrice);
+  const executionPrice = round2(executionRaw || alertPrice);
+  const tpPrice = round2(executionPrice * (1 + toNumber(strategy?.tp_pct) / 100));
+  const slPrice = round2(executionPrice * (1 + toNumber(strategy?.sl_pct) / 100));
+  const moveSinceAlertPct = alertPrice > 0
+    ? round2((executionPrice / alertPrice - 1) * 100)
+    : null;
+  const executionDate = formatDbDate(record?.execution_price_date || record?.datestr);
+  const riskState = entryRiskState(moveSinceAlertPct, strategy);
+  return {
+    alert_price: alertPrice,
+    execution_price: executionPrice,
+    execution_price_date: executionDate,
+    tp_price: tpPrice,
+    sl_price: slPrice,
+    move_since_alert_pct: moveSinceAlertPct,
+    entry_risk_state: riskState.state,
+    execution_note: riskState.note,
+  };
+}
+
+function entryRiskState(moveSinceAlertPct: number | null, strategy: any): any {
+  if (moveSinceAlertPct === null) {
+    return { state: '价格缺失', note: '缺少执行价，暂按报警价兜底' };
+  }
+  const tp = toNumber(strategy?.tp_pct);
+  const sl = toNumber(strategy?.sl_pct);
+  if (moveSinceAlertPct >= tp) {
+    return { state: '已越过原止盈位', note: '不删除候选，但需按当前价重算追高风险' };
+  }
+  if (moveSinceAlertPct <= sl) {
+    return { state: '已跌破原止损位', note: '不删除候选，按当前价重算新的执行计划' };
+  }
+  if (moveSinceAlertPct >= tp / 2) {
+    return { state: '已明显上冲', note: '仍在入场窗口内，止盈止损按当前价重算' };
+  }
+  if (moveSinceAlertPct <= sl / 2) {
+    return { state: '已有明显回撤', note: '仍在入场窗口内，止盈止损按当前价重算' };
+  }
+  return { state: '窗口内正常波动', note: '按当前收盘价重算执行计划' };
+}
+
+function parseSignalRegime(comments: string): string {
+  const raw = (comments || '').match(/【M:([^】]+)】/)?.[1] || '';
+  const parts = raw.split(',');
+  const temp = parts[1] || '';
+  const alarmDir = parts[2] || '';
+  if (temp === '热' && alarmDir === '报扩') return 'hot_expand';
+  if (temp === '热偏弱' && alarmDir === '报扩') return 'hot_expand';
+  if (alarmDir === '报缩' || temp.includes('极冷') || temp.includes('热偏弱')) return 'weak_contract';
+  return 'neutral';
+}
+
+function selectTradeStrategy(record: any, recordType: string): any | null {
+  const configStrategy = selectTradeStrategyFromConfig(record, recordType);
+  if (configStrategy) return configStrategy;
+  return selectTradeStrategyHardcoded(record, recordType);
+}
+
+function loadTradeStrategiesConfig(): any | null {
+  try {
+    const stat = fs.statSync(TRADE_STRATEGIES_CONFIG_PATH);
+    if (tradeStrategiesConfigCache && stat.mtimeMs === tradeStrategiesConfigMtimeMs) {
+      return tradeStrategiesConfigCache;
+    }
+    const parsed = JSON.parse(fs.readFileSync(TRADE_STRATEGIES_CONFIG_PATH).toString());
+    if (!parsed || !Array.isArray(parsed.strategies)) return null;
+    tradeStrategiesConfigCache = parsed;
+    tradeStrategiesConfigMtimeMs = stat.mtimeMs;
+    return tradeStrategiesConfigCache;
+  } catch (err) {
+    console.warn('load trade strategies config failed, using hardcode fallback:', err);
+    return null;
+  }
+}
+
+function resolveTradeAction(strategy: any, signalRegime: string): string {
+  const action = strategy?.trade_action;
+  if (typeof action === 'string') return action;
+  if (action && typeof action === 'object') return action[signalRegime] || action.default || '';
+  return '';
+}
+
+function strategyFromConfig(rawStrategy: any, signalRegime: string): any {
+  return {
+    legacy_tier: rawStrategy.legacy_tier,
+    strategy_layer: rawStrategy.strategy_layer,
+    strategy_code: rawStrategy.strategy_code,
+    strategy_name: rawStrategy.strategy_name,
+    trade_action: resolveTradeAction(rawStrategy, signalRegime),
+    entry_window_days: toNumber(rawStrategy?.params?.entry_window_days),
+    tp_pct: toNumber(rawStrategy?.params?.tp_pct),
+    sl_pct: toNumber(rawStrategy?.params?.sl_pct),
+    max_hold_days: toNumber(rawStrategy?.params?.max_hold_days),
+    hist_win_pct: toNumber(rawStrategy?.metrics?.hist_win_pct),
+    hist_avg_ret_pct: toNumber(rawStrategy?.metrics?.hist_avg_ret_pct),
+    hist_avg_hold_days: toNumber(rawStrategy?.metrics?.hist_avg_hold_days),
+    efficiency_20d: toNumber(rawStrategy?.metrics?.efficiency_20d),
+    signal_regime: signalRegime,
+  };
+}
+
+function selectTradeStrategyFromConfig(record: any, recordType: string): any | null {
+  const config = loadTradeStrategiesConfig();
+  if (!config || config.record_type !== recordType) return null;
+  const rule = record?.alert_decision || '';
+  const signalRegime = parseSignalRegime(record?.comments || '');
+  const matched = (config.strategies || [])
+    .filter((strategy: any) => strategy?.status === 'production_ready')
+    .filter((strategy: any) => strategy?.match?.record_type === recordType)
+    .filter((strategy: any) => (strategy?.match?.regimes || []).includes(signalRegime))
+    .filter((strategy: any) =>
+      (strategy?.match?.label_prefixes || []).some((prefix: string) => rule.startsWith(prefix))
+    )
+    .sort((a: any, b: any) => {
+      const priorityDiff = toNumber(a?.priority) - toNumber(b?.priority);
+      if (priorityDiff !== 0) return priorityDiff;
+      return String(a?.strategy_code || '').localeCompare(String(b?.strategy_code || ''));
+    });
+  return matched[0] ? strategyFromConfig(matched[0], signalRegime) : null;
+}
+
+function selectTradeStrategyHardcoded(record: any, recordType: string): any | null {
+  if (recordType !== 'record1') return null;
+  const rule = record?.alert_decision || '';
+  const signalRegime = parseSignalRegime(record?.comments || '');
+
+  if (rule.startsWith('试｜急跌修复') && signalRegime === 'hot_expand') {
+    return {
+      legacy_tier: 'E',
+      strategy_layer: 'short_e',
+      strategy_code: 'E1_TP5H5',
+      strategy_name: 'E1-热市急跌短打',
+      trade_action: '可买',
+      entry_window_days: 2,
+      tp_pct: 5,
+      sl_pct: -3,
+      max_hold_days: 5,
+      hist_win_pct: 97.73,
+      hist_avg_ret_pct: 4.01,
+      hist_avg_hold_days: 2.77,
+      efficiency_20d: 28.94,
+      signal_regime: signalRegime,
+    };
+  }
+
+  if (rule.startsWith('等｜弱势早期修复') && signalRegime === 'weak_contract') {
+    return {
+      legacy_tier: 'E',
+      strategy_layer: 'short_e',
+      strategy_code: 'E4_TP10H20',
+      strategy_name: 'E4-弱市早修轮转',
+      trade_action: '谨慎可买',
+      entry_window_days: 2,
+      tp_pct: 10,
+      sl_pct: -5,
+      max_hold_days: 20,
+      hist_win_pct: 78.13,
+      hist_avg_ret_pct: 4.13,
+      hist_avg_hold_days: 16.67,
+      efficiency_20d: 4.95,
+      signal_regime: signalRegime,
+    };
+  }
+
+  const isCoreA = rule.startsWith('买｜低位修复') ||
+    rule.startsWith('试｜低分修复') ||
+    rule.startsWith('试｜急跌修复');
+  if (isCoreA && ['hot_expand', 'weak_contract'].includes(signalRegime)) {
+    return {
+      legacy_tier: 'A',
+      strategy_layer: 'core_a',
+      strategy_code: 'CORE_A_TP30H90',
+      strategy_name: 'Core A-核心弹性',
+      trade_action: signalRegime === 'weak_contract' ? '谨慎可买' : '可买',
+      entry_window_days: 2,
+      tp_pct: 30,
+      sl_pct: -5,
+      max_hold_days: 90,
+      hist_win_pct: 92.2,
+      hist_avg_ret_pct: 23.38,
+      hist_avg_hold_days: 59.01,
+      efficiency_20d: 7.92,
+      signal_regime: signalRegime,
+    };
+  }
+
+  return null;
+}
+
+function buildTradeReason(record: any, strategy: any): string {
   const parts: string[] = [];
   const rule = record?.alert_decision || '';
-  if (rule.includes('急跌修复')) parts.push('高位急跌后修复');
+  if (strategy?.strategy_code === 'E1_TP5H5') parts.push('短周期优先:热市急跌修复按TP5/H5执行');
+  else if (strategy?.strategy_code === 'E4_TP10H20') parts.push('弱市早期修复轮转:按TP10/H20执行');
+  else if (rule.includes('急跌修复')) parts.push('核心A画像:急跌后修复');
   else if (rule.includes('低分修复')) parts.push('低分序列集中修复');
   else if (rule.includes('低位修复')) parts.push('低位修复确认');
-  if (record?.max_240_pct != null && record?.max_240_pct > 50)
-    parts.push('成熟度验证:avg>50%');
+  if (strategy?.strategy_code === 'E1_TP5H5') parts.push('同时具备Core A画像，但主策略采用短效E1');
+  if (strategy?.hist_win_pct != null) parts.push(`历史胜率${strategy.hist_win_pct}%`);
   if (!(record?.post_alert_decision || '')) parts.push('后市无障碍');
-  return parts.join(' · ') || '基于成熟度验证的A层推荐';
+  return parts.join(' · ') || '基于交易执行v1.1策略推荐';
 }
 
 router.get('/ai_focus_stocks_trend', function (req, res, next) {

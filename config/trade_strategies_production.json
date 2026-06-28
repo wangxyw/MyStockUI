@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-06-28",
+  "record_type": "record1",
+  "governance": {
+    "artifact_status": "production_ready",
+    "update_mode": "manual_promote_after_validation",
+    "selector_policy": "first production_ready strategy by ascending priority; hardcode fallback remains required until parity validation is repeated",
+    "source_reports": [
+      "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md",
+      "analysis/trade_execution_rule_promotion_standard_2026_06_27.md",
+      "analysis/HANDOVER_dynamic_trade_strategy_generation_method_2026_06_28.md"
+    ]
+  },
+  "strategies": [
+    {
+      "strategy_code": "E1_TP5H5",
+      "status": "production_ready",
+      "priority": 1,
+      "legacy_tier": "E",
+      "strategy_layer": "short_e",
+      "strategy_name": "E1-热市急跌短打",
+      "trade_action": "可买",
+      "match": {
+        "record_type": "record1",
+        "label_prefixes": ["试｜急跌修复"],
+        "regimes": ["hot_expand"]
+      },
+      "params": {
+        "entry_window_days": 2,
+        "delay_days": 0,
+        "tp_pct": 5,
+        "sl_pct": -3,
+        "max_hold_days": 5
+      },
+      "metrics": {
+        "n": 44,
+        "hist_win_pct": 97.73,
+        "hist_avg_ret_pct": 4.01,
+        "hist_avg_hold_days": 2.77,
+        "efficiency_20d": 28.94
+      },
+      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+    },
+    {
+      "strategy_code": "E4_TP10H20",
+      "status": "production_ready",
+      "priority": 4,
+      "legacy_tier": "E",
+      "strategy_layer": "short_e",
+      "strategy_name": "E4-弱市早修轮转",
+      "trade_action": "谨慎可买",
+      "match": {
+        "record_type": "record1",
+        "label_prefixes": ["等｜弱势早期修复"],
+        "regimes": ["weak_contract"]
+      },
+      "params": {
+        "entry_window_days": 2,
+        "delay_days": 0,
+        "tp_pct": 10,
+        "sl_pct": -5,
+        "max_hold_days": 20
+      },
+      "metrics": {
+        "n": 64,
+        "hist_win_pct": 78.13,
+        "hist_avg_ret_pct": 4.13,
+        "hist_avg_hold_days": 16.67,
+        "efficiency_20d": 4.95
+      },
+      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+    },
+    {
+      "strategy_code": "CORE_A_TP30H90",
+      "status": "production_ready",
+      "priority": 10,
+      "legacy_tier": "A",
+      "strategy_layer": "core_a",
+      "strategy_name": "Core A-核心弹性",
+      "trade_action": {
+        "hot_expand": "可买",
+        "weak_contract": "谨慎可买"
+      },
+      "match": {
+        "record_type": "record1",
+        "label_prefixes": ["买｜低位修复", "试｜低分修复", "试｜急跌修复"],
+        "regimes": ["hot_expand", "weak_contract"]
+      },
+      "params": {
+        "entry_window_days": 2,
+        "delay_days": 0,
+        "tp_pct": 30,
+        "sl_pct": -5,
+        "max_hold_days": 90
+      },
+      "metrics": {
+        "n": 295,
+        "hist_win_pct": 92.2,
+        "hist_avg_ret_pct": 23.38,
+        "hist_avg_hold_days": 59.01,
+        "efficiency_20d": 7.92
+      },
+      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+    }
+  ]
+}
