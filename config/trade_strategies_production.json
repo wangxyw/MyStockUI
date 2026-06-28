@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "generated_at": "2026-06-28",
   "record_type": "record1",
   "governance": {
@@ -141,6 +141,108 @@
         "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
       },
       "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
+    },
+    {
+      "strategy_code": "PB_A_TP15H30",
+      "status": "candidate_ready",
+      "priority": 6,
+      "legacy_tier": "PB",
+      "strategy_layer": "pullback_entry",
+      "strategy_name": "PB-A 深回撤超卖回撤触发",
+      "trade_action": "回撤触发可买",
+      "match": {
+        "record_type": "record1",
+        "label_prefixes": ["等｜深回撤超卖"],
+        "regimes": ["neutral"]
+      },
+      "entry_trigger": {
+        "type": "pullback_from_alert_close",
+        "pb_pct": -8,
+        "pb_window_days": 20,
+        "trigger_entry_window_days": 2,
+        "entry_price_basis": "latest_close_after_trigger",
+        "entry_window_basis": "trigger_date"
+      },
+      "current_display": {
+        "enabled": true,
+        "display_states": ["triggered_executable"],
+        "waiting_state_enabled": false,
+        "rank_mode": "threshold_fit",
+        "max_current_items": 10,
+        "pb_daily_cap": 3,
+        "dedupe_key": "symbol"
+      },
+      "params": {
+        "entry_window_days": 2,
+        "delay_days": 0,
+        "tp_pct": 15,
+        "sl_pct": -5,
+        "max_hold_days": 30
+      },
+      "metrics": {
+        "scope": "tdd_candidate_ex202504",
+        "n": 21,
+        "replay_win_pct": 80.95,
+        "tp_hit_pct": 52.38,
+        "sl_hit_pct": 19.05,
+        "time_exit_pct": 28.57,
+        "replay_avg_ret_pct": 9.25,
+        "replay_avg_hold_days": 17.33,
+        "replay_efficiency_20d": 10.67,
+        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+      },
+      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+    },
+    {
+      "strategy_code": "PB_B_TP20H60",
+      "status": "candidate_ready",
+      "priority": 7,
+      "legacy_tier": "PB",
+      "strategy_layer": "pullback_entry",
+      "strategy_name": "PB-B 弱市低分超卖回撤触发",
+      "trade_action": "回撤触发可买",
+      "match": {
+        "record_type": "record1",
+        "label_prefixes": ["等｜低分超卖"],
+        "regimes": ["weak_contract"]
+      },
+      "entry_trigger": {
+        "type": "pullback_from_alert_close",
+        "pb_pct": -2,
+        "pb_window_days": 10,
+        "trigger_entry_window_days": 2,
+        "entry_price_basis": "latest_close_after_trigger",
+        "entry_window_basis": "trigger_date"
+      },
+      "current_display": {
+        "enabled": true,
+        "display_states": ["triggered_executable"],
+        "waiting_state_enabled": false,
+        "rank_mode": "threshold_fit",
+        "max_current_items": 10,
+        "pb_daily_cap": 3,
+        "dedupe_key": "symbol"
+      },
+      "params": {
+        "entry_window_days": 2,
+        "delay_days": 0,
+        "tp_pct": 20,
+        "sl_pct": -5,
+        "max_hold_days": 60
+      },
+      "metrics": {
+        "scope": "tdd_candidate_ex202504",
+        "n": 15,
+        "replay_win_pct": 80,
+        "tp_hit_pct": 46.67,
+        "sl_hit_pct": 20,
+        "time_exit_pct": 33.33,
+        "replay_avg_ret_pct": 10.4,
+        "replay_avg_hold_days": 26.13,
+        "replay_efficiency_20d": 7.96,
+        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+      },
+      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
     }
   ]
 }

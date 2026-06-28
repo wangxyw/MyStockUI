@@ -3021,6 +3021,7 @@ router.get('/trade_execution', async function (req, res, next) {
   const tableAI = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
   const eIdx = recordType === 'record2' ? 1 : 0;
   const today = new Date().toISOString().split('T')[0];
+  const tradeConfig = loadTradeStrategiesConfig();
 
   // 获取当前市场环境。策略匹配仍以报警日画像里的 M 标签为准。
   let regime = 'hot_expand';
@@ -3039,17 +3040,8 @@ router.get('/trade_execution', async function (req, res, next) {
     console.warn('calcMarketEnvironment failed, using default regime:', err);
   }
 
-  // v1.1 只落地 R1。R2 后续需要独立短周期扫描，不能直接套 R1 参数。
-  const recordFilter = recordType === 'record1'
-    ? `
-      AND (
-        fca.alert_decision LIKE '买｜低位修复%'
-        OR fca.alert_decision LIKE '试｜低分修复%'
-        OR fca.alert_decision LIKE '试｜急跌修复%'
-        OR fca.alert_decision LIKE '等｜弱势早期修复%'
-      )
-    `
-    : "AND 1 = 0";
+  // R2 后续需要独立短周期扫描，不能直接套 R1 参数。
+  const recordFilter = buildTradeExecutionRecordFilter(recordType, tradeConfig);
 
   const sql = `
     SELECT fca.id, fca.symbol, fca.name, fca.datestr, fca.final_price,
@@ -3129,14 +3121,17 @@ router.get('/trade_execution', async function (req, res, next) {
         return res.status(500).json({ error: priceErr.message });
       }
       const priceMap = buildPriceMap(priceRows || []);
-      const candidates = rows
+      const referenceDate = formatDbDate(rows?.[0]?.reference_date) || today;
+      const productionCandidates = rows
         .map((r: any) => {
           const strategy = selectTradeStrategy(r, recordType);
           if (!strategy) return null;
           const daysSinceAlert = Number(r.days_since_alert);
           const executionPlan = buildDynamicExecutionPlan(r, strategy);
           const status = buildTradeExecutionStatus(r, strategy, daysSinceAlert);
-          const strategyOutcome = buildStrategyOutcome(r, strategy, priceMap[String(r.symbol || '')] || []);
+          const pricesForSymbol = priceMap[String(r.symbol || '')] || [];
+          const strategyOutcome = buildStrategyOutcome(r, strategy, pricesForSymbol);
+          const d30Outcome = buildStrategyOutcome(r, { ...strategy, max_hold_days: 30 }, pricesForSymbol);
           return {
             ...r,
             final_price: executionPlan.execution_price,
@@ -3155,6 +3150,13 @@ router.get('/trade_execution', async function (req, res, next) {
             strategy_result_hold_days: strategyOutcome.hold_days,
             strategy_max_ret_pct: strategyOutcome.max_ret_pct,
             strategy_min_ret_pct: strategyOutcome.min_ret_pct,
+            d30_result_status: d30Outcome.status,
+            d30_result_label: d30Outcome.label,
+            d30_result_date: d30Outcome.result_date,
+            d30_result_ret_pct: d30Outcome.result_ret_pct,
+            d30_result_hold_days: d30Outcome.hold_days,
+            d30_max_ret_pct: d30Outcome.max_ret_pct,
+            d30_min_ret_pct: d30Outcome.min_ret_pct,
             execution_status: status.status,
             execution_status_label: status.label,
             execution_status_reason: status.reason,
@@ -3183,9 +3185,21 @@ router.get('/trade_execution', async function (req, res, next) {
             trade_reason: buildTradeReason(r, strategy),
             alert_date: alertDate(r.datestr),
             days_since_alert: daysSinceAlert,
+            entry_window_basis: 'alert_date',
+            entry_window_basis_label: '报警日',
+            entry_window_basis_date: alertDate(r.datestr),
+            entry_window_day_count: daysSinceAlert,
           };
         })
         .filter(Boolean);
+      const pullbackCandidates = buildPullbackTradeCandidates(
+        rows || [],
+        recordType,
+        priceMap,
+        referenceDate,
+        regime
+      );
+      const candidates = [...productionCandidates, ...pullbackCandidates];
 
       res.json({
         market_env: { ...marketRaw, regime },
@@ -3197,6 +3211,41 @@ router.get('/trade_execution', async function (req, res, next) {
 
 function alertDateValue(value: any): string {
   return value ? String(value).split('T')[0] : '';
+}
+
+function configStrategiesForTradeExecution(config: any, recordType: string): any[] {
+  if (!config || config.record_type !== recordType || !Array.isArray(config.strategies)) return [];
+  return config.strategies.filter((strategy: any) =>
+    strategy?.match?.record_type === recordType &&
+    (
+      strategy?.status === 'production_ready' ||
+      (strategy?.status === 'candidate_ready' && strategy?.current_display?.enabled === true)
+    )
+  );
+}
+
+function buildTradeExecutionRecordFilter(recordType: string, config: any): string {
+  if (recordType !== 'record1') return 'AND 1 = 0';
+  const prefixes = Array.from(new Set(
+    configStrategiesForTradeExecution(config, recordType)
+      .flatMap((strategy: any) => strategy?.match?.label_prefixes || [])
+      .filter(Boolean)
+  ));
+  const fallbackPrefixes = [
+    '买｜低位修复',
+    '试｜低分修复',
+    '试｜急跌修复',
+    '等｜弱势早期修复',
+  ];
+  const activePrefixes = prefixes.length ? prefixes : fallbackPrefixes;
+  const clauses = activePrefixes
+    .map((prefix: any) => `fca.alert_decision LIKE '${sqlEscape(prefix)}%'`)
+    .join('\n        OR ');
+  return `
+      AND (
+        ${clauses}
+      )
+    `;
 }
 
 function buildPriceMap(rows: any[]): Record<string, any[]> {
@@ -3215,8 +3264,8 @@ function buildPriceMap(rows: any[]): Record<string, any[]> {
 }
 
 function buildStrategyOutcome(record: any, strategy: any, prices: any[]): any {
-  const alertDate = alertDateValue(record?.datestr);
-  const entryIndex = prices.findIndex((row) => row.date >= alertDate);
+  const entryDate = strategy?.entry_basis_date || alertDateValue(record?.datestr);
+  const entryIndex = prices.findIndex((row) => row.date >= entryDate);
   if (entryIndex < 0) {
     return {
       status: 'no_price',
@@ -3347,6 +3396,208 @@ function buildTradeExecutionStatus(record: any, strategy: any, daysSinceAlert: n
     label: '当前可执行',
     reason: `距报警日 ${daysSinceAlert} 天，仍在 ${strategy.entry_window_days} 天入场窗口内`,
   };
+}
+
+function buildPullbackTradeCandidates(
+  rows: any[],
+  recordType: string,
+  priceMap: Record<string, any[]>,
+  referenceDate: string,
+  currentMarketRegime: string
+): any[] {
+  const config = loadTradeStrategiesConfig();
+  const strategies = configStrategiesForTradeExecution(config, recordType)
+    .filter((strategy: any) => strategy?.status === 'candidate_ready')
+    .filter((strategy: any) => strategy?.strategy_layer === 'pullback_entry')
+    .filter((strategy: any) => strategy?.entry_trigger?.type === 'pullback_from_alert_close');
+  if (!strategies.length) return [];
+
+  const rawCandidates = rows.flatMap((record: any) => {
+    const signalRegime = parseSignalRegime(record?.comments || '');
+    const rule = record?.alert_decision || '';
+    return strategies.map((rawStrategy: any) => {
+      if (!(rawStrategy?.match?.regimes || []).includes(signalRegime)) return null;
+      if (!(rawStrategy?.match?.label_prefixes || []).some((prefix: string) => rule.startsWith(prefix))) return null;
+      const prices = priceMap[String(record?.symbol || '')] || [];
+      const trigger = findPullbackTrigger(record, rawStrategy, prices, referenceDate);
+      if (!trigger) return null;
+      const strategy = {
+        ...strategyFromConfig(rawStrategy, signalRegime),
+        status: rawStrategy.status,
+        entry_basis_date: trigger.trigger_date,
+        entry_trigger: rawStrategy.entry_trigger,
+        current_display: rawStrategy.current_display,
+      };
+      const status = buildPullbackExecutionStatus(record, strategy, trigger.days_since_trigger);
+      const executionPlan = buildDynamicExecutionPlan(record, strategy);
+      const strategyOutcome = buildStrategyOutcome(record, strategy, prices);
+      const d30Outcome = buildStrategyOutcome(record, { ...strategy, max_hold_days: 30 }, prices);
+      return {
+        ...record,
+        final_price: executionPlan.execution_price,
+        alert_price: executionPlan.alert_price,
+        execution_price: executionPlan.execution_price,
+        execution_price_date: executionPlan.execution_price_date,
+        tp_price: executionPlan.tp_price,
+        sl_price: executionPlan.sl_price,
+        move_since_alert_pct: executionPlan.move_since_alert_pct,
+        entry_risk_state: trigger.entry_risk_state,
+        execution_note: executionPlan.execution_note,
+        strategy_result_status: strategyOutcome.status,
+        strategy_result_label: strategyOutcome.label,
+        strategy_result_date: strategyOutcome.result_date,
+        strategy_result_ret_pct: strategyOutcome.result_ret_pct,
+        strategy_result_hold_days: strategyOutcome.hold_days,
+        strategy_max_ret_pct: strategyOutcome.max_ret_pct,
+        strategy_min_ret_pct: strategyOutcome.min_ret_pct,
+        d30_result_status: d30Outcome.status,
+        d30_result_label: d30Outcome.label,
+        d30_result_date: d30Outcome.result_date,
+        d30_result_ret_pct: d30Outcome.result_ret_pct,
+        d30_result_hold_days: d30Outcome.hold_days,
+        d30_max_ret_pct: d30Outcome.max_ret_pct,
+        d30_min_ret_pct: d30Outcome.min_ret_pct,
+        execution_status: status.status,
+        execution_status_label: status.label,
+        execution_status_reason: status.reason,
+        is_current_executable: status.status === 'executable',
+        trade_tier: strategy.legacy_tier,
+        strategy_layer: strategy.strategy_layer,
+        strategy_code: strategy.strategy_code,
+        strategy_name: strategy.strategy_name,
+        trade_action: strategy.trade_action,
+        entry_window_days: strategy.entry_window_days,
+        tp_pct: strategy.tp_pct,
+        sl_pct: strategy.sl_pct,
+        max_hold_days: strategy.max_hold_days,
+        replay_metric_scope: strategy.replay_metric_scope,
+        replay_sample_n: strategy.replay_sample_n,
+        replay_win_pct: strategy.replay_win_pct,
+        tp_hit_pct: strategy.tp_hit_pct,
+        sl_hit_pct: strategy.sl_hit_pct,
+        time_exit_pct: strategy.time_exit_pct,
+        replay_avg_ret_pct: strategy.replay_avg_ret_pct,
+        replay_avg_hold_days: strategy.replay_avg_hold_days,
+        replay_efficiency_20d: strategy.replay_efficiency_20d,
+        market_regime: strategy.signal_regime,
+        current_market_regime: currentMarketRegime,
+        signal_market_regime: strategy.signal_regime,
+        trade_reason: buildPullbackTradeReason(record, strategy, trigger),
+        alert_date: alertDateValue(record?.datestr),
+        days_since_alert: dateDiffDays(referenceDate, alertDateValue(record?.datestr)),
+        entry_window_basis: 'trigger_date',
+        entry_window_basis_label: '触发日',
+        entry_window_basis_date: trigger.trigger_date,
+        entry_window_day_count: trigger.days_since_trigger,
+        pullback_trigger_date: trigger.trigger_date,
+        pullback_wait_days: trigger.wait_days,
+        pullback_trigger_ret_pct: trigger.trigger_ret_pct,
+        pullback_threshold_gap_abs: trigger.threshold_gap_abs,
+      };
+    });
+  }).filter(Boolean);
+
+  const currentRows = rawCandidates.filter((row: any) => row.execution_status === 'executable');
+  const currentLimit = Math.max(
+    0,
+    ...strategies.map((strategy: any) => toNumber(strategy?.current_display?.max_current_items))
+  ) || 10;
+  const currentAllowed = new Set(
+    dedupePullbackCurrentRows(currentRows)
+      .sort(comparePullbackThresholdFit)
+      .slice(0, currentLimit)
+      .map((row: any) => `${row.strategy_code}-${row.id}`)
+  );
+  return rawCandidates.filter((row: any) =>
+    row.execution_status !== 'executable' || currentAllowed.has(`${row.strategy_code}-${row.id}`)
+  );
+}
+
+function findPullbackTrigger(record: any, rawStrategy: any, prices: any[], referenceDate: string): any | null {
+  const alertDate = alertDateValue(record?.datestr);
+  const alertIndex = prices.findIndex((row) => row.date >= alertDate);
+  if (alertIndex < 0) return null;
+  const alertPrice = toNumber(prices[alertIndex]?.price);
+  if (!Number.isFinite(alertPrice) || alertPrice <= 0) return null;
+  const pbPct = toNumber(rawStrategy?.entry_trigger?.pb_pct);
+  const pbWindowDays = toNumber(rawStrategy?.entry_trigger?.pb_window_days);
+  const limit = Math.min(alertIndex + pbWindowDays, prices.length - 1);
+  for (let idx = alertIndex; idx <= limit; idx += 1) {
+    const row = prices[idx];
+    if (!row || row.date > referenceDate) continue;
+    const retPct = (toNumber(row.price) / alertPrice - 1) * 100;
+    if (retPct <= pbPct) {
+      const daysSinceTrigger = dateDiffDays(referenceDate, row.date);
+      return {
+        trigger_date: row.date,
+        days_since_trigger: daysSinceTrigger,
+        wait_days: idx - alertIndex,
+        trigger_ret_pct: round2(retPct),
+        threshold_gap_abs: round2(Math.abs(retPct - pbPct)),
+        entry_risk_state: `已触发回撤 ${round2(retPct)}%`,
+      };
+    }
+  }
+  return null;
+}
+
+function buildPullbackExecutionStatus(record: any, strategy: any, daysSinceTrigger: number): any {
+  if (!Number.isFinite(daysSinceTrigger) || daysSinceTrigger < 0) {
+    return {
+      status: 'invalid_date',
+      label: '日期异常',
+      reason: '回撤触发日与参考日无法形成有效入场窗口',
+    };
+  }
+  if (isPostAlertBlocked(record?.post_alert_decision)) {
+    return {
+      status: 'blocked',
+      label: '后市排除',
+      reason: String(record?.post_alert_decision || '后市状态已排除'),
+    };
+  }
+  if (daysSinceTrigger > toNumber(strategy?.entry_window_days)) {
+    return {
+      status: 'expired',
+      label: '已过入场窗口',
+      reason: `距回撤触发日 ${daysSinceTrigger} 天，超过 ${strategy.entry_window_days} 天入场窗口`,
+    };
+  }
+  return {
+    status: 'executable',
+    label: '回撤触发可执行',
+    reason: `距回撤触发日 ${daysSinceTrigger} 天，仍在 ${strategy.entry_window_days} 天入场窗口内`,
+  };
+}
+
+function comparePullbackThresholdFit(a: any, b: any): number {
+  const fitDiff = toNumber(a?.pullback_threshold_gap_abs) - toNumber(b?.pullback_threshold_gap_abs);
+  if (fitDiff !== 0) return fitDiff;
+  const waitDiff = toNumber(a?.pullback_wait_days) - toNumber(b?.pullback_wait_days);
+  if (waitDiff !== 0) return waitDiff;
+  const dayDiff = toNumber(a?.entry_window_day_count) - toNumber(b?.entry_window_day_count);
+  if (dayDiff !== 0) return dayDiff;
+  return String(a?.symbol || '').localeCompare(String(b?.symbol || ''));
+}
+
+function dedupePullbackCurrentRows(rows: any[]): any[] {
+  return Object.values(rows.reduce((acc: Record<string, any>, row: any) => {
+    const key = String(row?.symbol || '');
+    if (!key) return acc;
+    if (!acc[key] || comparePullbackThresholdFit(row, acc[key]) < 0) acc[key] = row;
+    return acc;
+  }, {}));
+}
+
+function buildPullbackTradeReason(record: any, strategy: any, trigger: any): string {
+  const parts = [
+    `回撤触发:报警后第${trigger.wait_days}个交易日达到${trigger.trigger_ret_pct}%`,
+    `触发日${trigger.trigger_date}起算入场窗口`,
+  ];
+  if (strategy?.tp_hit_pct != null) parts.push(`TP达成${strategy.tp_hit_pct}%`);
+  if (strategy?.replay_win_pct != null) parts.push(`正收益${strategy.replay_win_pct}%`);
+  if (!(record?.post_alert_decision || '')) parts.push('后市无障碍');
+  return parts.join(' · ');
 }
 
 function entryRiskState(moveSinceAlertPct: number | null, strategy: any): any {

@@ -12,6 +12,7 @@ import {
   ArrowUpOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
+import { StockChartsButton } from './StockChartsButton';
 
 interface TradeCandidate {
   id: number;
@@ -20,6 +21,13 @@ interface TradeCandidate {
   datestr: string;
   alert_date: string;
   days_since_alert: number | null;
+  entry_window_basis?: string;
+  entry_window_basis_label?: string;
+  entry_window_basis_date?: string;
+  entry_window_day_count?: number | null;
+  pullback_trigger_date?: string | null;
+  pullback_wait_days?: number | null;
+  pullback_trigger_ret_pct?: number | null;
   final_price: number;
   alert_price: number | null;
   execution_price: number | null;
@@ -40,6 +48,13 @@ interface TradeCandidate {
   strategy_result_hold_days: number | null;
   strategy_max_ret_pct: number | null;
   strategy_min_ret_pct: number | null;
+  d30_result_status: 'tp' | 'sl' | 'time' | 'open' | 'no_price' | string;
+  d30_result_label: string | null;
+  d30_result_date: string | null;
+  d30_result_ret_pct: number | null;
+  d30_result_hold_days: number | null;
+  d30_max_ret_pct: number | null;
+  d30_min_ret_pct: number | null;
   alert_decision: string;
   max_240_pct: number | null;
   min_240_pct: number | null;
@@ -92,11 +107,19 @@ const LAYER_META: Record<string, { label: string; title: string; color: string; 
     color: 'gold',
     desc: '高质量报警后的中期弹性，按 TP30/H90 执行',
   },
+  pullback_entry: {
+    label: 'PB',
+    title: '回撤触发',
+    color: 'cyan',
+    desc: '报警后等待回撤触发，再按触发日计算入场窗口',
+  },
 };
 
 const STRATEGY_ORDER: Record<string, number> = {
   E1_TP5H5: 1,
   E4_TP10H20: 2,
+  PB_A_TP15H30: 6,
+  PB_B_TP20H60: 7,
   CORE_A_TP30H90: 10,
 };
 
@@ -204,20 +227,24 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
   const stats = useMemo(() => {
     const core = candidates.filter((c) => c.strategy_layer === 'core_a');
     const short = candidates.filter((c) => c.strategy_layer === 'short_e');
+    const pullback = candidates.filter((c) => c.strategy_layer === 'pullback_entry');
     const executable = candidates.filter((c) => c.execution_status === 'executable');
     const expired = candidates.filter((c) => c.execution_status === 'expired');
     const blocked = candidates.filter((c) => c.execution_status === 'blocked');
     const tp = candidates.filter((c) => c.strategy_result_status === 'tp');
     const sl = candidates.filter((c) => c.strategy_result_status === 'sl');
+    const d30Tp = candidates.filter((c) => c.d30_result_status === 'tp');
     return {
       total: candidates.length,
       core: core.length,
       short: short.length,
+      pullback: pullback.length,
       executable: executable.length,
       expired: expired.length,
       blocked: blocked.length,
       tp: tp.length,
       sl: sl.length,
+      d30Tp: d30Tp.length,
       avgEfficiency: executable.length
         ? executable.reduce((sum, c) => sum + (Number(c.replay_efficiency_20d) || 0), 0) / executable.length
         : 0,
@@ -277,7 +304,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 92 }}>
           <div style={{ fontSize: 13, color: '#999' }}>策略记录</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#fa541c' }}>{stats.total}</div>
-          <div style={{ fontSize: 13, color: '#999' }}>短效 {stats.short} · 核心 {stats.core}</div>
+          <div style={{ fontSize: 13, color: '#999' }}>短效 {stats.short} · 核心 {stats.core} · 回撤 {stats.pullback}</div>
         </div>
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 130 }}>
           <div style={{ fontSize: 13, color: '#999' }}>当前可执行</div>
@@ -285,9 +312,9 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
           <div style={{ fontSize: 13, color: '#999' }}>历史 {stats.expired} · 排除 {stats.blocked}</div>
         </div>
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 130 }}>
-          <div style={{ fontSize: 13, color: '#999' }}>策略结果</div>
+          <div style={{ fontSize: 13, color: '#999' }}>严格策略结果</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#389e0d' }}>TP {stats.tp}</div>
-          <div style={{ fontSize: 13, color: '#999' }}>SL {stats.sl}</div>
+          <div style={{ fontSize: 13, color: '#999' }}>SL {stats.sl} · 30日TP {stats.d30Tp}</div>
         </div>
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 120 }}>
           <div style={{ fontSize: 13, color: '#999' }}>平均效率</div>
@@ -322,10 +349,19 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                   const key = `${c.strategy_code}-${c.id}`;
                   const layerMeta = LAYER_META[c.strategy_layer] || LAYER_META.core_a;
                   const statusMeta = STATUS_META[c.execution_status] || STATUS_META.invalid_date;
+                  const entryBasisLabel = c.entry_window_basis_label || '报警日';
+                  const entryBasisDate = c.entry_window_basis_date || c.alert_date;
+                  const entryDayCount = c.entry_window_day_count ?? c.days_since_alert;
                   const resultColor =
                     c.strategy_result_status === 'tp'
                       ? '#389e0d'
                       : c.strategy_result_status === 'sl'
+                        ? '#cf1322'
+                        : '#595959';
+                  const d30ResultColor =
+                    c.d30_result_status === 'tp'
+                      ? '#389e0d'
+                      : c.d30_result_status === 'sl'
                         ? '#cf1322'
                         : '#595959';
                   return (
@@ -355,13 +391,14 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                             <Tag color={statusMeta.tagColor} style={{ fontSize: 13 }}>
                               {c.execution_status_label || statusMeta.label}
                             </Tag>
+                            <StockChartsButton symbol={c.symbol} name={c.name} datestr={c.alert_date || c.datestr} size="small" />
                             <span style={{ fontSize: 13, color: '#bbb' }}>#{i + 1}</span>
                           </div>
                           <div style={{ marginTop: 5, fontSize: 14, color: '#999' }}>
                             {c.alert_decision} · 报警 {c.alert_date}
-                            {c.days_since_alert != null && (
-                              <span style={{ marginLeft: 6, color: c.days_since_alert <= c.entry_window_days ? '#cf1322' : '#999' }}>
-                                第 {c.days_since_alert} 天 / 窗口 {c.entry_window_days} 天
+                            {entryDayCount != null && (
+                              <span style={{ marginLeft: 6, color: entryDayCount <= c.entry_window_days ? '#cf1322' : '#999' }}>
+                                {entryBasisLabel} {entryBasisDate} · 第 {entryDayCount} 天 / 窗口 {c.entry_window_days} 天
                               </span>
                             )}
                           </div>
@@ -410,8 +447,13 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                         <Metric label="止损" value={fmtPct(c.sl_pct, 0)} color="#389e0d" icon={<ArrowDownOutlined />} />
                         <Metric label="止损价" value={`¥${fmtNum(c.sl_price, 2)}`} color="#389e0d" />
                         <Metric label="最大持有" value={`${c.max_hold_days}天`} />
-                        <Metric label="策略结果" value={c.strategy_result_label || '—'} color={resultColor} />
-                        <Metric label="结果收益" value={fmtPct(c.strategy_result_ret_pct, 2)} color={resultColor} />
+                        {c.pullback_trigger_date ? (
+                          <Metric label="回撤触发" value={`${c.pullback_trigger_date} / ${fmtPct(c.pullback_trigger_ret_pct, 2)}`} color="#08979c" />
+                        ) : null}
+                        <Metric label={`严格结果(H${c.max_hold_days})`} value={c.strategy_result_label || '—'} color={resultColor} />
+                        <Metric label={`严格收益(H${c.max_hold_days})`} value={fmtPct(c.strategy_result_ret_pct, 2)} color={resultColor} />
+                        <Metric label="30日参考" value={c.d30_result_label || '—'} color={d30ResultColor} />
+                        <Metric label="30日收益" value={fmtPct(c.d30_result_ret_pct, 2)} color={d30ResultColor} />
                         {(() => {
                           const m = parseDecisionMetrics(c.alert_decision);
                           return <Metric label="信号胜/均/回" value={`${m.winPct} / ${m.avgRet} / ${m.drawdownPct}`} />;
@@ -438,7 +480,10 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                           <span>状态: {c.execution_status_reason || c.execution_status_label || '—'}</span>
                           <span>区间最高: {fmtPct(c.strategy_max_ret_pct, 2)}</span>
                           <span>区间最低: {fmtPct(c.strategy_min_ret_pct, 2)}</span>
+                          <span>30日最高: {fmtPct(c.d30_max_ret_pct, 2)}</span>
+                          <span>30日最低: {fmtPct(c.d30_min_ret_pct, 2)}</span>
                           <span>执行价日期: {c.execution_price_date || '—'}</span>
+                          {c.pullback_wait_days != null && <span>回撤等待: {c.pullback_wait_days}个交易日</span>}
                           {c.execution_note && <span>{c.execution_note}</span>}
                           <span>报警环境: {REGIME_LABELS[c.signal_market_regime] || c.signal_market_regime}</span>
                           <span>当前市场: {REGIME_LABELS[c.current_market_regime] || c.current_market_regime}</span>
