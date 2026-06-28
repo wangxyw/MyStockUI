@@ -34,13 +34,26 @@
         "max_hold_days": 5
       },
       "metrics": {
+        "scope": "replay_nonblocked",
+        "n": 39,
+        "replay_win_pct": 97.44,
+        "tp_hit_pct": 69.23,
+        "sl_hit_pct": 2.56,
+        "time_exit_pct": 28.21,
+        "replay_avg_ret_pct": 3.88,
+        "replay_avg_hold_days": 2.77,
+        "replay_efficiency_20d": 28.06,
+        "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
+      },
+      "legacy_source_metrics": {
         "n": 44,
         "hist_win_pct": 97.73,
         "hist_avg_ret_pct": 4.01,
         "hist_avg_hold_days": 2.77,
-        "efficiency_20d": 28.94
+        "efficiency_20d": 28.94,
+        "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
       },
-      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+      "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
     },
     {
       "strategy_code": "E4_TP10H20",
@@ -63,13 +76,26 @@
         "max_hold_days": 20
       },
       "metrics": {
+        "scope": "replay_nonblocked",
+        "n": 18,
+        "replay_win_pct": 72.22,
+        "tp_hit_pct": 44.44,
+        "sl_hit_pct": 27.78,
+        "time_exit_pct": 27.78,
+        "replay_avg_ret_pct": 4.11,
+        "replay_avg_hold_days": 13.17,
+        "replay_efficiency_20d": 6.24,
+        "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
+      },
+      "legacy_source_metrics": {
         "n": 64,
         "hist_win_pct": 78.13,
         "hist_avg_ret_pct": 4.13,
         "hist_avg_hold_days": 16.67,
-        "efficiency_20d": 4.95
+        "efficiency_20d": 4.95,
+        "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
       },
-      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+      "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
     },
     {
       "strategy_code": "CORE_A_TP30H90",
@@ -95,13 +121,26 @@
         "max_hold_days": 90
       },
       "metrics": {
+        "scope": "replay_nonblocked",
+        "n": 251,
+        "replay_win_pct": 89.52,
+        "tp_hit_pct": 66.13,
+        "sl_hit_pct": 10.48,
+        "time_exit_pct": 23.39,
+        "replay_avg_ret_pct": 23.53,
+        "replay_avg_hold_days": 54.31,
+        "replay_efficiency_20d": 8.66,
+        "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
+      },
+      "legacy_source_metrics": {
         "n": 295,
         "hist_win_pct": 92.2,
         "hist_avg_ret_pct": 23.38,
         "hist_avg_hold_days": 59.01,
-        "efficiency_20d": 7.92
+        "efficiency_20d": 7.92,
+        "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
       },
-      "source_report": "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md"
+      "source_report": "analysis/VALIDATION_trade_execution_replay_metrics_2026_06_28.md"
     }
   ]
 }

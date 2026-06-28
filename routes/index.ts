@@ -382,6 +382,30 @@ const applyRecord1PositiveLimitedWaitDecision = (decisionTag: string | null, sco
   return decisionTag;
 };
 
+const applyRecord1NegativeGoodObserveDecision = (decisionTag: string | null, score: number, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (decisionText && !decisionText.startsWith('慎:') && !decisionText.startsWith('避:')) return decisionTag;
+
+  const avgTurn = details?.turnover_mean === null || details?.turnover_mean === undefined
+    ? null
+    : Number(details.turnover_mean);
+  const p0 = details?.profit_chip_day0 === null || details?.profit_chip_day0 === undefined
+    ? null
+    : Number(details.profit_chip_day0);
+  const rDd = details?.drawdown_from_60_high === null || details?.drawdown_from_60_high === undefined
+    ? null
+    : Number(details.drawdown_from_60_high);
+  const kdjJ = details?.kdj_j === null || details?.kdj_j === undefined
+    ? null
+    : Number(details.kdj_j);
+
+  if (rDd !== null && rDd <= -30 && kdjJ !== null && kdjJ < 20) return '【等:深回撤超卖观察】';
+  if (score >= 20 && score <= 40 && avgTurn !== null && avgTurn >= 1 && avgTurn < 2) return '【等:中分低换修复观察】';
+  if (avgTurn !== null && avgTurn >= 4 && p0 !== null && p0 >= 10) return '【等:高换高位弹性观察】';
+
+  return decisionTag;
+};
+
 const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any) => {
   const statusText = stripBrackets(statusTag);
   const tagText = tagTextOf(tags);
@@ -933,6 +957,15 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     LIMIT 1
   `);
 
+  const kdjRows: any = await queryDB(`
+    SELECT j
+    FROM kdj
+    WHERE symbol = '${safeSymbol}'
+      AND datestr <= '${safeDate}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+
   const maRows: any = await queryDB(`
     SELECT ma5, ma10, ma20, ma60
     FROM ma
@@ -978,6 +1011,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   }
 
   const dmi = dmiRows?.[0];
+  const kdj = kdjRows?.[0];
   const ma = maRows?.[0];
   const maLag = maLagRows?.[0];
   const dmiPdi = dmi ? toNumber(dmi.pdi) : null;
@@ -1264,6 +1298,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     dmi_mdi: dmiMdi === null ? null : round2(dmiMdi),
     dmi_adx: dmiAdx === null ? null : round2(dmiAdx),
     dmi_diff: dmiDiff === null ? null : round2(dmiDiff),
+    kdj_j: kdj?.j === null || kdj?.j === undefined ? null : round2(toNumber(kdj.j)),
     ma5: ma5 === null ? null : round2(ma5),
     ma10: ma10 === null ? null : round2(ma10),
     ma20: ma20 === null ? null : round2(ma20),
@@ -1328,13 +1363,21 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_env = marketEnv;
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
-  const decisionTag = applyRecord1PositiveLimitedWaitDecision(applyRecord1TrackingDecision(
-    applyRecord1MarketRiskDecision(
-      applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+  const decisionTag = applyRecord1PositiveLimitedWaitDecision(
+    applyRecord1NegativeGoodObserveDecision(
+      applyRecord1TrackingDecision(
+        applyRecord1MarketRiskDecision(
+          applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+          details
+        ),
+        details
+      ),
+      score,
       details
     ),
+    score,
     details
-  ), score, details);
+  );
   const comments = [
     decisionTag,
     `【${score}】`,
@@ -1353,7 +1396,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_33',
+    model: 'record1_v12_34',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
@@ -2970,7 +3013,7 @@ router.get('/alarm_trends', function (req, res, next) {
   executeQueries();
 });
 
-// ===== 交易执行层: Core A + Short E 可执行候选 =====
+// ===== 交易执行层: Core A + Short E 策略记录 =====
 // 规则来源: trade_execution_strategy_v1_1_2026_06_27.md
 router.get('/trade_execution', async function (req, res, next) {
   const recordType = req.query.record_type === 'record2' ? 'record2' : 'record1';
@@ -3026,8 +3069,7 @@ router.get('/trade_execution', async function (req, res, next) {
             ORDER BY sd.datestr DESC
             LIMIT 1) AS execution_price_date,
            DATEDIFF(latest_ref.reference_date, fca.datestr) AS days_since_alert
-    FROM ${focusTable} fs
-    JOIN ${tableAI} fca ON fca.symbol = fs.symbol AND DATE(fca.datestr) = DATE(fs.datestr)
+    FROM ${tableAI} fca
     JOIN (SELECT MAX(datestr) AS reference_date FROM ${focusTable}) latest_ref
     LEFT JOIN (
       SELECT h.*
@@ -3042,19 +3084,8 @@ router.get('/trade_execution', async function (req, res, next) {
               AND latest_h.alert_id = fca.id
               AND latest_h.symbol = fca.symbol
               AND DATE(latest_h.alarm_datestr) = DATE(fca.datestr)
-    WHERE fca.datestr >= DATE_SUB(latest_ref.reference_date, INTERVAL 7 DAY)
+    WHERE 1 = 1
       ${recordFilter}
-      AND (
-        latest_h.post_alert_decision IS NULL
-        OR (
-          latest_h.post_alert_decision NOT LIKE '后排除%'
-          AND latest_h.post_alert_decision NOT LIKE '后避%'
-          AND latest_h.post_alert_decision NOT LIKE '%D90%'
-          AND latest_h.post_alert_decision NOT LIKE '%机会不足%'
-          AND latest_h.post_alert_decision NOT LIKE '%放弃%'
-          AND latest_h.post_alert_decision NOT LIKE '%转弱%'
-        )
-      )
     ORDER BY
       CASE
         WHEN fca.alert_decision LIKE '试｜急跌修复%' THEN 1
@@ -3071,54 +3102,189 @@ router.get('/trade_execution', async function (req, res, next) {
       console.error(err);
       return res.status(500).json({ error: err.message });
     }
+    if (!rows || rows.length === 0) {
+      return res.json({
+        market_env: { ...marketRaw, regime },
+        candidates: [],
+      });
+    }
+    const symbols = Array.from(new Set<string>(rows.map((r: any) => String(r.symbol || '')).filter(Boolean)))
+      .map((symbol: string) => `'${sqlEscape(symbol)}'`)
+      .join(',');
+    const minAlertDate = rows
+      .map((r: any) => alertDateValue(r.datestr))
+      .filter(Boolean)
+      .sort()[0];
+    const priceSql = `
+      SELECT symbol, datestr, finalprice
+      FROM stock_day_common_data
+      WHERE symbol IN (${symbols || "''"})
+        AND datestr >= '${sqlEscape(minAlertDate || '2000-01-01')}'
+      ORDER BY symbol, datestr
+    `;
     const alertDate = (d: any) => d ? String(d).split('T')[0] : '';
-    const candidates = rows
-      .map((r: any) => {
-        const strategy = selectTradeStrategy(r, recordType);
-        if (!strategy) return null;
-        const daysSinceAlert = Number(r.days_since_alert);
-        if (!Number.isFinite(daysSinceAlert) || daysSinceAlert < 0 || daysSinceAlert > strategy.entry_window_days) return null;
-        const executionPlan = buildDynamicExecutionPlan(r, strategy);
-        return {
-          ...r,
-          final_price: executionPlan.execution_price,
-          alert_price: executionPlan.alert_price,
-          execution_price: executionPlan.execution_price,
-          execution_price_date: executionPlan.execution_price_date,
-          tp_price: executionPlan.tp_price,
-          sl_price: executionPlan.sl_price,
-          move_since_alert_pct: executionPlan.move_since_alert_pct,
-          entry_risk_state: executionPlan.entry_risk_state,
-          execution_note: executionPlan.execution_note,
-          trade_tier: strategy.legacy_tier,
-          strategy_layer: strategy.strategy_layer,
-          strategy_code: strategy.strategy_code,
-          strategy_name: strategy.strategy_name,
-          trade_action: strategy.trade_action,
-          entry_window_days: strategy.entry_window_days,
-          tp_pct: strategy.tp_pct,
-          sl_pct: strategy.sl_pct,
-          max_hold_days: strategy.max_hold_days,
-          hist_win_pct: strategy.hist_win_pct,
-          hist_avg_ret_pct: strategy.hist_avg_ret_pct,
-          hist_avg_hold_days: strategy.hist_avg_hold_days,
-          efficiency_20d: strategy.efficiency_20d,
-          market_regime: strategy.signal_regime,
-          current_market_regime: regime,
-          signal_market_regime: strategy.signal_regime,
-          trade_reason: buildTradeReason(r, strategy),
-          alert_date: alertDate(r.datestr),
-          days_since_alert: daysSinceAlert,
-        };
-      })
-      .filter(Boolean);
+    pool.query(priceSql, function (priceErr, priceRows) {
+      if (priceErr) {
+        console.error(priceErr);
+        return res.status(500).json({ error: priceErr.message });
+      }
+      const priceMap = buildPriceMap(priceRows || []);
+      const candidates = rows
+        .map((r: any) => {
+          const strategy = selectTradeStrategy(r, recordType);
+          if (!strategy) return null;
+          const daysSinceAlert = Number(r.days_since_alert);
+          const executionPlan = buildDynamicExecutionPlan(r, strategy);
+          const status = buildTradeExecutionStatus(r, strategy, daysSinceAlert);
+          const strategyOutcome = buildStrategyOutcome(r, strategy, priceMap[String(r.symbol || '')] || []);
+          return {
+            ...r,
+            final_price: executionPlan.execution_price,
+            alert_price: executionPlan.alert_price,
+            execution_price: executionPlan.execution_price,
+            execution_price_date: executionPlan.execution_price_date,
+            tp_price: executionPlan.tp_price,
+            sl_price: executionPlan.sl_price,
+            move_since_alert_pct: executionPlan.move_since_alert_pct,
+            entry_risk_state: executionPlan.entry_risk_state,
+            execution_note: executionPlan.execution_note,
+            strategy_result_status: strategyOutcome.status,
+            strategy_result_label: strategyOutcome.label,
+            strategy_result_date: strategyOutcome.result_date,
+            strategy_result_ret_pct: strategyOutcome.result_ret_pct,
+            strategy_result_hold_days: strategyOutcome.hold_days,
+            strategy_max_ret_pct: strategyOutcome.max_ret_pct,
+            strategy_min_ret_pct: strategyOutcome.min_ret_pct,
+            execution_status: status.status,
+            execution_status_label: status.label,
+            execution_status_reason: status.reason,
+            is_current_executable: status.status === 'executable',
+            trade_tier: strategy.legacy_tier,
+            strategy_layer: strategy.strategy_layer,
+            strategy_code: strategy.strategy_code,
+            strategy_name: strategy.strategy_name,
+            trade_action: strategy.trade_action,
+            entry_window_days: strategy.entry_window_days,
+            tp_pct: strategy.tp_pct,
+            sl_pct: strategy.sl_pct,
+            max_hold_days: strategy.max_hold_days,
+            replay_metric_scope: strategy.replay_metric_scope,
+            replay_sample_n: strategy.replay_sample_n,
+            replay_win_pct: strategy.replay_win_pct,
+            tp_hit_pct: strategy.tp_hit_pct,
+            sl_hit_pct: strategy.sl_hit_pct,
+            time_exit_pct: strategy.time_exit_pct,
+            replay_avg_ret_pct: strategy.replay_avg_ret_pct,
+            replay_avg_hold_days: strategy.replay_avg_hold_days,
+            replay_efficiency_20d: strategy.replay_efficiency_20d,
+            market_regime: strategy.signal_regime,
+            current_market_regime: regime,
+            signal_market_regime: strategy.signal_regime,
+            trade_reason: buildTradeReason(r, strategy),
+            alert_date: alertDate(r.datestr),
+            days_since_alert: daysSinceAlert,
+          };
+        })
+        .filter(Boolean);
 
-    res.json({
-      market_env: { ...marketRaw, regime },
-      candidates,
+      res.json({
+        market_env: { ...marketRaw, regime },
+        candidates,
+      });
     });
   });
 });
+
+function alertDateValue(value: any): string {
+  return value ? String(value).split('T')[0] : '';
+}
+
+function buildPriceMap(rows: any[]): Record<string, any[]> {
+  const map: Record<string, any[]> = {};
+  rows.forEach((row) => {
+    const symbol = String(row.symbol || '');
+    const price = toNumber(row.finalprice, NaN);
+    if (!symbol || !Number.isFinite(price) || price <= 0) return;
+    if (!map[symbol]) map[symbol] = [];
+    map[symbol].push({
+      date: formatDbDate(row.datestr),
+      price,
+    });
+  });
+  return map;
+}
+
+function buildStrategyOutcome(record: any, strategy: any, prices: any[]): any {
+  const alertDate = alertDateValue(record?.datestr);
+  const entryIndex = prices.findIndex((row) => row.date >= alertDate);
+  if (entryIndex < 0) {
+    return {
+      status: 'no_price',
+      label: '无价格数据',
+      result_date: null,
+      result_ret_pct: null,
+      hold_days: null,
+      max_ret_pct: null,
+      min_ret_pct: null,
+    };
+  }
+  const entryPrice = toNumber(prices[entryIndex].price);
+  const maxHold = toNumber(strategy?.max_hold_days);
+  const tp = toNumber(strategy?.tp_pct);
+  const sl = toNumber(strategy?.sl_pct);
+  let maxRet = 0;
+  let minRet = 0;
+  const exitLimit = Math.min(entryIndex + maxHold, prices.length - 1);
+  for (let idx = entryIndex + 1; idx <= exitLimit; idx += 1) {
+    const retPct = (toNumber(prices[idx].price) / entryPrice - 1) * 100;
+    maxRet = Math.max(maxRet, retPct);
+    minRet = Math.min(minRet, retPct);
+    if (retPct >= tp) {
+      return {
+        status: 'tp',
+        label: 'TP达成',
+        result_date: prices[idx].date,
+        result_ret_pct: round2(tp),
+        hold_days: idx - entryIndex,
+        max_ret_pct: round2(maxRet),
+        min_ret_pct: round2(minRet),
+      };
+    }
+    if (retPct <= sl) {
+      return {
+        status: 'sl',
+        label: 'SL触发',
+        result_date: prices[idx].date,
+        result_ret_pct: round2(sl),
+        hold_days: idx - entryIndex,
+        max_ret_pct: round2(maxRet),
+        min_ret_pct: round2(minRet),
+      };
+    }
+  }
+  const last = prices[exitLimit];
+  const finalRet = (toNumber(last.price) / entryPrice - 1) * 100;
+  if (exitLimit - entryIndex < maxHold) {
+    return {
+      status: 'open',
+      label: '观察中',
+      result_date: last.date,
+      result_ret_pct: round2(finalRet),
+      hold_days: exitLimit - entryIndex,
+      max_ret_pct: round2(maxRet),
+      min_ret_pct: round2(minRet),
+    };
+  }
+  return {
+    status: 'time',
+    label: '持有到期',
+    result_date: last.date,
+    result_ret_pct: round2(finalRet),
+    hold_days: maxHold,
+    max_ret_pct: round2(maxRet),
+    min_ret_pct: round2(minRet),
+  };
+}
 
 function buildDynamicExecutionPlan(record: any, strategy: any): any {
   const alertPrice = round2(record?.final_price);
@@ -3140,6 +3306,46 @@ function buildDynamicExecutionPlan(record: any, strategy: any): any {
     move_since_alert_pct: moveSinceAlertPct,
     entry_risk_state: riskState.state,
     execution_note: riskState.note,
+  };
+}
+
+function isPostAlertBlocked(decision: any): boolean {
+  const text = String(decision || '');
+  if (!text) return false;
+  return text.startsWith('后排除') ||
+    text.startsWith('后避') ||
+    text.includes('D90') ||
+    text.includes('机会不足') ||
+    text.includes('放弃') ||
+    text.includes('转弱');
+}
+
+function buildTradeExecutionStatus(record: any, strategy: any, daysSinceAlert: number): any {
+  if (!Number.isFinite(daysSinceAlert) || daysSinceAlert < 0) {
+    return {
+      status: 'invalid_date',
+      label: '日期异常',
+      reason: '报警日与参考日无法形成有效入场窗口',
+    };
+  }
+  if (isPostAlertBlocked(record?.post_alert_decision)) {
+    return {
+      status: 'blocked',
+      label: '后市排除',
+      reason: String(record?.post_alert_decision || '后市状态已排除'),
+    };
+  }
+  if (daysSinceAlert > toNumber(strategy?.entry_window_days)) {
+    return {
+      status: 'expired',
+      label: '已过入场窗口',
+      reason: `距报警日 ${daysSinceAlert} 天，超过 ${strategy.entry_window_days} 天入场窗口`,
+    };
+  }
+  return {
+    status: 'executable',
+    label: '当前可执行',
+    reason: `距报警日 ${daysSinceAlert} 天，仍在 ${strategy.entry_window_days} 天入场窗口内`,
   };
 }
 
@@ -3216,10 +3422,15 @@ function strategyFromConfig(rawStrategy: any, signalRegime: string): any {
     tp_pct: toNumber(rawStrategy?.params?.tp_pct),
     sl_pct: toNumber(rawStrategy?.params?.sl_pct),
     max_hold_days: toNumber(rawStrategy?.params?.max_hold_days),
-    hist_win_pct: toNumber(rawStrategy?.metrics?.hist_win_pct),
-    hist_avg_ret_pct: toNumber(rawStrategy?.metrics?.hist_avg_ret_pct),
-    hist_avg_hold_days: toNumber(rawStrategy?.metrics?.hist_avg_hold_days),
-    efficiency_20d: toNumber(rawStrategy?.metrics?.efficiency_20d),
+    replay_metric_scope: rawStrategy?.metrics?.scope || 'replay_nonblocked',
+    replay_sample_n: toNumber(rawStrategy?.metrics?.n),
+    replay_win_pct: toNumber(rawStrategy?.metrics?.replay_win_pct),
+    tp_hit_pct: toNumber(rawStrategy?.metrics?.tp_hit_pct),
+    sl_hit_pct: toNumber(rawStrategy?.metrics?.sl_hit_pct),
+    time_exit_pct: toNumber(rawStrategy?.metrics?.time_exit_pct),
+    replay_avg_ret_pct: toNumber(rawStrategy?.metrics?.replay_avg_ret_pct),
+    replay_avg_hold_days: toNumber(rawStrategy?.metrics?.replay_avg_hold_days),
+    replay_efficiency_20d: toNumber(rawStrategy?.metrics?.replay_efficiency_20d),
     signal_regime: signalRegime,
   };
 }
@@ -3260,10 +3471,15 @@ function selectTradeStrategyHardcoded(record: any, recordType: string): any | nu
       tp_pct: 5,
       sl_pct: -3,
       max_hold_days: 5,
-      hist_win_pct: 97.73,
-      hist_avg_ret_pct: 4.01,
-      hist_avg_hold_days: 2.77,
-      efficiency_20d: 28.94,
+      replay_metric_scope: 'replay_nonblocked',
+      replay_sample_n: 39,
+      replay_win_pct: 97.44,
+      tp_hit_pct: 69.23,
+      sl_hit_pct: 2.56,
+      time_exit_pct: 28.21,
+      replay_avg_ret_pct: 3.88,
+      replay_avg_hold_days: 2.77,
+      replay_efficiency_20d: 28.06,
       signal_regime: signalRegime,
     };
   }
@@ -3279,10 +3495,15 @@ function selectTradeStrategyHardcoded(record: any, recordType: string): any | nu
       tp_pct: 10,
       sl_pct: -5,
       max_hold_days: 20,
-      hist_win_pct: 78.13,
-      hist_avg_ret_pct: 4.13,
-      hist_avg_hold_days: 16.67,
-      efficiency_20d: 4.95,
+      replay_metric_scope: 'replay_nonblocked',
+      replay_sample_n: 18,
+      replay_win_pct: 72.22,
+      tp_hit_pct: 44.44,
+      sl_hit_pct: 27.78,
+      time_exit_pct: 27.78,
+      replay_avg_ret_pct: 4.11,
+      replay_avg_hold_days: 13.17,
+      replay_efficiency_20d: 6.24,
       signal_regime: signalRegime,
     };
   }
@@ -3301,10 +3522,15 @@ function selectTradeStrategyHardcoded(record: any, recordType: string): any | nu
       tp_pct: 30,
       sl_pct: -5,
       max_hold_days: 90,
-      hist_win_pct: 92.2,
-      hist_avg_ret_pct: 23.38,
-      hist_avg_hold_days: 59.01,
-      efficiency_20d: 7.92,
+      replay_metric_scope: 'replay_nonblocked',
+      replay_sample_n: 251,
+      replay_win_pct: 89.52,
+      tp_hit_pct: 66.13,
+      sl_hit_pct: 10.48,
+      time_exit_pct: 23.39,
+      replay_avg_ret_pct: 23.53,
+      replay_avg_hold_days: 54.31,
+      replay_efficiency_20d: 8.66,
       signal_regime: signalRegime,
     };
   }
@@ -3321,7 +3547,8 @@ function buildTradeReason(record: any, strategy: any): string {
   else if (rule.includes('低分修复')) parts.push('低分序列集中修复');
   else if (rule.includes('低位修复')) parts.push('低位修复确认');
   if (strategy?.strategy_code === 'E1_TP5H5') parts.push('同时具备Core A画像，但主策略采用短效E1');
-  if (strategy?.hist_win_pct != null) parts.push(`历史胜率${strategy.hist_win_pct}%`);
+  if (strategy?.tp_hit_pct != null) parts.push(`TP达成${strategy.tp_hit_pct}%`);
+  if (strategy?.replay_win_pct != null) parts.push(`正收益${strategy.replay_win_pct}%`);
   if (!(record?.post_alert_decision || '')) parts.push('后市无障碍');
   return parts.join(' · ') || '基于交易执行v1.1策略推荐';
 }

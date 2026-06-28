@@ -2652,6 +2652,8 @@ const isRecord1ValidatedObserveCandidate = (record: any) => {
     decision.startsWith('等｜低分深回撤超卖') ||
     decision.startsWith('等｜深回撤超卖') ||
     decision.startsWith('等｜低分低换') ||
+    decision.startsWith('等｜中分低换') ||
+    decision.startsWith('等｜高换高位弹性') ||
     decision.startsWith('等｜缩量低换')
   );
 };
