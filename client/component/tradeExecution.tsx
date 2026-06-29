@@ -158,9 +158,20 @@ const STATUS_META: Record<string, { label: string; tagColor: string; border: str
 };
 
 function sortCandidates(list: TradeCandidate[]): TradeCandidate[] {
+  const triggerTime = (candidate: TradeCandidate) => {
+    const rawDate =
+      candidate.entry_window_basis_date ||
+      candidate.pullback_trigger_date ||
+      candidate.alert_date ||
+      candidate.datestr ||
+      '';
+    const time = new Date(rawDate).getTime();
+    return Number.isNaN(time) ? 0 : time;
+  };
+
   return [...list].sort((a, b) => {
-    const ad = new Date(a.alert_date || a.datestr || 0).getTime();
-    const bd = new Date(b.alert_date || b.datestr || 0).getTime();
+    const ad = triggerTime(a);
+    const bd = triggerTime(b);
     if (ad !== bd) return bd - ad;
     const sa = STATUS_ORDER[a.execution_status] ?? 9;
     const sb = STATUS_ORDER[b.execution_status] ?? 9;
@@ -168,8 +179,8 @@ function sortCandidates(list: TradeCandidate[]): TradeCandidate[] {
     const pa = STRATEGY_ORDER[a.strategy_code] ?? 99;
     const pb = STRATEGY_ORDER[b.strategy_code] ?? 99;
     if (pa !== pb) return pa - pb;
-    const da = a.days_since_alert ?? 99;
-    const db = b.days_since_alert ?? 99;
+    const da = a.entry_window_day_count ?? a.days_since_alert ?? 99;
+    const db = b.entry_window_day_count ?? b.days_since_alert ?? 99;
     if (da !== db) return da - db;
     return (b.replay_efficiency_20d || 0) - (a.replay_efficiency_20d || 0);
   });
