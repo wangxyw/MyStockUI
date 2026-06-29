@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.1.0",
-  "generated_at": "2026-06-28",
+  "schema_version": "1.2.0",
+  "generated_at": "2026-06-29",
   "record_type": "record1",
   "governance": {
     "artifact_status": "production_ready",
@@ -9,7 +9,9 @@
     "source_reports": [
       "analysis/tdd_core_e1_e4_combo_ladder_2026_06_27.md",
       "analysis/trade_execution_rule_promotion_standard_2026_06_27.md",
-      "analysis/HANDOVER_dynamic_trade_strategy_generation_method_2026_06_28.md"
+      "analysis/HANDOVER_dynamic_trade_strategy_generation_method_2026_06_28.md",
+      "analyze/TDD_env_adaptive_tpsl_matrix_2026_06_29.md",
+      "analyze/AUDIT_trade_execution_env_adaptive_current_2026_06_29.md"
     ]
   },
   "strategies": [
@@ -105,13 +107,12 @@
       "strategy_layer": "core_a",
       "strategy_name": "Core A-核心弹性",
       "trade_action": {
-        "hot_expand": "可买",
-        "weak_contract": "谨慎可买"
+        "hot_expand": "可买"
       },
       "match": {
         "record_type": "record1",
         "label_prefixes": ["买｜低位修复", "试｜低分修复", "试｜急跌修复"],
-        "regimes": ["hot_expand", "weak_contract"]
+        "regimes": ["hot_expand"]
       },
       "params": {
         "entry_window_days": 2,
@@ -144,12 +145,12 @@
     },
     {
       "strategy_code": "PB_A_TP15H30",
-      "status": "candidate_ready",
+      "status": "research_archived",
       "priority": 6,
       "legacy_tier": "PB",
       "strategy_layer": "pullback_entry",
-      "strategy_name": "PB-A 深回撤超卖回撤触发",
-      "trade_action": "回撤触发可买",
+      "strategy_name": "PB-A 深回撤超卖回撤候选",
+      "trade_action": "研究归档",
       "match": {
         "record_type": "record1",
         "label_prefixes": ["等｜深回撤超卖"],
@@ -164,7 +165,7 @@
         "entry_window_basis": "trigger_date"
       },
       "current_display": {
-        "enabled": true,
+        "enabled": false,
         "display_states": ["triggered_executable"],
         "waiting_state_enabled": false,
         "rank_mode": "threshold_fit",
@@ -189,18 +190,20 @@
         "replay_avg_ret_pct": 9.25,
         "replay_avg_hold_days": 17.33,
         "replay_efficiency_20d": 10.67,
-        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md",
+        "current_audit_report": "analyze/AUDIT_trade_execution_env_adaptive_current_2026_06_29.md"
       },
-      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md",
+      "current_audit_report": "analyze/AUDIT_trade_execution_env_adaptive_current_2026_06_29.md"
     },
     {
       "strategy_code": "PB_B_TP20H60",
-      "status": "candidate_ready",
+      "status": "research_archived",
       "priority": 7,
       "legacy_tier": "PB",
       "strategy_layer": "pullback_entry",
-      "strategy_name": "PB-B 弱市低分超卖回撤触发",
-      "trade_action": "回撤触发可买",
+      "strategy_name": "PB-B 弱市低分超卖回撤候选",
+      "trade_action": "研究归档",
       "match": {
         "record_type": "record1",
         "label_prefixes": ["等｜低分超卖"],
@@ -215,7 +218,7 @@
         "entry_window_basis": "trigger_date"
       },
       "current_display": {
-        "enabled": true,
+        "enabled": false,
         "display_states": ["triggered_executable"],
         "waiting_state_enabled": false,
         "rank_mode": "threshold_fit",
@@ -240,9 +243,11 @@
         "replay_avg_ret_pct": 10.4,
         "replay_avg_hold_days": 26.13,
         "replay_efficiency_20d": 7.96,
-        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+        "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md",
+        "current_audit_report": "analyze/AUDIT_trade_execution_env_adaptive_current_2026_06_29.md"
       },
-      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md"
+      "source_report": "analysis/TDD_pb_capacity_filter_validation_2026_06_28.md",
+      "current_audit_report": "analyze/AUDIT_trade_execution_env_adaptive_current_2026_06_29.md"
     }
   ]
 }

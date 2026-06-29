@@ -3369,6 +3369,35 @@ function isPostAlertBlocked(decision: any): boolean {
     text.includes('转弱');
 }
 
+function hasBearExecutionNegativeTag(comments: any): boolean {
+  const text = String(comments || '');
+  return text.includes('假阳性') ||
+    text.includes('序列警戒') ||
+    text.includes('DMI强熊');
+}
+
+function buildRecentPressureSuspension(record: any, strategy: any): any | null {
+  if (strategy?.strategy_layer !== 'pullback_entry') return null;
+  const rule = String(record?.alert_decision || '');
+  const signalRegime = strategy?.signal_regime || parseSignalRegime(record?.comments || '');
+
+  if (rule.startsWith('等｜深回撤超卖') && signalRegime === 'neutral') {
+    return {
+      status: 'suspended',
+      label: '近期压力暂缓',
+      reason: '2026-05/06 同语义 mark-to-date TP_LIVE=9.09%，SL_LIVE=63.64%，暂缓候选晋级',
+    };
+  }
+  if (rule.startsWith('等｜低分超卖') && signalRegime === 'weak_contract') {
+    return {
+      status: 'suspended',
+      label: '近期压力暂缓',
+      reason: '弱市超卖候选当前仅保留观察，需通过近45日压力测试后再晋级',
+    };
+  }
+  return null;
+}
+
 function buildTradeExecutionStatus(record: any, strategy: any, daysSinceAlert: number): any {
   if (!Number.isFinite(daysSinceAlert) || daysSinceAlert < 0) {
     return {
@@ -3413,6 +3442,7 @@ function buildPullbackTradeCandidates(
   if (!strategies.length) return [];
 
   const rawCandidates = rows.flatMap((record: any) => {
+    if (hasBearExecutionNegativeTag(record?.comments)) return [];
     const signalRegime = parseSignalRegime(record?.comments || '');
     const rule = record?.alert_decision || '';
     return strategies.map((rawStrategy: any) => {
@@ -3431,6 +3461,11 @@ function buildPullbackTradeCandidates(
       const status = buildPullbackExecutionStatus(record, strategy, trigger.days_since_trigger);
       const executionPlan = buildDynamicExecutionPlan(record, strategy);
       const strategyOutcome = buildStrategyOutcome(record, strategy, prices);
+      const pressureSuspension = buildRecentPressureSuspension(record, strategy);
+      const outcomeAwareStatus = buildOutcomeAwareExecutionStatus(status, strategyOutcome);
+      const executionStatus = pressureSuspension && outcomeAwareStatus?.status === 'executable'
+        ? pressureSuspension
+        : outcomeAwareStatus;
       const d30Outcome = buildStrategyOutcome(record, { ...strategy, max_hold_days: 30 }, prices);
       return {
         ...record,
@@ -3457,10 +3492,10 @@ function buildPullbackTradeCandidates(
         d30_result_hold_days: d30Outcome.hold_days,
         d30_max_ret_pct: d30Outcome.max_ret_pct,
         d30_min_ret_pct: d30Outcome.min_ret_pct,
-        execution_status: status.status,
-        execution_status_label: status.label,
-        execution_status_reason: status.reason,
-        is_current_executable: status.status === 'executable',
+        execution_status: executionStatus.status,
+        execution_status_label: executionStatus.label,
+        execution_status_reason: executionStatus.reason,
+        is_current_executable: executionStatus.status === 'executable',
         trade_tier: strategy.legacy_tier,
         strategy_layer: strategy.strategy_layer,
         strategy_code: strategy.strategy_code,
@@ -3493,6 +3528,7 @@ function buildPullbackTradeCandidates(
         pullback_wait_days: trigger.wait_days,
         pullback_trigger_ret_pct: trigger.trigger_ret_pct,
         pullback_threshold_gap_abs: trigger.threshold_gap_abs,
+        recent_pressure_suspended: executionStatus.status === 'suspended',
       };
     });
   }).filter(Boolean);
@@ -3568,6 +3604,18 @@ function buildPullbackExecutionStatus(record: any, strategy: any, daysSinceTrigg
     label: '回撤触发可执行',
     reason: `距回撤触发日 ${daysSinceTrigger} 天，仍在 ${strategy.entry_window_days} 天入场窗口内`,
   };
+}
+
+function buildOutcomeAwareExecutionStatus(status: any, outcome: any): any {
+  if (status?.status !== 'executable') return status;
+  if (outcome?.status === 'tp' || outcome?.status === 'sl' || outcome?.status === 'time') {
+    return {
+      status: 'closed',
+      label: outcome?.label || '策略已结束',
+      reason: `策略结果已结束：${outcome?.label || outcome?.status}`,
+    };
+  }
+  return status;
 }
 
 function comparePullbackThresholdFit(a: any, b: any): number {
@@ -3762,13 +3810,13 @@ function selectTradeStrategyHardcoded(record: any, recordType: string): any | nu
   const isCoreA = rule.startsWith('买｜低位修复') ||
     rule.startsWith('试｜低分修复') ||
     rule.startsWith('试｜急跌修复');
-  if (isCoreA && ['hot_expand', 'weak_contract'].includes(signalRegime)) {
+  if (isCoreA && signalRegime === 'hot_expand') {
     return {
       legacy_tier: 'A',
       strategy_layer: 'core_a',
       strategy_code: 'CORE_A_TP30H90',
       strategy_name: 'Core A-核心弹性',
-      trade_action: signalRegime === 'weak_contract' ? '谨慎可买' : '可买',
+      trade_action: '可买',
       entry_window_days: 2,
       tp_pct: 30,
       sl_pct: -5,

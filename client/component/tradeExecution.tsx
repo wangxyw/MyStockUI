@@ -80,6 +80,7 @@ interface TradeCandidate {
   current_market_regime: string;
   signal_market_regime: string;
   trade_reason: string;
+  recent_pressure_suspended?: boolean;
 }
 
 const REGIME_LABELS: Record<string, string> = {
@@ -107,27 +108,20 @@ const LAYER_META: Record<string, { label: string; title: string; color: string; 
     color: 'gold',
     desc: '高质量报警后的中期弹性，按 TP30/H90 执行',
   },
-  pullback_entry: {
-    label: 'PB',
-    title: '回撤触发',
-    color: 'cyan',
-    desc: '报警后等待回撤触发，再按触发日计算入场窗口',
-  },
 };
 
 const STRATEGY_ORDER: Record<string, number> = {
   E1_TP5H5: 1,
   E4_TP10H20: 2,
-  PB_A_TP15H30: 6,
-  PB_B_TP20H60: 7,
   CORE_A_TP30H90: 10,
 };
 
 const STATUS_ORDER: Record<string, number> = {
   executable: 1,
-  expired: 2,
-  blocked: 3,
-  invalid_date: 4,
+  suspended: 2,
+  expired: 3,
+  blocked: 4,
+  invalid_date: 5,
 };
 
 const STATUS_META: Record<string, { label: string; tagColor: string; border: string; bg: string }> = {
@@ -142,6 +136,12 @@ const STATUS_META: Record<string, { label: string; tagColor: string; border: str
     tagColor: 'default',
     border: '#bfbfbf',
     bg: '#fafafa',
+  },
+  suspended: {
+    label: '近期压力暂缓',
+    tagColor: 'orange',
+    border: '#ffc069',
+    bg: '#fffaf0',
   },
   blocked: {
     label: '后市排除',
@@ -196,6 +196,13 @@ function fmtPct(value: number | null | undefined, digits = 1): string {
   return `${Number(value).toFixed(digits)}%`;
 }
 
+function actionColor(action: string | null | undefined): string {
+  if (action === '可买') return 'red';
+  if (action === '谨慎可买') return 'orange';
+  if (action === '候选验证') return 'blue';
+  return 'default';
+}
+
 /** 从决策字符串中解析 胜/均/回 指标 */
 function parseDecisionMetrics(text: string | null | undefined): {
   winPct: string;
@@ -238,7 +245,6 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
   const stats = useMemo(() => {
     const core = candidates.filter((c) => c.strategy_layer === 'core_a');
     const short = candidates.filter((c) => c.strategy_layer === 'short_e');
-    const pullback = candidates.filter((c) => c.strategy_layer === 'pullback_entry');
     const executable = candidates.filter((c) => c.execution_status === 'executable');
     const expired = candidates.filter((c) => c.execution_status === 'expired');
     const blocked = candidates.filter((c) => c.execution_status === 'blocked');
@@ -249,7 +255,6 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
       total: candidates.length,
       core: core.length,
       short: short.length,
-      pullback: pullback.length,
       executable: executable.length,
       expired: expired.length,
       blocked: blocked.length,
@@ -315,7 +320,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 92 }}>
           <div style={{ fontSize: 13, color: '#999' }}>策略记录</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#fa541c' }}>{stats.total}</div>
-          <div style={{ fontSize: 13, color: '#999' }}>短效 {stats.short} · 核心 {stats.core} · 回撤 {stats.pullback}</div>
+          <div style={{ fontSize: 13, color: '#999' }}>短效 {stats.short} · 核心 {stats.core}</div>
         </div>
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 130 }}>
           <div style={{ fontSize: 13, color: '#999' }}>当前可执行</div>
@@ -353,7 +358,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
         <section>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 17, fontWeight: 700 }}>策略记录</span>
-            <span style={{ fontSize: 14, color: '#999' }}>按报警日期降序；当前可执行、历史复盘、后市排除在同一时间线中查看</span>
+            <span style={{ fontSize: 14, color: '#999' }}>按触发日期降序；仅展示正式执行策略</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {candidates.map((c, i) => {
@@ -396,7 +401,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                             <Tag color={layerMeta.color} style={{ fontWeight: 700, fontSize: 13 }}>
                               {c.strategy_name}
                             </Tag>
-                            <Tag color={c.trade_action === '可买' ? 'red' : 'orange'} style={{ fontSize: 13 }}>
+                            <Tag color={actionColor(c.trade_action)} style={{ fontSize: 13 }}>
                               {c.trade_action}
                             </Tag>
                             <Tag color={statusMeta.tagColor} style={{ fontSize: 13 }}>
