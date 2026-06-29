@@ -683,6 +683,100 @@ const parseMValues = (comments: any) => {
   return match[1].split(',').map((value) => String(value ?? '').trim());
 };
 
+const parseFactorValues = (comments: any, key: string) => {
+  const match = String(comments ?? '').match(new RegExp(`【${key}:([^】]+)】`));
+  if (!match) return [];
+  return match[1].split(',').map((value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  });
+};
+
+const negativeSignalTag = (comments: any) => {
+  const text = String(comments ?? '');
+  return text.includes('假阳性') || text.includes('序列警戒') || text.includes('DMI强熊');
+};
+
+const parsedMarketRow = (row: any) => {
+  const m = parseMValues(row.comments);
+  const r = parseFactorValues(row.comments, 'R');
+  const e = parseFactorValues(row.comments, 'E');
+  const s = parseFactorValues(row.comments, 'S');
+  const me = parseFactorValues(row.comments, 'ME');
+  const temp = m[1] || '';
+  const alarmDir = m[2] || '';
+  const regime = (temp === '热' || temp === '热偏弱') && alarmDir === '报扩'
+    ? 'hot_expand'
+    : (alarmDir === '报缩' || temp.includes('极冷') || temp.includes('热偏弱') ? 'weak_contract' : 'neutral');
+  return {
+    datestr: formatDbDate(row.datestr),
+    regime,
+    m_breadth: alarmDir,
+    negative: negativeSignalTag(row.comments),
+    e_ret5: e[5],
+    low_pos: (r[0] !== null && r[0] !== undefined && r[0] < 5) || (s[1] !== null && s[1] !== undefined && s[1] < 10),
+    me_hotish60: me[1],
+  };
+};
+
+const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 20) => {
+  const parsedRows = (focusRows || []).map(parsedMarketRow);
+  return (trendRows || []).map((row: any) => {
+    const datestr = formatDbDate(row.datestr);
+    const start = shiftDate(datestr, -trailDays);
+    const selected = parsedRows.filter((item: any) => item.datestr >= start && item.datestr <= datestr);
+    const n = selected.length;
+    const neutralPct = pctNum(selected.filter((item: any) => item.regime === 'neutral').length, n);
+    const weakPct = pctNum(selected.filter((item: any) => item.regime === 'weak_contract').length, n);
+    const hotPct = pctNum(selected.filter((item: any) => item.regime === 'hot_expand').length, n);
+    const contractPct = pctNum(selected.filter((item: any) => item.m_breadth === '报缩').length, n);
+    const expandPct = pctNum(selected.filter((item: any) => item.m_breadth === '报扩').length, n);
+    const negativePct = pctNum(selected.filter((item: any) => item.negative).length, n);
+    const lowPct = pctNum(selected.filter((item: any) => item.low_pos).length, n);
+    const hotishAvg = avg(selected.map((item: any) => item.me_hotish60).filter((value: any) => value !== null && value !== undefined));
+
+    let windowSignal = 'NEUTRAL_WAIT';
+    let windowTitle = '中性观察';
+    let windowDesc = '未触发明确坏窗口或好窗口，按策略自身条件判断。';
+    if (
+      (lowPct >= 70 && negativePct >= 88) ||
+      (weakPct >= 55 && contractPct >= 45 && negativePct >= 90) ||
+      (neutralPct >= 75 && lowPct >= 50 && negativePct >= 85 && toNumber(hotishAvg) <= 2)
+    ) {
+      windowSignal = 'BAD_GUARD';
+      windowTitle = '坏窗口暂缓';
+      windowDesc = '低位拥挤或负面标签密集，历史回放中深回撤/PB10/B层策略 SL 显著升高。';
+    } else if (
+      (hotPct >= 45 && expandPct >= 70 && lowPct <= 62) ||
+      (expandPct >= 80 && lowPct <= 60 && negativePct <= 82)
+    ) {
+      windowSignal = 'GOOD_ALLOW';
+      windowTitle = '好窗口观察';
+      windowDesc = '扩散强且低位拥挤不高，可作为策略族放行/加权观察，不单独生成买入。';
+    }
+
+    return {
+      ...row,
+      datestr,
+      window_signal: windowSignal,
+      window_title: windowTitle,
+      window_desc: windowDesc,
+      trail_days: trailDays,
+      trail_signal_n: n,
+      trail_neutral_pct: round2(neutralPct),
+      trail_weak_contract_pct: round2(weakPct),
+      trail_hot_expand_pct: round2(hotPct),
+      trail_m_contract_pct: round2(contractPct),
+      trail_m_expand_pct: round2(expandPct),
+      trail_negative_pct: round2(negativePct),
+      trail_low_pos_pct: round2(lowPct),
+      trail_avg_me_hotish60: hotishAvg === null ? null : round2(hotishAvg),
+    };
+  });
+};
+
+const pctNum = (numerator: number, denominator: number) => denominator ? (100 * numerator) / denominator : 0;
+
 const marketEnvTemperature = (
   marketVolMed: number | null,
   volMa20: number | null,
@@ -4835,13 +4929,35 @@ router.get('/board/board_trend', (req: Request, res: Response) => {
 // 10. 加在 index.ts 的 router 中
 router.get('/m_trend', function (req, res, next) {
   const recordType = req.query.record_type || 'record1';
+  const focusTable = recordType === 'record2' ? 'focus_stocks2_ai' : 'focus_stocks_ai';
   const sql = 'SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count FROM daily_m WHERE record_type = ? ORDER BY datestr';
   pool.query(sql, [recordType], function (err, rows, fields) {
     if (err) {
       console.error('m_trend error:', err);
       return res.status(500).json({ error: err.message });
     }
-    res.json(rows);
+    if (!rows || rows.length === 0) return res.json([]);
+    const dates = rows.map((row: any) => formatDbDate(row.datestr)).filter(Boolean);
+    const minDate = shiftDate(dates[0], -20);
+    const maxDate = dates[dates.length - 1];
+    pool.query(
+      `
+        SELECT datestr, comments
+        FROM ${focusTable}
+        WHERE datestr >= ?
+          AND datestr <= ?
+          AND comments LIKE '%【M:%'
+        ORDER BY datestr
+      `,
+      [minDate, maxDate],
+      function (focusErr, focusRows) {
+        if (focusErr) {
+          console.error('m_trend window detector error:', focusErr);
+          return res.status(500).json({ error: focusErr.message });
+        }
+        res.json(calcWindowDetectorRows(rows, focusRows || [], 20));
+      }
+    );
   });
 });
 // ========== 舆情板块股票映射 API ==========

@@ -27,6 +27,16 @@ interface MTempItem {
   temp_label: string;
   alarm_dir: string;
   alarm_count: number;
+  window_signal?: string;
+  window_title?: string;
+  window_desc?: string;
+  trail_days?: number;
+  trail_signal_n?: number;
+  trail_negative_pct?: number;
+  trail_low_pos_pct?: number;
+  trail_hot_expand_pct?: number;
+  trail_m_expand_pct?: number;
+  trail_avg_me_hotish60?: number | null;
 }
 
 const SimpleAlarmTrend: React.FC = () => {
@@ -172,7 +182,8 @@ const SimpleAlarmTrend: React.FC = () => {
           const d = data[i]; if (!d) return '';
           const c = tc[d.temp_label]||'#666';
           const windowStatus = getMWindowStatus(d);
-          return `<b>${d.datestr}</b><br/>vol10_med: <b>${d.vol10_med?.toFixed(1)}</b><br/><span style="color:${c}">●</span> ${d.temp_label} ${d.alarm_dir}<br/>报警: ${d.alarm_count}条<br/>市场窗口: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/><span style="color:#666">${windowStatus.desc}</span>`;
+          const detectorStatus = getWindowDetectorStatus(d);
+          return `<b>${d.datestr}</b><br/>vol10_med: <b>${d.vol10_med?.toFixed(1)}</b><br/><span style="color:${c}">●</span> ${d.temp_label} ${d.alarm_dir}<br/>报警: ${d.alarm_count}条<br/>市场窗口: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>策略窗口: <b style="color:${detectorStatus.color}">${detectorStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span>`;
         }
       },
       grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
@@ -197,6 +208,13 @@ const SimpleAlarmTrend: React.FC = () => {
               {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:12,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
             ]
           }
+        },
+        { name:'策略窗口', type:'scatter', yAxisIndex:0,
+          data: data.map(d => d.window_signal === 'BAD_GUARD' ? 78 : (d.window_signal === 'GOOD_ALLOW' ? 72 : null)),
+          symbolSize: dataCount>100?6:8,
+          itemStyle:{color:(params: any) => getWindowDetectorStatus(data[params.dataIndex]).color},
+          tooltip:{show:false},
+          z:5,
         }
       ],
       dataZoom: dataCount>50?[{type:'slider',start:0,end:100,bottom:0,height:20}]:[],
@@ -204,7 +222,7 @@ const SimpleAlarmTrend: React.FC = () => {
   };
 
   const getMTempStats = (data: MTempItem[]) => {
-    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, latestLabel: '--', latestDir: '--' };
+    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, badDays: 0, goodDays: 0, latestLabel: '--', latestDir: '--' };
     const latest = data[data.length - 1];
     return {
       latest: latest.vol10_med,
@@ -212,10 +230,13 @@ const SimpleAlarmTrend: React.FC = () => {
       latestDir: latest.alarm_dir,
       hotDays: data.filter(d => d.temp_label === '热').length,
       attackDays: data.filter(isMAttackWindow).length,
+      badDays: data.filter(d => d.window_signal === 'BAD_GUARD').length,
+      goodDays: data.filter(d => d.window_signal === 'GOOD_ALLOW').length,
     };
   };
+  const fmtPct = (value?: number | null) => value === null || value === undefined ? '-' : `${Number(value).toFixed(1)}%`;
   const isMAttackWindow = (item?: MTempItem) => item?.temp_label === '热' && item?.alarm_dir === '报扩';
-  const isMCautiousWindow = (item?: MTempItem) => item?.temp_label?.startsWith('热') && item?.alarm_dir === '报缩';
+  const isMCautiousWindow = (item?: MTempItem) => !!item?.temp_label?.startsWith('热') && item?.alarm_dir === '报缩';
   const isMDivergeWindow = (item?: MTempItem) => item?.temp_label !== '热' && !item?.temp_label?.startsWith('热') && item?.alarm_dir === '报扩';
   const isMDefendWindow = (item?: MTempItem) => {
     if (!item) return false;
@@ -228,6 +249,12 @@ const SimpleAlarmTrend: React.FC = () => {
     if (item.temp_label?.startsWith('热') && item.alarm_dir === '报缩') return { title: '谨慎进攻窗口', color: '#1677ff', bg: '#e6f4ff', border: '#91caff', desc: '热度仍在，但报警扩散减弱，适合降低追高冲动。' };
     if (item.alarm_dir === '报扩') return { title: '分化扩散窗口', color: '#d46b08', bg: '#fff7e6', border: '#ffd591', desc: '报警在扩散，但 M 未到真正热区，需更依赖个股强确认。' };
     return { title: '观察防守窗口', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: '未进入强进攻环境，适合观察或控制仓位。' };
+  };
+  const getWindowDetectorStatus = (item?: MTempItem) => {
+    if (!item) return { title: '暂无窗口', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待窗口识别数据加载。' };
+    if (item.window_signal === 'BAD_GUARD') return { title: item.window_title || '坏窗口暂缓', color: '#389e0d', bg: '#f6ffed', border: '#b7eb8f', desc: item.window_desc || '低位拥挤或负面标签密集，策略执行应暂缓。' };
+    if (item.window_signal === 'GOOD_ALLOW') return { title: item.window_title || '好窗口观察', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: item.window_desc || '可作为策略族放行观察，不单独生成买入。' };
+    return { title: item.window_title || '中性观察', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: item.window_desc || '未触发明确窗口信号。' };
   };
   const getMWindowRanges = (data: MTempItem[]) => {
     const attack: any[] = [], cautious: any[] = [], diverge: any[] = [], defend: any[] = [];
@@ -249,20 +276,24 @@ const SimpleAlarmTrend: React.FC = () => {
     build(defend, isMDefendWindow);
     return { attack, cautious, diverge, defend };
   };
-  const getMAttackWindowRanges = (data: MTempItem[]) => getMWindowRanges(data).attack;
   const renderMMarketStatus = (label: string, data: MTempItem[], stats: ReturnType<typeof getMTempStats>) => {
     const latest = data[data.length - 1];
     const status = getMWindowStatus(latest);
+    const detectorStatus = getWindowDetectorStatus(latest);
+    const isBadWindow = latest?.window_signal === 'BAD_GUARD';
     return (
-      <div style={{ flex: 1, minWidth: 260, border: `1px solid ${status.border}`, background: status.bg, borderRadius: 8, padding: '10px 12px' }}>
+      <div style={{ flex: 1, minWidth: 280, border: `1px solid ${isBadWindow ? detectorStatus.border : status.border}`, background: isBadWindow ? detectorStatus.bg : status.bg, borderRadius: 8, padding: '10px 12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-          <div style={{ color: status.color, fontWeight: 700 }}>{status.title}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span style={{ color: status.color, fontWeight: 700 }}>{status.title}</span>
+            <span style={{ color: detectorStatus.color, fontWeight: 700 }}>{detectorStatus.title}</span>
+          </div>
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: '#595959' }}>
-          当前 {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 热 days: {stats.hotDays} ｜ 允许进攻 days: {stats.attackDays}
+          当前 {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 热 days: {stats.hotDays} ｜ 允许进攻 days: {stats.attackDays} ｜ 坏窗口 days: {stats.badDays}
         </div>
-        <div style={{ marginTop: 4, fontSize: 12, color: '#8c8c8c' }}>{status.desc}</div>
+        <div style={{ marginTop: 4, fontSize: 12, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
     );
   };
@@ -683,6 +714,8 @@ const SimpleAlarmTrend: React.FC = () => {
                   <span style={{ padding: '3px 8px', borderRadius: 12, background: '#e6f4ff', color: '#1677ff', border: '1px solid #91caff' }}>热 + 报缩：谨慎进攻</span>
                   <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff7e6', color: '#d46b08', border: '1px solid #ffd591' }}>非热 + 报扩：分化扩散</span>
                   <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>非热 + 报缩：观察防守</span>
+                  <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f' }}>坏窗口：策略暂缓</span>
+                  <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff1f0', color: '#cf1322', border: '1px solid #ffa39e' }}>好窗口：放行观察</span>
                 </div>
               </>
             )}
