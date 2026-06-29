@@ -6,7 +6,7 @@
  */
 import { Tag } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { get } from '../lib';
+import { get, post } from '../lib';
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
@@ -203,6 +203,26 @@ function actionColor(action: string | null | undefined): string {
   return 'default';
 }
 
+async function fetchBatchIndustry(symbols: string[]): Promise<Map<string, string>> {
+  if (!symbols.length) return new Map();
+  try {
+    const stocksParam = symbols.map((s) => `'${s}'`).join(',');
+    const response = await post(`/api/boards_of_stock?stocks=${stocksParam}`, {});
+    const industryMap = new Map<string, string>();
+    (response as any[]).forEach((item) => {
+      if ((item.business_type === 'sw1_hy' || item.business_type === 'swhy') && item.symbol) {
+        if (!industryMap.has(item.symbol)) {
+          industryMap.set(item.symbol, item.name);
+        }
+      }
+    });
+    return industryMap;
+  } catch (error) {
+    console.error('批量获取行业信息失败', error);
+    return new Map();
+  }
+}
+
 /** 从决策字符串中解析 胜/均/回 指标 */
 function parseDecisionMetrics(text: string | null | undefined): {
   winPct: string;
@@ -226,15 +246,21 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
   const [candidates, setCandidates] = useState<TradeCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [marketEnv, setMarketEnv] = useState<any>({});
+  const [industryMap, setIndustryMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     setLoading(true);
     const safeRecordType = recordType === 'record2' ? 'record2' : 'record1';
     get(`/api/trade_execution?record_type=${safeRecordType}`)
       .then((data: any) => {
-        setCandidates(sortCandidates(data.candidates || []));
+        const sortedCandidates = sortCandidates(data.candidates || []);
+        setCandidates(sortedCandidates);
         setMarketEnv(data.market_env || {});
         setLoading(false);
+        const symbols = Array.from(new Set(sortedCandidates.map((c) => c.symbol).filter(Boolean)));
+        fetchBatchIndustry(symbols).then((map) => {
+          setIndustryMap(map);
+        });
       })
       .catch((err: any) => {
         console.error('trade_execution failed', err);
@@ -368,6 +394,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                   const entryBasisLabel = c.entry_window_basis_label || '报警日';
                   const entryBasisDate = c.entry_window_basis_date || c.alert_date;
                   const entryDayCount = c.entry_window_day_count ?? c.days_since_alert;
+                  const industry = industryMap.get(c.symbol) || '--';
                   const resultColor =
                     c.strategy_result_status === 'tp'
                       ? '#389e0d'
@@ -398,6 +425,9 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 17, fontWeight: 700 }}>{c.symbol}</span>
                             <span style={{ fontSize: 15, color: '#666' }}>{c.name}</span>
+                            <Tag color="blue" style={{ fontSize: 13 }}>
+                              Industry: {industry}
+                            </Tag>
                             <Tag color={layerMeta.color} style={{ fontWeight: 700, fontSize: 13 }}>
                               {c.strategy_name}
                             </Tag>
@@ -462,6 +492,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                         <Metric label="止盈价" value={`¥${fmtNum(c.tp_price, 2)}`} color="#cf1322" />
                         <Metric label="止损" value={fmtPct(c.sl_pct, 0)} color="#389e0d" icon={<ArrowDownOutlined />} />
                         <Metric label="止损价" value={`¥${fmtNum(c.sl_price, 2)}`} color="#389e0d" />
+                        <Metric label="Industry" value={industry} />
                         <Metric label="最大持有" value={`${c.max_hold_days}天`} />
                         {c.pullback_trigger_date ? (
                           <Metric label="回撤触发" value={`${c.pullback_trigger_date} / ${fmtPct(c.pullback_trigger_ret_pct, 2)}`} color="#08979c" />
