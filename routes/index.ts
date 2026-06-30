@@ -777,6 +777,71 @@ const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 
 
 const pctNum = (numerator: number, denominator: number) => denominator ? (100 * numerator) / denominator : 0;
 
+const loadMarketWindowSnapshot = async (
+  recordType: 'record1' | 'record2',
+  focusTable: 'focus_stocks_ai' | 'focus_stocks2_ai',
+  targetDate: string
+) => {
+  const mRows: any = await queryDB(`
+    SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count
+    FROM daily_m
+    WHERE record_type = '${sqlEscape(recordType)}'
+      AND datestr <= '${sqlEscape(targetDate)}'
+    ORDER BY datestr DESC
+    LIMIT 1
+  `);
+  if (!mRows || !mRows.length) return null;
+  const mRow = { ...mRows[0], datestr: formatDbDate(mRows[0].datestr) };
+  const focusRows: any = await queryDB(`
+    SELECT datestr, comments
+    FROM ${focusTable}
+    WHERE datestr >= '${sqlEscape(shiftDate(mRow.datestr, -20))}'
+      AND datestr <= '${sqlEscape(mRow.datestr)}'
+      AND comments LIKE '%【M:%'
+    ORDER BY datestr
+  `);
+  return calcWindowDetectorRows([mRow], focusRows || [], 20)[0] || null;
+};
+
+const loadMarketWindowSeries = async (
+  recordType: 'record1' | 'record2',
+  focusTable: 'focus_stocks_ai' | 'focus_stocks2_ai',
+  minDate: string,
+  maxDate: string
+) => {
+  const mRows: any = await queryDB(`
+    SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count
+    FROM daily_m
+    WHERE record_type = '${sqlEscape(recordType)}'
+      AND datestr >= '${sqlEscape(shiftDate(minDate, -5))}'
+      AND datestr <= '${sqlEscape(maxDate)}'
+    ORDER BY datestr
+  `);
+  if (!mRows || !mRows.length) return [];
+  const formattedMRows = (mRows || []).map((row: any) => ({ ...row, datestr: formatDbDate(row.datestr) }));
+  const firstDate = formattedMRows[0].datestr;
+  const lastDate = formattedMRows[formattedMRows.length - 1].datestr;
+  const focusRows: any = await queryDB(`
+    SELECT datestr, comments
+    FROM ${focusTable}
+    WHERE datestr >= '${sqlEscape(shiftDate(firstDate, -20))}'
+      AND datestr <= '${sqlEscape(lastDate)}'
+      AND comments LIKE '%【M:%'
+    ORDER BY datestr
+  `);
+  return calcWindowDetectorRows(formattedMRows, focusRows || [], 20);
+};
+
+const pickMarketWindowForDate = (windowRows: any[], targetDate: string): any | null => {
+  const safeDate = formatDbDate(targetDate);
+  if (!safeDate) return null;
+  let selected: any | null = null;
+  (windowRows || []).forEach((row: any) => {
+    if (row?.datestr && row.datestr <= safeDate) selected = row;
+  });
+  return selected;
+};
+
 const marketEnvTemperature = (
   marketVolMed: number | null,
   volMa20: number | null,
@@ -3120,9 +3185,23 @@ router.get('/trade_execution', async function (req, res, next) {
   // 获取当前市场环境。策略匹配仍以报警日画像里的 M 标签为准。
   let regime = 'hot_expand';
   let marketRaw: any = {};
+  let marketWindow: any = null;
   try {
     const marketEnv = await calcMarketEnvironment(tableAI, today, eIdx);
-    marketRaw = { temp: marketEnv.temp, alarm_dir: marketEnv.alarm_dir, vol_med: marketEnv.vol_med };
+    marketWindow = await loadMarketWindowSnapshot(recordType, tableAI, today);
+    marketRaw = {
+      temp: marketEnv.temp,
+      alarm_dir: marketEnv.alarm_dir,
+      vol_med: marketEnv.vol_med,
+      window_signal: marketWindow?.window_signal || null,
+      window_title: marketWindow?.window_title || null,
+      window_desc: marketWindow?.window_desc || null,
+      window_date: marketWindow?.datestr || null,
+      trail_signal_n: marketWindow?.trail_signal_n || null,
+      trail_negative_pct: marketWindow?.trail_negative_pct || null,
+      trail_low_pos_pct: marketWindow?.trail_low_pos_pct || null,
+      trail_m_expand_pct: marketWindow?.trail_m_expand_pct || null,
+    };
     const { temp, alarm_dir } = marketEnv;
     if (temp === '热' && alarm_dir === '报扩') regime = 'hot_expand';
     else if (temp === '热' && alarm_dir === '报缩') regime = 'neutral';
@@ -3209,20 +3288,37 @@ router.get('/trade_execution', async function (req, res, next) {
       ORDER BY symbol, datestr
     `;
     const alertDate = (d: any) => d ? String(d).split('T')[0] : '';
-    pool.query(priceSql, function (priceErr, priceRows) {
+    pool.query(priceSql, async function (priceErr, priceRows) {
       if (priceErr) {
         console.error(priceErr);
         return res.status(500).json({ error: priceErr.message });
       }
-      const priceMap = buildPriceMap(priceRows || []);
       const referenceDate = formatDbDate(rows?.[0]?.reference_date) || today;
+      let marketWindowSeries: any[] = [];
+      try {
+        marketWindowSeries = await loadMarketWindowSeries(
+          recordType,
+          tableAI,
+          minAlertDate || '2000-01-01',
+          referenceDate || today
+        );
+      } catch (windowErr) {
+        console.warn('loadMarketWindowSeries failed, candidate windows disabled:', windowErr);
+      }
+      const priceMap = buildPriceMap(priceRows || []);
       const productionCandidates = rows
         .map((r: any) => {
           const strategy = selectTradeStrategy(r, recordType);
           if (!strategy) return null;
+          const candidateEntryDate = alertDate(r.datestr);
+          const candidateWindow = pickMarketWindowForDate(marketWindowSeries, candidateEntryDate);
           const daysSinceAlert = Number(r.days_since_alert);
           const executionPlan = buildDynamicExecutionPlan(r, strategy);
           const status = buildTradeExecutionStatus(r, strategy, daysSinceAlert);
+          const windowSuspension = buildMarketWindowSuspension(strategy, candidateWindow);
+          const executionStatus = windowSuspension && status?.status === 'executable'
+            ? windowSuspension
+            : status;
           const pricesForSymbol = priceMap[String(r.symbol || '')] || [];
           const strategyOutcome = buildStrategyOutcome(r, strategy, pricesForSymbol);
           const d30Outcome = buildStrategyOutcome(r, { ...strategy, max_hold_days: 30 }, pricesForSymbol);
@@ -3251,10 +3347,10 @@ router.get('/trade_execution', async function (req, res, next) {
             d30_result_hold_days: d30Outcome.hold_days,
             d30_max_ret_pct: d30Outcome.max_ret_pct,
             d30_min_ret_pct: d30Outcome.min_ret_pct,
-            execution_status: status.status,
-            execution_status_label: status.label,
-            execution_status_reason: status.reason,
-            is_current_executable: status.status === 'executable',
+            execution_status: executionStatus.status,
+            execution_status_label: executionStatus.label,
+            execution_status_reason: executionStatus.reason,
+            is_current_executable: executionStatus.status === 'executable',
             trade_tier: strategy.legacy_tier,
             strategy_layer: strategy.strategy_layer,
             strategy_code: strategy.strategy_code,
@@ -3276,8 +3372,12 @@ router.get('/trade_execution', async function (req, res, next) {
             market_regime: strategy.signal_regime,
             current_market_regime: regime,
             signal_market_regime: strategy.signal_regime,
+            market_window_signal: candidateWindow?.window_signal || null,
+            market_window_title: candidateWindow?.window_title || null,
+            market_window_desc: candidateWindow?.window_desc || null,
+            market_window_date: candidateWindow?.datestr || null,
             trade_reason: buildTradeReason(r, strategy),
-            alert_date: alertDate(r.datestr),
+            alert_date: candidateEntryDate,
             days_since_alert: daysSinceAlert,
             entry_window_basis: 'alert_date',
             entry_window_basis_label: '报警日',
@@ -3291,7 +3391,8 @@ router.get('/trade_execution', async function (req, res, next) {
         recordType,
         priceMap,
         referenceDate,
-        regime
+        regime,
+        marketWindowSeries
       );
       const candidates = [...productionCandidates, ...pullbackCandidates];
 
@@ -3492,6 +3593,15 @@ function buildRecentPressureSuspension(record: any, strategy: any): any | null {
   return null;
 }
 
+function buildMarketWindowSuspension(strategy: any, marketWindow: any): any | null {
+  if (marketWindow?.window_signal !== 'BAD_GUARD') return null;
+  return {
+    status: 'suspended',
+    label: marketWindow?.window_title || '坏窗口暂缓',
+    reason: marketWindow?.window_desc || '当前市场处于坏窗口，策略暂缓执行',
+  };
+}
+
 function buildTradeExecutionStatus(record: any, strategy: any, daysSinceAlert: number): any {
   if (!Number.isFinite(daysSinceAlert) || daysSinceAlert < 0) {
     return {
@@ -3526,7 +3636,8 @@ function buildPullbackTradeCandidates(
   recordType: string,
   priceMap: Record<string, any[]>,
   referenceDate: string,
-  currentMarketRegime: string
+  currentMarketRegime: string,
+  marketWindowSeries: any[] = []
 ): any[] {
   const config = loadTradeStrategiesConfig();
   const strategies = configStrategiesForTradeExecution(config, recordType)
@@ -3545,6 +3656,7 @@ function buildPullbackTradeCandidates(
       const prices = priceMap[String(record?.symbol || '')] || [];
       const trigger = findPullbackTrigger(record, rawStrategy, prices, referenceDate);
       if (!trigger) return null;
+      const candidateWindow = pickMarketWindowForDate(marketWindowSeries, trigger.trigger_date);
       const strategy = {
         ...strategyFromConfig(rawStrategy, signalRegime),
         status: rawStrategy.status,
@@ -3555,7 +3667,8 @@ function buildPullbackTradeCandidates(
       const status = buildPullbackExecutionStatus(record, strategy, trigger.days_since_trigger);
       const executionPlan = buildDynamicExecutionPlan(record, strategy);
       const strategyOutcome = buildStrategyOutcome(record, strategy, prices);
-      const pressureSuspension = buildRecentPressureSuspension(record, strategy);
+      const pressureSuspension = buildMarketWindowSuspension(strategy, candidateWindow) ||
+        buildRecentPressureSuspension(record, strategy);
       const outcomeAwareStatus = buildOutcomeAwareExecutionStatus(status, strategyOutcome);
       const executionStatus = pressureSuspension && outcomeAwareStatus?.status === 'executable'
         ? pressureSuspension
@@ -3611,6 +3724,10 @@ function buildPullbackTradeCandidates(
         market_regime: strategy.signal_regime,
         current_market_regime: currentMarketRegime,
         signal_market_regime: strategy.signal_regime,
+        market_window_signal: candidateWindow?.window_signal || null,
+        market_window_title: candidateWindow?.window_title || null,
+        market_window_desc: candidateWindow?.window_desc || null,
+        market_window_date: candidateWindow?.datestr || null,
         trade_reason: buildPullbackTradeReason(record, strategy, trigger),
         alert_date: alertDateValue(record?.datestr),
         days_since_alert: dateDiffDays(referenceDate, alertDateValue(record?.datestr)),
@@ -3951,6 +4068,274 @@ router.get('/ai_focus_stocks_trend', function (req, res, next) {
   pool.query(sql, function (err, rows, fields) {
     if (err) throw err;
     res.json(rows);
+  });
+});
+
+router.get('/hot_alpha_sector_trend', function (req, res, next) {
+  const days = Math.min(Math.max(parseInt(String(req.query.days || '120'), 10) || 120, 30), 360);
+  const top = Math.min(Math.max(parseInt(String(req.query.top || '5'), 10) || 5, 3), 10);
+  const mode = ['stage', 'daily_top3', 'watchlist', 'peak', 'latest'].includes(String(req.query.mode || ''))
+    ? String(req.query.mode)
+    : 'stage';
+  const requestedStartDate = String(req.query.start_date || '').slice(0, 10);
+  const requestedEndDate = String(req.query.end_date || '').slice(0, 10);
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const startDate = datePattern.test(requestedStartDate) ? requestedStartDate : '';
+  const endDate = datePattern.test(requestedEndDate) ? requestedEndDate : '';
+  const nonIndustryPatterns = [
+    '国资', '集团', '央企', '自贸区', '新区', '开发区', '示范区', '海峡西岸', '粤港澳',
+    '长三角', '京津冀', '雄安', '海南', '舟山', '横琴', '深圳', '上海', '北京',
+    '杭州', '成都', '重庆', '武汉', '西安', '福建', '广东', '江苏', '浙江', '山东',
+    '人民币', '贬值受益', '摘帽', '重组', '并购', '租售同权', '网红经济', '人造肉',
+  ];
+  const industryWatchPatterns = [
+    'CPO', '光通信', '光模块', '光芯片', '半导体', '芯片', 'CPU', 'MCU', 'ASIC',
+    'AI', '人工智能', '算力', '服务器', 'IDC', '数据中心', '液冷', 'PCB', '存储',
+    '机器人', '机器视觉', '寒武纪', '英伟达', '先进封装', 'HBM', '存储器',
+  ];
+  const exclusionSql = nonIndustryPatterns.map(() => 'sector_name NOT LIKE ?').join(' AND ');
+  const exclusionParams = nonIndustryPatterns.map((pattern) => `%${pattern}%`);
+  const watchSql = industryWatchPatterns.map(() => 'sector_name LIKE ?').join(' OR ');
+  const watchParams = industryWatchPatterns.map((pattern) => `%${pattern}%`);
+  const latestWhere: string[] = [];
+  const latestParams: any[] = [];
+  if (startDate) {
+    latestWhere.push('datestr >= ?');
+    latestParams.push(startDate);
+  }
+  if (endDate) {
+    latestWhere.push('datestr <= ?');
+    latestParams.push(endDate);
+  }
+  const latestSql = `SELECT DATE_FORMAT(MAX(datestr), '%Y-%m-%d') AS latest_date FROM sector_hot_daily${latestWhere.length ? ` WHERE ${latestWhere.join(' AND ')}` : ''}`;
+
+  pool.query(latestSql, latestParams, function (latestErr, latestRows) {
+    if (latestErr) {
+      console.error('hot_alpha_sector_trend latest error:', latestErr);
+      return res.status(500).json({ error: latestErr.message });
+    }
+    const latestDate = latestRows?.[0]?.latest_date;
+    if (!latestDate) return res.json({ latestDate: null, latest: [], trends: [] });
+    const trendStartDate = startDate || shiftDate(latestDate, -days);
+
+    const stageSql = `
+      SELECT
+        DATE_FORMAT(datestr, '%Y-%m') AS stage_key,
+        MIN(DATE_FORMAT(datestr, '%Y-%m-%d')) AS start_date,
+        MAX(DATE_FORMAT(datestr, '%Y-%m-%d')) AS end_date,
+        sector_type,
+        sector_code,
+        SUBSTRING_INDEX(GROUP_CONCAT(sector_name ORDER BY sector_rank ASC, emerging_score DESC SEPARATOR '||'), '||', 1) AS sector_name,
+        ROUND(MAX(emerging_score), 2) AS peak_emerging_score,
+        ROUND(AVG(emerging_score), 2) AS avg_emerging_score,
+        ROUND(MAX(hot_score), 2) AS peak_hot_score,
+        MIN(sector_rank) AS best_rank,
+        ROUND(AVG(sector_rank), 1) AS avg_rank,
+        MAX(alert20) AS max_alert20,
+        COUNT(*) AS active_days
+      FROM sector_hot_daily
+      WHERE datestr >= ?
+        AND datestr <= ?
+        AND ${exclusionSql}
+        AND (${watchSql})
+      GROUP BY stage_key, sector_type, sector_code
+    `;
+
+    const loadStageRows = (callback: (stageRows: any[]) => void) => {
+      pool.query(stageSql, [trendStartDate, latestDate, ...exclusionParams, ...watchParams], function (stageErr, stageRows) {
+        if (stageErr) {
+          console.error('hot_alpha_sector_trend stage error:', stageErr);
+          return res.status(500).json({ error: stageErr.message });
+        }
+        const grouped: Record<string, any[]> = {};
+        (stageRows || []).forEach((row: any) => {
+          if (!grouped[row.stage_key]) grouped[row.stage_key] = [];
+          grouped[row.stage_key].push(row);
+        });
+        const stages = Object.keys(grouped).sort().map((stageKey) => {
+          const sectors = grouped[stageKey]
+            .sort((a: any, b: any) => {
+              if (Number(a.best_rank) !== Number(b.best_rank)) return Number(a.best_rank) - Number(b.best_rank);
+              if (Number(b.peak_emerging_score) !== Number(a.peak_emerging_score)) return Number(b.peak_emerging_score) - Number(a.peak_emerging_score);
+              return Number(b.active_days) - Number(a.active_days);
+            })
+            .slice(0, top);
+          return {
+            stage_key: stageKey,
+            start_date: sectors[0]?.start_date || null,
+            end_date: sectors[0]?.end_date || null,
+            sectors,
+          };
+        });
+        callback(stages);
+      });
+    };
+
+    if (mode === 'stage') {
+      loadStageRows((stages) => {
+        const latest = stages.length ? stages[stages.length - 1].sectors : [];
+        res.json({ latestDate, startDate: trendStartDate, mode, latest, trends: [], stages });
+      });
+      return;
+    }
+
+    if (mode === 'daily_top3') {
+      const dailyTopSql = `
+        SELECT ranked.*,
+               COALESCE(afh.feature_hits, 0) AS feature_hits,
+               COALESCE(afh.ha_hits, 0) AS ha_hits,
+               COALESCE(afh.primary_ha_hits, 0) AS primary_ha_hits
+        FROM (
+          SELECT
+            DATE_FORMAT(datestr, '%Y-%m-%d') AS datestr,
+            sector_type,
+            sector_code,
+            sector_name,
+            ROUND(emerging_score, 2) AS emerging_score,
+            ROUND(hot_score, 2) AS hot_score,
+            sector_rank,
+            alert20,
+            alert60,
+            ROW_NUMBER() OVER (PARTITION BY datestr ORDER BY emerging_score DESC, hot_score DESC, alert20 DESC) AS daily_rank
+          FROM sector_hot_daily
+          WHERE datestr >= ?
+            AND datestr <= ?
+            AND ${exclusionSql}
+        ) ranked
+        LEFT JOIN (
+          SELECT
+            datestr,
+            sector_type,
+            sector_code,
+            COUNT(*) AS feature_hits,
+            SUM(CASE WHEN hot_alpha_layer IS NOT NULL THEN 1 ELSE 0 END) AS ha_hits,
+            SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL THEN 1 ELSE 0 END) AS primary_ha_hits
+          FROM alert_sector_hot_features
+          WHERE datestr >= ?
+            AND datestr <= ?
+          GROUP BY datestr, sector_type, sector_code
+        ) afh ON afh.datestr = ranked.datestr
+          AND afh.sector_type = ranked.sector_type
+          AND afh.sector_code = ranked.sector_code
+        WHERE ranked.daily_rank <= 3
+        ORDER BY ranked.datestr ASC, ranked.daily_rank ASC
+      `;
+      const dailyTopParams = [trendStartDate, latestDate, ...exclusionParams, trendStartDate, latestDate];
+      pool.query(dailyTopSql, dailyTopParams, function (dailyErr, dailyRows) {
+        if (dailyErr) {
+          console.error('hot_alpha_sector_trend daily_top3 error:', dailyErr);
+          return res.status(500).json({ error: dailyErr.message });
+        }
+        const latest = (dailyRows || []).filter((row: any) => row.datestr === latestDate);
+        res.json({ latestDate, startDate: trendStartDate, mode, latest, trends: dailyRows || [] });
+      });
+      return;
+    }
+
+    let sectorSql = '';
+    let sectorSelectParams: any[] = [];
+    if (mode === 'latest') {
+      sectorSql = `
+        SELECT
+          sector_type,
+          sector_code,
+          sector_name,
+          ROUND(emerging_score, 2) AS emerging_score,
+          ROUND(hot_score, 2) AS hot_score,
+          sector_rank,
+          alert20,
+          alert60
+        FROM sector_hot_daily
+        WHERE datestr = ?
+          AND ${exclusionSql}
+        ORDER BY emerging_score DESC, hot_score DESC, alert20 DESC
+        LIMIT ?
+      `;
+      sectorSelectParams = [latestDate, ...exclusionParams, top];
+    } else {
+      const watchClause = mode === 'watchlist' ? `AND (${watchSql})` : '';
+      sectorSql = `
+        SELECT
+          sector_type,
+          sector_code,
+          SUBSTRING_INDEX(GROUP_CONCAT(sector_name ORDER BY sector_rank ASC, emerging_score DESC SEPARATOR '||'), '||', 1) AS sector_name,
+          ROUND(MAX(emerging_score), 2) AS emerging_score,
+          ROUND(MAX(hot_score), 2) AS hot_score,
+          MIN(sector_rank) AS sector_rank,
+          MAX(alert20) AS alert20,
+          MAX(alert60) AS alert60
+        FROM sector_hot_daily
+        WHERE datestr >= ?
+          AND datestr <= ?
+          AND ${exclusionSql}
+          ${watchClause}
+        GROUP BY sector_type, sector_code
+        ORDER BY MIN(sector_rank) ASC, MAX(emerging_score) DESC, MAX(hot_score) DESC
+        LIMIT ?
+      `;
+      sectorSelectParams = mode === 'watchlist'
+        ? [trendStartDate, latestDate, ...exclusionParams, ...watchParams, top]
+        : [trendStartDate, latestDate, ...exclusionParams, top];
+    }
+
+    pool.query(sectorSql, sectorSelectParams, function (topErr, latestRows) {
+      if (topErr) {
+        console.error('hot_alpha_sector_trend top error:', topErr);
+        return res.status(500).json({ error: topErr.message });
+      }
+      if (!latestRows || latestRows.length === 0) return res.json({ latestDate, latest: [], trends: [] });
+
+      const sectorFilters = latestRows.map(() => `(shd.sector_type = ? AND shd.sector_code = ?)`);
+      const sectorParams: any[] = [];
+      latestRows.forEach((row: any) => {
+        sectorParams.push(row.sector_type, row.sector_code);
+      });
+
+      const trendSql = `
+        SELECT
+          DATE_FORMAT(shd.datestr, '%Y-%m-%d') AS datestr,
+          shd.sector_type,
+          shd.sector_code,
+          shd.sector_name,
+          ROUND(shd.emerging_score, 2) AS emerging_score,
+          ROUND(shd.hot_score, 2) AS hot_score,
+          shd.sector_rank,
+          shd.alert20,
+          shd.alert60,
+          COALESCE(afh.feature_hits, 0) AS feature_hits,
+          COALESCE(afh.ha_hits, 0) AS ha_hits,
+          COALESCE(afh.primary_ha_hits, 0) AS primary_ha_hits
+        FROM sector_hot_daily shd
+        LEFT JOIN (
+          SELECT
+            datestr,
+            sector_type,
+            sector_code,
+            COUNT(*) AS feature_hits,
+            SUM(CASE WHEN hot_alpha_layer IS NOT NULL THEN 1 ELSE 0 END) AS ha_hits,
+            SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL THEN 1 ELSE 0 END) AS primary_ha_hits
+          FROM alert_sector_hot_features
+          WHERE datestr >= ?
+            AND datestr <= ?
+          GROUP BY datestr, sector_type, sector_code
+        ) afh ON afh.datestr = shd.datestr
+          AND afh.sector_type = shd.sector_type
+          AND afh.sector_code = shd.sector_code
+        WHERE shd.datestr >= ?
+          AND shd.datestr <= ?
+          AND (${sectorFilters.join(' OR ')})
+        ORDER BY shd.datestr ASC, shd.emerging_score DESC
+      `;
+      const trendParams = [trendStartDate, latestDate, trendStartDate, latestDate, ...sectorParams];
+
+      pool.query(trendSql, trendParams, function (trendErr, trendRows) {
+        if (trendErr) {
+          console.error('hot_alpha_sector_trend trend error:', trendErr);
+          return res.status(500).json({ error: trendErr.message });
+        }
+        res.json({ latestDate, startDate: trendStartDate, mode, latest: latestRows, trends: trendRows || [] });
+      });
+    });
   });
 });
 

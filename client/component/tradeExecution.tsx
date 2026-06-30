@@ -79,6 +79,10 @@ interface TradeCandidate {
   market_regime: string;
   current_market_regime: string;
   signal_market_regime: string;
+  market_window_signal?: string | null;
+  market_window_title?: string | null;
+  market_window_desc?: string | null;
+  market_window_date?: string | null;
   trade_reason: string;
   recent_pressure_suspended?: boolean;
 }
@@ -138,10 +142,10 @@ const STATUS_META: Record<string, { label: string; tagColor: string; border: str
     bg: '#fafafa',
   },
   suspended: {
-    label: '近期压力暂缓',
-    tagColor: 'orange',
-    border: '#ffc069',
-    bg: '#fffaf0',
+    label: '坏窗口暂缓',
+    tagColor: 'green',
+    border: '#b7eb8f',
+    bg: '#f6ffed',
   },
   blocked: {
     label: '后市排除',
@@ -201,6 +205,49 @@ function actionColor(action: string | null | undefined): string {
   if (action === '谨慎可买') return 'orange';
   if (action === '候选验证') return 'blue';
   return 'default';
+}
+
+function marketWindowMeta(windowSignal: string | null | undefined, title?: string | null, desc?: string | null) {
+  if (windowSignal === 'BAD_GUARD') {
+    return {
+      title: title || '坏窗口暂缓',
+      color: 'green',
+      textColor: '#389e0d',
+      border: '#b7eb8f',
+      bg: '#f6ffed',
+      desc: desc || '低位拥挤或负面标签密集，候选策略应暂缓。',
+    };
+  }
+  if (windowSignal === 'GOOD_ALLOW') {
+    return {
+      title: title || '好窗口观察',
+      color: 'red',
+      textColor: '#cf1322',
+      border: '#ffa39e',
+      bg: '#fff1f0',
+      desc: desc || '可作为策略族放行观察，不单独生成买入。',
+    };
+  }
+  return {
+    title: title || '中性观察',
+    color: 'default',
+    textColor: '#595959',
+    border: '#d9d9d9',
+    bg: '#fafafa',
+    desc: desc || '未触发明确市场窗口信号。',
+  };
+}
+
+function marketTempText(marketEnv: any): string | null {
+  const temp = String(marketEnv?.temp || '').trim();
+  const direction = String(marketEnv?.alarm_dir || '').trim();
+  const parts: string[] = [];
+
+  if (temp && temp !== '未知' && temp !== '—') parts.push(temp);
+  if (marketEnv?.vol_med != null) parts.push(`vol10中位 ${marketEnv.vol_med}`);
+  if (direction && direction !== '未知' && direction !== '—') parts.push(direction);
+
+  return parts.length ? `M温度: ${parts.join('  ')}` : null;
 }
 
 async function fetchBatchIndustry(symbols: string[]): Promise<Map<string, string>> {
@@ -274,6 +321,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
     const executable = candidates.filter((c) => c.execution_status === 'executable');
     const expired = candidates.filter((c) => c.execution_status === 'expired');
     const blocked = candidates.filter((c) => c.execution_status === 'blocked');
+    const suspended = candidates.filter((c) => c.execution_status === 'suspended');
     const tp = candidates.filter((c) => c.strategy_result_status === 'tp');
     const sl = candidates.filter((c) => c.strategy_result_status === 'sl');
     const d30Tp = candidates.filter((c) => c.d30_result_status === 'tp');
@@ -284,6 +332,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
       executable: executable.length,
       expired: expired.length,
       blocked: blocked.length,
+      suspended: suspended.length,
       tp: tp.length,
       sl: sl.length,
       d30Tp: d30Tp.length,
@@ -302,6 +351,8 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
   }
 
   const actualRegime = marketEnv.regime || 'hot_expand';
+  const currentWindow = marketWindowMeta(marketEnv.window_signal, marketEnv.window_title, marketEnv.window_desc);
+  const marketTempSummary = marketTempText(marketEnv);
 
   if (!candidates.length) {
     return (
@@ -314,11 +365,11 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
           <Tag color={REGIME_COLORS[actualRegime] || 'default'} style={{ fontWeight: 600 }}>
             {REGIME_LABELS[actualRegime] || actualRegime}
           </Tag>
-          <div style={{ fontSize: 13, color: '#bbb', marginTop: 4 }}>
-            M温度: {marketEnv.temp || '—'}
-            {marketEnv.vol_med != null ? `  vol10中位 ${marketEnv.vol_med}` : ''}
-            {marketEnv.alarm_dir ? `  ${marketEnv.alarm_dir}` : ''}
-          </div>
+          {marketTempSummary && (
+            <div style={{ fontSize: 13, color: '#bbb', marginTop: 4 }}>
+              {marketTempSummary}
+            </div>
+          )}
         </div>
         <div style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
           {recordType === 'record2'
@@ -351,7 +402,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 130 }}>
           <div style={{ fontSize: 13, color: '#999' }}>当前可执行</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#cf1322' }}>{stats.executable}</div>
-          <div style={{ fontSize: 13, color: '#999' }}>历史 {stats.expired} · 排除 {stats.blocked}</div>
+          <div style={{ fontSize: 13, color: '#999' }}>暂缓 {stats.suspended} · 历史 {stats.expired} · 排除 {stats.blocked}</div>
         </div>
         <div style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '10px 14px', minWidth: 130 }}>
           <div style={{ fontSize: 13, color: '#999' }}>严格策略结果</div>
@@ -368,13 +419,23 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
         <Tag color={REGIME_COLORS[actualRegime] || 'default'} style={{ fontWeight: 600 }}>
           当前市场: {REGIME_LABELS[actualRegime] || actualRegime}
         </Tag>
-        <div style={{ fontSize: 15, color: '#666' }}>
-          M温度: {marketEnv.temp || '—'}
-          {marketEnv.vol_med != null ? `  vol10中位 ${marketEnv.vol_med}` : ''}
-          {marketEnv.alarm_dir ? `  ${marketEnv.alarm_dir}` : ''}
-        </div>
+        {marketTempSummary && (
+          <div style={{ fontSize: 15, color: '#666' }}>
+            {marketTempSummary}
+          </div>
+        )}
+        <Tag color={currentWindow.color} style={{ fontWeight: 600 }}>
+          策略窗口: {currentWindow.title}
+          {marketEnv.window_date ? ` ${marketEnv.window_date}` : ''}
+        </Tag>
+        {marketEnv.window_signal === 'BAD_GUARD' && (
+          <div style={{ color: currentWindow.textColor, fontSize: 13 }}>
+            低位 {fmtPct(marketEnv.trail_low_pos_pct, 1)} · 负面 {fmtPct(marketEnv.trail_negative_pct, 1)} · 报扩 {fmtPct(marketEnv.trail_m_expand_pct, 1)}
+          </div>
+        )}
         <div style={{ fontSize: 14, color: '#666', marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Tag color="red">红色=当前可执行</Tag>
+          <Tag color="green">绿色=坏窗口暂缓</Tag>
           <Tag color="default">灰色=已过窗口</Tag>
           <Tag color="blue">蓝色=后市排除</Tag>
         </div>
@@ -395,6 +456,7 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                   const entryBasisDate = c.entry_window_basis_date || c.alert_date;
                   const entryDayCount = c.entry_window_day_count ?? c.days_since_alert;
                   const industry = industryMap.get(c.symbol) || '--';
+                  const candidateWindow = marketWindowMeta(c.market_window_signal, c.market_window_title, c.market_window_desc);
                   const resultColor =
                     c.strategy_result_status === 'tp'
                       ? '#389e0d'
@@ -437,6 +499,11 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                             <Tag color={statusMeta.tagColor} style={{ fontSize: 13 }}>
                               {c.execution_status_label || statusMeta.label}
                             </Tag>
+                            {c.market_window_signal && (
+                              <Tag color={candidateWindow.color} style={{ fontSize: 13 }}>
+                                {candidateWindow.title}
+                              </Tag>
+                            )}
                             <StockChartsButton symbol={c.symbol} name={c.name} datestr={c.alert_date || c.datestr} size="small" />
                             <span style={{ fontSize: 13, color: '#bbb' }}>#{i + 1}</span>
                           </div>
@@ -534,6 +601,12 @@ const TradeExecutionView: React.FC<{ recordType?: string }> = ({
                           {c.execution_note && <span>{c.execution_note}</span>}
                           <span>报警环境: {REGIME_LABELS[c.signal_market_regime] || c.signal_market_regime}</span>
                           <span>当前市场: {REGIME_LABELS[c.current_market_regime] || c.current_market_regime}</span>
+                          {c.market_window_signal && (
+                            <span style={{ color: candidateWindow.textColor }}>
+                              策略窗口: {candidateWindow.title}
+                              {c.market_window_date ? ` ${c.market_window_date}` : ''}
+                            </span>
+                          )}
                           {c.post_alert_decision && (
                             <span>后市: {c.post_alert_decision.replace('后', '').substring(0, 24)}</span>
                           )}

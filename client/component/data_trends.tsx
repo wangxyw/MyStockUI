@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider } from 'antd';
-import { LineChartOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
+import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tag } from 'antd';
+import { FireOutlined, LineChartOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 
@@ -19,6 +19,49 @@ interface AllTrendsData {
 interface AiFocusData {
   datestr: string;
   symbol_count: number;
+}
+
+interface HotAlphaSectorItem {
+  datestr?: string;
+  daily_rank?: number;
+  sector_type: string;
+  sector_code: string;
+  sector_name: string;
+  emerging_score: number;
+  hot_score: number;
+  sector_rank: number;
+  alert20: number;
+  alert60: number;
+  feature_hits?: number;
+  ha_hits?: number;
+  primary_ha_hits?: number;
+}
+
+interface HotAlphaStageItem {
+  stage_key: string;
+  start_date: string | null;
+  end_date: string | null;
+  sectors: Array<{
+    sector_type: string;
+    sector_code: string;
+    sector_name: string;
+    peak_emerging_score: number;
+    avg_emerging_score: number;
+    peak_hot_score: number;
+    best_rank: number;
+    avg_rank: number;
+    max_alert20: number;
+    active_days: number;
+  }>;
+}
+
+interface HotAlphaSectorTrendData {
+  latestDate: string | null;
+  startDate?: string | null;
+  mode?: string;
+  latest: HotAlphaSectorItem[];
+  trends: HotAlphaSectorItem[];
+  stages?: HotAlphaStageItem[];
 }
 
 interface MTempItem {
@@ -49,6 +92,14 @@ const SimpleAlarmTrend: React.FC = () => {
   const [aiFocusData, setAiFocusData] = useState<AiFocusData[]>([]);
   const [aiFocusLoading, setAiFocusLoading] = useState<boolean>(false);
 
+  // Hot Alpha 热点板块趋势
+  const [hotAlphaData, setHotAlphaData] = useState<HotAlphaSectorTrendData | null>(null);
+  const [hotAlphaLoading, setHotAlphaLoading] = useState<boolean>(false);
+  const [hotAlphaStartMonth, setHotAlphaStartMonth] = useState<string>(moment().subtract(5, 'months').format('YYYY-MM'));
+  const [hotAlphaEndMonth, setHotAlphaEndMonth] = useState<string>(moment().format('YYYY-MM'));
+  const [hotAlphaTop, setHotAlphaTop] = useState<number>(5);
+  const [hotAlphaMode, setHotAlphaMode] = useState<string>('stage');
+
   // M 市场温度数据
   const [mTempR1, setMTempR1] = useState<MTempItem[]>([]);
   const [mTempR2, setMTempR2] = useState<MTempItem[]>([]);
@@ -64,6 +115,32 @@ const SimpleAlarmTrend: React.FC = () => {
     { value: 180, label: '180天' },
     { value: 360, label: '360天' }
   ];
+
+  const hotAlphaTopOptions = [
+    { value: 3, label: 'Top3' },
+    { value: 5, label: 'Top5' },
+    { value: 8, label: 'Top8' },
+    { value: 10, label: 'Top10' },
+  ];
+
+  const hotAlphaModeOptions = [
+    { value: 'stage', label: '阶段热点' },
+    { value: 'daily_top3', label: '每日Top3' },
+    { value: 'watchlist', label: '产业主线' },
+    { value: 'peak', label: '区间峰值' },
+    { value: 'latest', label: '结束日Top' },
+  ];
+
+  const shiftHotAlphaWindow = (months: number) => {
+    setHotAlphaStartMonth(moment(hotAlphaStartMonth, 'YYYY-MM').add(months, 'months').format('YYYY-MM'));
+    setHotAlphaEndMonth(moment(hotAlphaEndMonth, 'YYYY-MM').add(months, 'months').format('YYYY-MM'));
+  };
+
+  const setHotAlphaWindowEnd = (month: moment.Moment | null) => {
+    const end = month || moment();
+    setHotAlphaEndMonth(end.format('YYYY-MM'));
+    setHotAlphaStartMonth(end.clone().subtract(5, 'months').format('YYYY-MM'));
+  };
 
   // 获取趋势数据
   const fetchTrendData = useCallback(async () => {
@@ -142,12 +219,47 @@ const SimpleAlarmTrend: React.FC = () => {
     }
   }, []);
 
+  const fetchHotAlphaSectorData = useCallback(async () => {
+    if (!hotAlphaStartMonth || !hotAlphaEndMonth) {
+      message.warning('请选择 Hot Alpha 起止月份');
+      return;
+    }
+    setHotAlphaLoading(true);
+    try {
+      const startDate = moment(hotAlphaStartMonth, 'YYYY-MM').startOf('month').format('YYYY-MM-DD');
+      const endDate = moment(hotAlphaEndMonth, 'YYYY-MM').endOf('month').format('YYYY-MM-DD');
+      const queryParams = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        top: hotAlphaTop.toString(),
+        mode: hotAlphaMode,
+      }).toString();
+      const response = await fetch(`/api/hot_alpha_sector_trend?${queryParams}`);
+      const data = await response.json();
+      if (response.ok && data) {
+        setHotAlphaData(data);
+      } else {
+        console.error('Hot Alpha sector trend fetch failed:', data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Hot Alpha sector trend:', error);
+    } finally {
+      setHotAlphaLoading(false);
+    }
+  }, [hotAlphaStartMonth, hotAlphaEndMonth, hotAlphaTop, hotAlphaMode]);
+
   // 初始加载
   useEffect(() => {
     fetchTrendData();
     fetchAiFocusData();
     fetchMTempData();
+    fetchHotAlphaSectorData();
   }, []);
+
+  const refreshMainTrends = () => {
+    fetchTrendData();
+    fetchHotAlphaSectorData();
+  };
 
   const getMTempChartOption = (data: MTempItem[], title: string) => {
     if (!data || data.length === 0) return null;
@@ -404,6 +516,167 @@ const SimpleAlarmTrend: React.FC = () => {
     };
   };
 
+  const getHotAlphaSectorChartOption = (data?: HotAlphaSectorTrendData | null) => {
+    const trends = data?.trends || [];
+    const latest = data?.latest || [];
+    if (trends.length === 0 || latest.length === 0) return null;
+
+    const dates = Array.from(new Set(trends.map(item => item.datestr || '').filter(Boolean))).sort();
+    if (data?.mode === 'daily_top3') {
+      const rankMap = trends.reduce((acc, item) => {
+        const rank = Number(item.daily_rank || 0);
+        if (!rank) return acc;
+        acc[`${item.datestr}|${rank}`] = item;
+        return acc;
+      }, {} as Record<string, HotAlphaSectorItem>);
+      const primaryHitsByDate = dates.map(date => trends
+        .filter(item => item.datestr === date)
+        .reduce((sum, item) => sum + Number(item.primary_ha_hits || 0), 0)
+      );
+      const rankColors = ['#cf1322', '#1677ff', '#389e0d'];
+
+      return {
+        tooltip: {
+          trigger: 'axis',
+          formatter: (params: any) => {
+            const date = params?.[0]?.axisValue;
+            const lines = [`<b>${date}</b>`];
+            params.forEach((p: any) => {
+              if (p.seriesName === 'HA主线报警数') {
+                lines.push(`${p.marker} ${p.seriesName}: ${p.value ?? 0}`);
+                return;
+              }
+              const rank = Number(String(p.seriesName).replace('Top', ''));
+              const item = rankMap[`${date}|${rank}`];
+              if (item) {
+                lines.push(`${p.marker} ${p.seriesName}: ${item.sector_name} ｜ em ${Number(item.emerging_score).toFixed(1)} ｜ hot ${Number(item.hot_score).toFixed(1)} ｜ A20 ${item.alert20}`);
+              }
+            });
+            return lines.join('<br/>');
+          },
+        },
+        legend: { top: 8, data: ['HA主线报警数', 'Top1', 'Top2', 'Top3'] },
+        grid: { top: 58, bottom: dates.length > 50 ? 42 : 18, left: 52, right: 56, containLabel: true },
+        xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, interval: dates.length > 80 ? Math.floor(dates.length / 15) : 0, fontSize: 10 } },
+        yAxis: [
+          { type: 'value', name: 'emerging', min: 0, axisLine: { show: false }, splitLine: { lineStyle: { type: 'dashed', color: '#f0f0f0' } } },
+          { type: 'value', name: 'HA报警', axisLine: { show: false }, splitLine: { show: false } },
+        ],
+        series: [
+          {
+            name: 'HA主线报警数',
+            type: 'bar',
+            yAxisIndex: 1,
+            data: primaryHitsByDate,
+            itemStyle: { color: 'rgba(250, 140, 22, 0.24)', borderRadius: [3, 3, 0, 0] },
+            barWidth: '60%',
+          },
+          ...[1, 2, 3].map((rank, index) => ({
+            name: `Top${rank}`,
+            type: 'line',
+            yAxisIndex: 0,
+            data: dates.map(date => rankMap[`${date}|${rank}`]?.emerging_score ?? null),
+            connectNulls: true,
+            smooth: false,
+            symbol: 'circle',
+            symbolSize: dates.length > 90 ? 3 : 5,
+            lineStyle: { width: 2, color: rankColors[index] },
+            itemStyle: { color: rankColors[index] },
+          })),
+        ],
+        dataZoom: dates.length > 50 ? [{ type: 'slider', start: 0, end: 100, bottom: 0, height: 20 }] : [],
+      };
+    }
+
+    const sectorOrder = latest.map(item => `${item.sector_type}:${item.sector_code}`);
+    const sectorLabels = latest.reduce((acc, item) => {
+      acc[`${item.sector_type}:${item.sector_code}`] = item.sector_name || item.sector_code;
+      return acc;
+    }, {} as Record<string, string>);
+    const trendMap = trends.reduce((acc, item) => {
+      const key = `${item.sector_type}:${item.sector_code}`;
+      acc[`${item.datestr}|${key}`] = item;
+      return acc;
+    }, {} as Record<string, HotAlphaSectorItem>);
+    const primaryHitsByDate = dates.map(date => trends
+      .filter(item => item.datestr === date)
+      .reduce((sum, item) => sum + Number(item.primary_ha_hits || 0), 0)
+    );
+    const colors = ['#cf1322', '#1677ff', '#389e0d', '#d46b08', '#531dab', '#08979c', '#c41d7f', '#597ef7', '#7cb305', '#fa8c16'];
+
+    return {
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const date = params?.[0]?.axisValue;
+          const lines = [`<b>${date}</b>`];
+          params.forEach((p: any) => {
+            lines.push(`${p.marker} ${p.seriesName}: ${p.value ?? '-'}`);
+          });
+          return lines.join('<br/>');
+        },
+      },
+      legend: { top: 8, type: 'scroll' },
+      grid: { top: 58, bottom: dates.length > 50 ? 42 : 18, left: 52, right: 56, containLabel: true },
+      xAxis: { type: 'category', data: dates, axisLabel: { rotate: 45, interval: dates.length > 80 ? Math.floor(dates.length / 15) : 0, fontSize: 10 } },
+      yAxis: [
+        { type: 'value', name: 'emerging', min: 0, axisLine: { show: false }, splitLine: { lineStyle: { type: 'dashed', color: '#f0f0f0' } } },
+        { type: 'value', name: 'HA报警', axisLine: { show: false }, splitLine: { show: false } },
+      ],
+      series: [
+        {
+          name: 'HA主线报警数',
+          type: 'bar',
+          yAxisIndex: 1,
+          data: primaryHitsByDate,
+          itemStyle: { color: 'rgba(250, 140, 22, 0.28)', borderRadius: [3, 3, 0, 0] },
+          barWidth: '60%',
+        },
+        ...sectorOrder.map((key, index) => ({
+          name: sectorLabels[key] || key,
+          type: 'line',
+          yAxisIndex: 0,
+          data: dates.map(date => trendMap[`${date}|${key}`]?.emerging_score ?? null),
+          connectNulls: true,
+          smooth: false,
+          symbol: 'circle',
+          symbolSize: dates.length > 90 ? 3 : 5,
+          lineStyle: { width: index < 5 ? 2 : 1.2, color: colors[index % colors.length] },
+          itemStyle: { color: colors[index % colors.length] },
+        })),
+      ],
+      dataZoom: dates.length > 50 ? [{ type: 'slider', start: 0, end: 100, bottom: 0, height: 20 }] : [],
+    };
+  };
+
+  const renderHotAlphaStages = (stages?: HotAlphaStageItem[]) => {
+    if (!stages || stages.length === 0) return null;
+    return (
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, marginBottom: 12 }}>
+        {stages.map((stage) => (
+          <div key={stage.stage_key} style={{ flex: '0 0 285px', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 12px', background: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, color: '#262626' }}>{stage.stage_key}</span>
+              <span style={{ fontSize: 12, color: '#8c8c8c' }}>{stage.start_date} 至 {stage.end_date}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {stage.sectors.slice(0, hotAlphaTop).map((sector, index) => (
+                <div key={`${stage.stage_key}-${sector.sector_type}-${sector.sector_code}`} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: '6px 8px', background: index < 3 ? '#fff7f0' : '#fff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <Tag color={index < 3 ? 'volcano' : 'blue'} style={{ marginRight: 0 }}>#{index + 1}</Tag>
+                    <span style={{ fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sector.sector_name}</span>
+                  </div>
+                  <div style={{ marginTop: 4, color: '#8c8c8c', fontSize: 12, whiteSpace: 'nowrap' }}>
+                    峰rank {sector.best_rank} ｜ em {Number(sector.peak_emerging_score).toFixed(1)} ｜ {sector.active_days}天
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
   // 生成图表配置
   const getChartOption = (upData: TrendData[], downData: TrendData[], title: string, colorUp: string, colorDown: string) => {
     const dates = upData?.map(item => item.datestr) || [];
@@ -596,8 +869,8 @@ const SimpleAlarmTrend: React.FC = () => {
           <Button 
             type="primary" 
             icon={<ReloadOutlined />} 
-            onClick={fetchTrendData}
-            loading={loading}
+            onClick={refreshMainTrends}
+            loading={loading || hotAlphaLoading}
           >
             刷新数据
           </Button>
@@ -629,68 +902,15 @@ const SimpleAlarmTrend: React.FC = () => {
           <Button 
             type="primary" 
             icon={<LineChartOutlined />}
-            onClick={fetchTrendData}
-            loading={loading}
+            onClick={refreshMainTrends}
+            loading={loading || hotAlphaLoading}
           >
             开始分析
           </Button>
         </Space>
       </Card>
 
-      <Spin spinning={loading || aiFocusLoading} tip="正在加载数据...">
-        {/* AI Focus Stocks 趋势图 */}
-        {aiFocusData && aiFocusData.length > 0 && (
-          <Card 
-            title={
-              <span>
-                <RobotOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-                AI Focus Stocks 趋势
-              </span>
-            }
-            style={{ marginTop: 20 }}
-            extra={
-              <Space>
-                <Statistic 
-                  title="最新数量" 
-                  value={aiFocusStats.latest} 
-                  suffix="只"
-                  valueStyle={{ color: '#1890ff', fontSize: 14 }}
-                />
-                <Statistic 
-                  title="平均数量" 
-                  value={aiFocusStats.avg} 
-                  suffix="只"
-                  valueStyle={{ fontSize: 14 }}
-                />
-                <Statistic 
-                  title="最大数量" 
-                  value={aiFocusStats.max} 
-                  suffix="只"
-                  valueStyle={{ color: '#52c41a', fontSize: 14 }}
-                />
-              </Space>
-            }
-          >
-            <ReactEcharts
-              option={getAiFocusChartOption(aiFocusData, true)}
-              style={{ height: 400 }}
-              opts={{ renderer: 'canvas' }}
-            />
-          </Card>
-        )}
-
-        {/* 如果没有 AI Focus 数据，显示提示 */}
-        {(!aiFocusData || aiFocusData.length === 0) && !aiFocusLoading && (
-          <Card style={{ marginTop: 20, textAlign: 'center', padding: 30 }}>
-            <RobotOutlined style={{ fontSize: 48, color: '#ccc' }} />
-            <div style={{ marginTop: 16, color: '#999' }}>
-              暂无 AI Focus Stocks 数据
-            </div>
-          </Card>
-        )}
-
-        <Divider />
-
+      <Spin spinning={loading || aiFocusLoading || hotAlphaLoading} tip="正在加载数据...">
         {/* M 市场温度趋势 */}
         <Card
           title={<span>🌡 M 市场温度趋势</span>}
@@ -745,6 +965,137 @@ const SimpleAlarmTrend: React.FC = () => {
             )}
           </div>
         </Card>
+
+        <Divider />
+
+        {/* Hot Alpha 热点板块趋势 */}
+        <Card
+          title={<span><FireOutlined style={{ marginRight: 8, color: '#fa541c' }} />Hot Alpha 热点板块趋势</span>}
+          size="small"
+          style={{ marginTop: 20 }}
+          extra={<Button size="small" icon={<ReloadOutlined />} onClick={fetchHotAlphaSectorData} loading={hotAlphaLoading}>刷新热点</Button>}
+        >
+          <Space size="middle" wrap style={{ marginBottom: 12 }}>
+            <div>
+              <span style={{ marginRight: 8 }}>6个月窗口：</span>
+              <Button size="small" onClick={() => shiftHotAlphaWindow(-1)}>前移</Button>
+              <span style={{ margin: '0 8px', color: '#595959' }}>{hotAlphaStartMonth} 至 {hotAlphaEndMonth}</span>
+              <Button size="small" onClick={() => shiftHotAlphaWindow(1)}>后移</Button>
+            </div>
+            <div>
+              <span style={{ marginRight: 8 }}>结束月份：</span>
+              <DatePicker
+                picker="month"
+                value={moment(hotAlphaEndMonth, 'YYYY-MM')}
+                onChange={setHotAlphaWindowEnd}
+                format="YYYY-MM"
+                style={{ width: 120 }}
+              />
+            </div>
+            <div>
+              <span style={{ marginRight: 8 }}>展示：</span>
+              <Select
+                style={{ width: 100 }}
+                value={hotAlphaTop}
+                onChange={(value) => setHotAlphaTop(value)}
+                options={hotAlphaTopOptions}
+                size="middle"
+              />
+            </div>
+            <div>
+              <span style={{ marginRight: 8 }}>模式：</span>
+              <Select
+                style={{ width: 120 }}
+                value={hotAlphaMode}
+                onChange={(value) => setHotAlphaMode(value)}
+                options={hotAlphaModeOptions}
+                size="middle"
+              />
+            </div>
+            <Button size="small" type="primary" icon={<LineChartOutlined />} onClick={fetchHotAlphaSectorData} loading={hotAlphaLoading}>查看区间</Button>
+            {hotAlphaData?.latestDate && (
+              <span style={{ fontSize: 13, color: '#8c8c8c' }}>
+                {hotAlphaModeOptions.find((item) => item.value === (hotAlphaData.mode || hotAlphaMode))?.label || '阶段热点'} ｜ 当前截面 {hotAlphaData.latestDate} ｜ 区间 {hotAlphaStartMonth} 至 {hotAlphaEndMonth}
+              </span>
+            )}
+          </Space>
+          {hotAlphaData && (hotAlphaData.latest.length > 0 || (hotAlphaData.stages || []).length > 0) ? (
+            <>
+              {hotAlphaData.mode === 'stage' ? renderHotAlphaStages(hotAlphaData.stages) : (
+                <>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {hotAlphaData.latest.slice(0, hotAlphaTop).map((item, index) => (
+                      <Tag key={`${item.sector_type}-${item.sector_code}`} color={index < 3 ? 'volcano' : 'blue'} style={{ marginRight: 0, padding: '3px 8px' }}>
+                        #{item.sector_rank} {item.sector_name} ｜ em {Number(item.emerging_score).toFixed(1)} ｜ hot {Number(item.hot_score).toFixed(1)} ｜ A20 {item.alert20}
+                      </Tag>
+                    ))}
+                  </div>
+                  <ReactEcharts
+                    option={getHotAlphaSectorChartOption(hotAlphaData)}
+                    style={{ height: 360, width: '100%' }}
+                    opts={{ renderer: 'canvas' }}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 30, color: '#999' }}>
+              {hotAlphaLoading ? '加载中...' : '暂无 Hot Alpha 热点板块数据'}
+            </div>
+          )}
+        </Card>
+
+        <Divider />
+
+        {/* AI Focus Stocks 趋势图 */}
+        {aiFocusData && aiFocusData.length > 0 && (
+          <Card 
+            title={
+              <span>
+                <RobotOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                AI Focus Stocks 趋势
+              </span>
+            }
+            style={{ marginTop: 20 }}
+            extra={
+              <Space>
+                <Statistic 
+                  title="最新数量" 
+                  value={aiFocusStats.latest} 
+                  suffix="只"
+                  valueStyle={{ color: '#1890ff', fontSize: 14 }}
+                />
+                <Statistic 
+                  title="平均数量" 
+                  value={aiFocusStats.avg} 
+                  suffix="只"
+                  valueStyle={{ fontSize: 14 }}
+                />
+                <Statistic 
+                  title="最大数量" 
+                  value={aiFocusStats.max} 
+                  suffix="只"
+                  valueStyle={{ color: '#52c41a', fontSize: 14 }}
+                />
+              </Space>
+            }
+          >
+            <ReactEcharts
+              option={getAiFocusChartOption(aiFocusData, true)}
+              style={{ height: 400 }}
+              opts={{ renderer: 'canvas' }}
+            />
+          </Card>
+        )}
+
+        {(!aiFocusData || aiFocusData.length === 0) && !aiFocusLoading && (
+          <Card style={{ marginTop: 20, textAlign: 'center', padding: 30 }}>
+            <RobotOutlined style={{ fontSize: 48, color: '#ccc' }} />
+            <div style={{ marginTop: 16, color: '#999' }}>
+              暂无 AI Focus Stocks 数据
+            </div>
+          </Card>
+        )}
 
         <Divider />
 

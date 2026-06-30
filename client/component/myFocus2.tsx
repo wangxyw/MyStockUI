@@ -114,7 +114,24 @@ const getPostAlertTagColor = (tagText: string) => {
   return undefined;
 };
 
+const parseHotAlphaTag = (tagText: string) => {
+  if (!tagText.startsWith('HA:')) return null;
+  const [layer = '', sector = '', score = '', rank = ''] = tagText.slice(3).split(',');
+  return {
+    layer,
+    sector: sector || '热点板块',
+    score,
+    rank,
+  };
+};
+
+const getHotAlphaTagsFromComments = (comments?: string) =>
+  ((comments || '').match(/【HA:[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
+
 const getCommentTagColor = (tag: string) => {
+  if (tag.startsWith('HA:em80')) return 'magenta';
+  if (tag.startsWith('HA:em70q')) return 'purple';
+  if (tag.startsWith('HA:')) return 'geekblue';
   if (tag.includes('后市')) return getPostAlertTagColor(tag);
   if (/^首次(D4D7|D60|D30|放弃|降权):/.test(tag)) return getPostAlertTagColor(tag);
   if (tag.includes('序列确认:')) return 'red';
@@ -133,6 +150,12 @@ const getCommentTagColor = (tag: string) => {
 };
 
 const formatCommentTagText = (tagText: string) => {
+  const hotAlpha = parseHotAlphaTag(tagText);
+  if (hotAlpha) {
+    const scoreText = hotAlpha.score ? `｜${hotAlpha.score}` : '';
+    const rankText = hotAlpha.rank ? `｜#${hotAlpha.rank}` : '';
+    return `热｜${hotAlpha.layer}｜${hotAlpha.sector}${scoreText}${rankText}`;
+  }
   if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
   if (tagText.startsWith('后市试:')) return tagText.replace('后市试:', '后试｜');
   if (tagText.startsWith('后市等:')) return tagText.replace('后市等:', '后等｜');
@@ -211,6 +234,7 @@ const renderComments = (comments?: string) => {
     ['强信号', '观察', '无效'].includes(tag)
   );
   const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避|跟踪)[:｜]/.test(tag));
+  const hotAlphaTags = tagTexts.filter((tag) => tag.startsWith('HA:'));
   const factorTags = tagTexts.filter((tag) =>
     /^(C|T|P|D|R|E|M|DMI|MA|PA):/.test(tag)
   );
@@ -224,7 +248,8 @@ const renderComments = (comments?: string) => {
       tag !== statusTag &&
       tag !== decisionTag &&
       !factorTags.includes(tag) &&
-      !riskTags.includes(tag)
+      !riskTags.includes(tag) &&
+      !hotAlphaTags.includes(tag)
   );
   const bestPickTag = decisionTag;
 
@@ -250,6 +275,13 @@ const renderComments = (comments?: string) => {
           </span>
         )}
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
+        </div>
+      )}
+      {hotAlphaTags.length > 0 && (
+        <div>
+          {hotAlphaTags.map((tag, index) =>
+            renderCommentTag(tag, `hot-alpha-${index}`, { fontWeight: 700 })
+          )}
         </div>
       )}
       {riskTags.length > 0 && (
@@ -323,6 +355,9 @@ const getCompressedState = (record: any) => {
   const comments = record?.comments || '';
   const postGroup = getPostGroup(record?.post_alert_decision);
   const tagTexts = (comments.match(/【[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
+  const hotAlphaTags = getHotAlphaTagsFromComments(comments);
+  const hasHotAlphaEm80 = hotAlphaTags.some((tag) => tag.startsWith('HA:em80'));
+  const hasHotAlpha = hotAlphaTags.length > 0;
   const statusTag = tagTexts.find((tag) => ['强信号', '观察', '无效'].includes(tag));
   const hasWarning = tagTexts.some((tag) => tag.includes('警戒:') || tag.includes('风险:'));
   const isPositive = /^(买|试|等|跟踪)[:｜]/.test(decision);
@@ -332,6 +367,8 @@ const getCompressedState = (record: any) => {
   if (postGroup === '后市转弱') return { label: '后市转弱', color: 'green', desc: '后市已进入降权/放弃/转弱，优先看风险处理。' };
   if (postGroup === '已兑现/偏高') return { label: '已兑现/偏高', color: 'orange', desc: '后市已有明显兑现或偏高，不等同于负面。' };
   if (postGroup === '确认跟踪' && ['强信号', '观察'].includes(statusTag || '')) return { label: '确认跟踪', color: 'red', desc: '后市已有确认信号，可继续跟踪主策略。' };
+  if (hasHotAlphaEm80) return { label: '热点主线', color: 'magenta', desc: 'Hot Alpha em80 命中，说明该股已挂到高强度前瞻热点板块。' };
+  if (hasHotAlpha) return { label: '热点增强', color: 'purple', desc: 'Hot Alpha em70q 命中，说明该股具备热点板块增强因子。' };
   if (isPositive && hasWarning) return { label: '观察有风险', color: 'gold', desc: '主策略仍成立，但后台存在警戒；优先级低于优先观察。' };
   if (isPositive && ['强信号', '观察'].includes(statusTag || '')) return { label: '优先观察', color: 'red', desc: '主策略正向且无核心警戒，观察池内优先。' };
   if (isCautious) return { label: '谨慎观望', color: 'blue', desc: '主策略偏谨慎或无效，默认不做积极解读。' };
@@ -341,6 +378,7 @@ const getCompressedState = (record: any) => {
 const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => {
   const state = getCompressedState(record);
   const decision = record?.alert_decision;
+  const hotAlphaTags = getHotAlphaTagsFromComments(record?.comments);
   return (
     <div style={{ lineHeight: 1.7 }}>
       <div>
@@ -348,6 +386,9 @@ const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => 
           color: getBestPickTagColor(decision),
           fontWeight: 700,
         })}
+        {hotAlphaTags.map((tag, index) =>
+          renderCommentTag(tag, `compressed-hot-alpha-${index}`, { fontWeight: 700 })
+        )}
         <Tag color={state.color} style={{ fontWeight: 700 }}>{state.label}</Tag>
       </div>
       <div style={{ color: '#666', fontSize: 13 }}>{state.desc}</div>
