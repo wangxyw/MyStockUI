@@ -83,6 +83,7 @@ interface MTempItem {
 }
 
 const SimpleAlarmTrend: React.FC = () => {
+  const hotAlphaDefaultStartMonth = '2025-03';
   const [days, setDays] = useState<number>(120);
   const [daysTill, setDaysTill] = useState<string>(moment().format('YYYY-MM-DD'));
   const [loading, setLoading] = useState<boolean>(false);
@@ -95,7 +96,7 @@ const SimpleAlarmTrend: React.FC = () => {
   // Hot Alpha 热点板块趋势
   const [hotAlphaData, setHotAlphaData] = useState<HotAlphaSectorTrendData | null>(null);
   const [hotAlphaLoading, setHotAlphaLoading] = useState<boolean>(false);
-  const [hotAlphaStartMonth, setHotAlphaStartMonth] = useState<string>(moment().subtract(5, 'months').format('YYYY-MM'));
+  const [hotAlphaStartMonth, setHotAlphaStartMonth] = useState<string>(hotAlphaDefaultStartMonth);
   const [hotAlphaEndMonth, setHotAlphaEndMonth] = useState<string>(moment().format('YYYY-MM'));
   const [hotAlphaTop, setHotAlphaTop] = useState<number>(5);
   const [hotAlphaMode, setHotAlphaMode] = useState<string>('stage');
@@ -138,8 +139,11 @@ const SimpleAlarmTrend: React.FC = () => {
 
   const setHotAlphaWindowEnd = (month: moment.Moment | null) => {
     const end = month || moment();
-    setHotAlphaEndMonth(end.format('YYYY-MM'));
-    setHotAlphaStartMonth(end.clone().subtract(5, 'months').format('YYYY-MM'));
+    const endMonth = end.format('YYYY-MM');
+    setHotAlphaEndMonth(endMonth);
+    if (moment(hotAlphaStartMonth, 'YYYY-MM').isAfter(end, 'month')) {
+      setHotAlphaStartMonth(endMonth);
+    }
   };
 
   // 获取趋势数据
@@ -977,7 +981,7 @@ const SimpleAlarmTrend: React.FC = () => {
         >
           <Space size="middle" wrap style={{ marginBottom: 12 }}>
             <div>
-              <span style={{ marginRight: 8 }}>6个月窗口：</span>
+              <span style={{ marginRight: 8 }}>区间：</span>
               <Button size="small" onClick={() => shiftHotAlphaWindow(-1)}>前移</Button>
               <span style={{ margin: '0 8px', color: '#595959' }}>{hotAlphaStartMonth} 至 {hotAlphaEndMonth}</span>
               <Button size="small" onClick={() => shiftHotAlphaWindow(1)}>后移</Button>
