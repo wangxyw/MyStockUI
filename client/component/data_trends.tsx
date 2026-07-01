@@ -35,6 +35,12 @@ interface HotAlphaSectorItem {
   feature_hits?: number;
   ha_hits?: number;
   primary_ha_hits?: number;
+  low_sample_hits?: number;
+  weak_history_hits?: number;
+  med_conf_hits?: number;
+  high_conf_hits?: number;
+  weak_relevance_hits?: number;
+  max_history_sample_n?: number | null;
 }
 
 interface HotAlphaStageItem {
@@ -52,6 +58,14 @@ interface HotAlphaStageItem {
     avg_rank: number;
     max_alert20: number;
     active_days: number;
+    feature_hits?: number;
+    primary_ha_hits?: number;
+    low_sample_hits?: number;
+    weak_history_hits?: number;
+    med_conf_hits?: number;
+    high_conf_hits?: number;
+    weak_relevance_hits?: number;
+    max_history_sample_n?: number | null;
   }>;
 }
 
@@ -655,6 +669,14 @@ const SimpleAlarmTrend: React.FC = () => {
 
   const renderHotAlphaStages = (stages?: HotAlphaStageItem[]) => {
     if (!stages || stages.length === 0) return null;
+    const renderQualityTag = (sector: HotAlphaStageItem['sectors'][number]) => {
+      if ((sector.weak_relevance_hits || 0) > 0) return <Tag color="red" style={{ marginRight: 0 }}>弱相关</Tag>;
+      if ((sector.low_sample_hits || 0) > 0) return <Tag color="default" style={{ marginRight: 0 }}>低样本</Tag>;
+      if ((sector.weak_history_hits || 0) > 0) return <Tag color="orange" style={{ marginRight: 0 }}>历史弱</Tag>;
+      if ((sector.med_conf_hits || 0) > 0) return <Tag color="blue" style={{ marginRight: 0 }}>中置信</Tag>;
+      if ((sector.high_conf_hits || 0) > 0) return <Tag color="green" style={{ marginRight: 0 }}>高置信</Tag>;
+      return null;
+    };
     return (
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, marginBottom: 12 }}>
         {stages.map((stage) => (
@@ -670,6 +692,13 @@ const SimpleAlarmTrend: React.FC = () => {
                     <Tag color={index < 3 ? 'volcano' : 'blue'} style={{ marginRight: 0 }}>#{index + 1}</Tag>
                     <span style={{ fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sector.sector_name}</span>
                   </div>
+                  {((sector.primary_ha_hits || 0) > 0 || (sector.weak_relevance_hits || 0) > 0) && (
+                    <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {(sector.primary_ha_hits || 0) > 0 && <Tag color="volcano" style={{ marginRight: 0 }}>HA {sector.primary_ha_hits}</Tag>}
+                      {renderQualityTag(sector)}
+                      {sector.max_history_sample_n != null && <Tag color="default" style={{ marginRight: 0 }}>样本 {sector.max_history_sample_n}</Tag>}
+                    </div>
+                  )}
                   <div style={{ marginTop: 4, color: '#8c8c8c', fontSize: 12, whiteSpace: 'nowrap' }}>
                     峰rank {sector.best_rank} ｜ em {Number(sector.peak_emerging_score).toFixed(1)} ｜ {sector.active_days}天
                   </div>

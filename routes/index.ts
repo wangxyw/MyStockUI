@@ -4120,29 +4120,57 @@ router.get('/hot_alpha_sector_trend', function (req, res, next) {
 
     const stageSql = `
       SELECT
-        DATE_FORMAT(datestr, '%Y-%m') AS stage_key,
-        MIN(DATE_FORMAT(datestr, '%Y-%m-%d')) AS start_date,
-        MAX(DATE_FORMAT(datestr, '%Y-%m-%d')) AS end_date,
-        sector_type,
-        sector_code,
-        SUBSTRING_INDEX(GROUP_CONCAT(sector_name ORDER BY sector_rank ASC, emerging_score DESC SEPARATOR '||'), '||', 1) AS sector_name,
-        ROUND(MAX(emerging_score), 2) AS peak_emerging_score,
-        ROUND(AVG(emerging_score), 2) AS avg_emerging_score,
-        ROUND(MAX(hot_score), 2) AS peak_hot_score,
-        MIN(sector_rank) AS best_rank,
-        ROUND(AVG(sector_rank), 1) AS avg_rank,
-        MAX(alert20) AS max_alert20,
-        COUNT(*) AS active_days
-      FROM sector_hot_daily
-      WHERE datestr >= ?
-        AND datestr <= ?
-        AND ${exclusionSql}
-        AND (${watchSql})
-      GROUP BY stage_key, sector_type, sector_code
+        DATE_FORMAT(shd.datestr, '%Y-%m') AS stage_key,
+        MIN(DATE_FORMAT(shd.datestr, '%Y-%m-%d')) AS start_date,
+        MAX(DATE_FORMAT(shd.datestr, '%Y-%m-%d')) AS end_date,
+        shd.sector_type,
+        shd.sector_code,
+        SUBSTRING_INDEX(GROUP_CONCAT(shd.sector_name ORDER BY shd.sector_rank ASC, shd.emerging_score DESC SEPARATOR '||'), '||', 1) AS sector_name,
+        ROUND(MAX(shd.emerging_score), 2) AS peak_emerging_score,
+        ROUND(AVG(shd.emerging_score), 2) AS avg_emerging_score,
+        ROUND(MAX(shd.hot_score), 2) AS peak_hot_score,
+        MIN(shd.sector_rank) AS best_rank,
+        ROUND(AVG(shd.sector_rank), 1) AS avg_rank,
+        MAX(shd.alert20) AS max_alert20,
+        COUNT(*) AS active_days,
+        COALESCE(MAX(afh.feature_hits), 0) AS feature_hits,
+        COALESCE(MAX(afh.primary_ha_hits), 0) AS primary_ha_hits,
+        COALESCE(MAX(afh.low_sample_hits), 0) AS low_sample_hits,
+        COALESCE(MAX(afh.weak_history_hits), 0) AS weak_history_hits,
+        COALESCE(MAX(afh.med_conf_hits), 0) AS med_conf_hits,
+        COALESCE(MAX(afh.high_conf_hits), 0) AS high_conf_hits,
+        COALESCE(MAX(afh.weak_relevance_hits), 0) AS weak_relevance_hits,
+        MAX(afh.max_history_sample_n) AS max_history_sample_n
+      FROM sector_hot_daily shd
+      LEFT JOIN (
+        SELECT
+          DATE_FORMAT(datestr, '%Y-%m') AS stage_key,
+          sector_type,
+          sector_code,
+          COUNT(*) AS feature_hits,
+          SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL THEN 1 ELSE 0 END) AS primary_ha_hits,
+          SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL AND history_quality = 'LOW_SAMPLE' THEN 1 ELSE 0 END) AS low_sample_hits,
+          SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL AND history_quality = 'WEAK_HISTORY' THEN 1 ELSE 0 END) AS weak_history_hits,
+          SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL AND history_quality = 'MED_CONF' THEN 1 ELSE 0 END) AS med_conf_hits,
+          SUM(CASE WHEN is_primary = 1 AND hot_alpha_layer IS NOT NULL AND history_quality = 'HIGH_CONF' THEN 1 ELSE 0 END) AS high_conf_hits,
+          SUM(CASE WHEN sector_relevance_quality = 'WEAK' THEN 1 ELSE 0 END) AS weak_relevance_hits,
+          MAX(history_sample_n) AS max_history_sample_n
+        FROM alert_sector_hot_features
+        WHERE datestr >= ?
+          AND datestr <= ?
+        GROUP BY stage_key, sector_type, sector_code
+      ) afh ON afh.stage_key = DATE_FORMAT(shd.datestr, '%Y-%m')
+        AND afh.sector_type = shd.sector_type
+        AND afh.sector_code = shd.sector_code
+      WHERE shd.datestr >= ?
+        AND shd.datestr <= ?
+        AND ${exclusionSql.replaceAll('sector_name', 'shd.sector_name')}
+        AND (${watchSql.replaceAll('sector_name', 'shd.sector_name')})
+      GROUP BY stage_key, shd.sector_type, shd.sector_code
     `;
 
     const loadStageRows = (callback: (stageRows: any[]) => void) => {
-      pool.query(stageSql, [trendStartDate, latestDate, ...exclusionParams, ...watchParams], function (stageErr, stageRows) {
+      pool.query(stageSql, [trendStartDate, latestDate, trendStartDate, latestDate, ...exclusionParams, ...watchParams], function (stageErr, stageRows) {
         if (stageErr) {
           console.error('hot_alpha_sector_trend stage error:', stageErr);
           return res.status(500).json({ error: stageErr.message });
