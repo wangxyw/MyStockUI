@@ -51,6 +51,9 @@ const round2 = (value: any) => Math.round(toNumber(value) * 100) / 100;
 const TRADE_STRATEGIES_CONFIG_PATH = './config/trade_strategies_production.json';
 let tradeStrategiesConfigCache: any = null;
 let tradeStrategiesConfigMtimeMs = 0;
+const HOT_ALPHA_FILTER_CONFIG_PATH = '/Users/xywang/mystockdata/config/hot_alpha_sector_filters.yml';
+let hotAlphaFilterConfigCache: any = null;
+let hotAlphaFilterConfigMtimeMs = 0;
 const betweenValue = (value: number, minValue: number, maxValue: number) =>
   value >= minValue && value <= maxValue;
 const shiftDate = (dateStr: string, days: number) => {
@@ -72,6 +75,18 @@ const formatDbDate = (value: any) => {
     return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
   }
   return String(value).slice(0, 10);
+};
+const loadHotAlphaFilterConfig = () => {
+  const stat = fs.statSync(HOT_ALPHA_FILTER_CONFIG_PATH);
+  if (!hotAlphaFilterConfigCache || hotAlphaFilterConfigMtimeMs !== stat.mtimeMs) {
+    hotAlphaFilterConfigCache = YAML.parse(fs.readFileSync(HOT_ALPHA_FILTER_CONFIG_PATH).toString()) || {};
+    hotAlphaFilterConfigMtimeMs = stat.mtimeMs;
+  }
+  return hotAlphaFilterConfigCache;
+};
+const hotAlphaFilterPatterns = (key: string) => {
+  const values = loadHotAlphaFilterConfig()[key] || [];
+  return Array.isArray(values) ? values.map((item: any) => String(item)).filter(Boolean) : [];
 };
 const parseCommentScoreStatus = (comments: any) => {
   const tagTexts = String(comments ?? '').match(/【[^】]+】/g)?.map((tag) => tag.slice(1, -1)) || [];
@@ -4083,20 +4098,11 @@ router.get('/hot_alpha_sector_trend', function (req, res, next) {
   const startDate = datePattern.test(requestedStartDate) ? requestedStartDate : '';
   const endDate = datePattern.test(requestedEndDate) ? requestedEndDate : '';
   const nonIndustryPatterns = [
-    '国资', '集团', '央企', '自贸区', '新区', '开发区', '示范区', '海峡西岸', '粤港澳',
-    '长三角', '京津冀', '雄安', '海南', '舟山', '横琴', '深圳', '上海', '北京',
-    '杭州', '成都', '重庆', '武汉', '西安', '福建', '广东', '江苏', '浙江', '山东',
-    '人民币', '贬值受益', '摘帽', '重组', '并购', '租售同权', '网红经济', '人造肉',
-  ];
-  const industryWatchPatterns = [
-    'CPO', '光通信', '光模块', '光芯片', '半导体', '芯片', 'CPU', 'MCU', 'ASIC',
-    'AI', '人工智能', '算力', '服务器', 'IDC', '数据中心', '液冷', 'PCB', '存储',
-    '机器人', '机器视觉', '寒武纪', '英伟达', '先进封装', 'HBM', '存储器',
+    ...hotAlphaFilterPatterns('generic_concept_patterns'),
+    ...hotAlphaFilterPatterns('non_industry_concept_patterns'),
   ];
   const exclusionSql = nonIndustryPatterns.map(() => 'sector_name NOT LIKE ?').join(' AND ');
   const exclusionParams = nonIndustryPatterns.map((pattern) => `%${pattern}%`);
-  const watchSql = industryWatchPatterns.map(() => 'sector_name LIKE ?').join(' OR ');
-  const watchParams = industryWatchPatterns.map((pattern) => `%${pattern}%`);
   const latestWhere: string[] = [];
   const latestParams: any[] = [];
   if (startDate) {
@@ -4165,12 +4171,11 @@ router.get('/hot_alpha_sector_trend', function (req, res, next) {
       WHERE shd.datestr >= ?
         AND shd.datestr <= ?
         AND ${exclusionSql.replaceAll('sector_name', 'shd.sector_name')}
-        AND (${watchSql.replaceAll('sector_name', 'shd.sector_name')})
       GROUP BY stage_key, shd.sector_type, shd.sector_code
     `;
 
     const loadStageRows = (callback: (stageRows: any[]) => void) => {
-      pool.query(stageSql, [trendStartDate, latestDate, trendStartDate, latestDate, ...exclusionParams, ...watchParams], function (stageErr, stageRows) {
+      pool.query(stageSql, [trendStartDate, latestDate, trendStartDate, latestDate, ...exclusionParams], function (stageErr, stageRows) {
         if (stageErr) {
           console.error('hot_alpha_sector_trend stage error:', stageErr);
           return res.status(500).json({ error: stageErr.message });
@@ -4281,7 +4286,6 @@ router.get('/hot_alpha_sector_trend', function (req, res, next) {
       `;
       sectorSelectParams = [latestDate, ...exclusionParams, top];
     } else {
-      const watchClause = mode === 'watchlist' ? `AND (${watchSql})` : '';
       sectorSql = `
         SELECT
           sector_type,
@@ -4296,14 +4300,11 @@ router.get('/hot_alpha_sector_trend', function (req, res, next) {
         WHERE datestr >= ?
           AND datestr <= ?
           AND ${exclusionSql}
-          ${watchClause}
         GROUP BY sector_type, sector_code
         ORDER BY MIN(sector_rank) ASC, MAX(emerging_score) DESC, MAX(hot_score) DESC
         LIMIT ?
       `;
-      sectorSelectParams = mode === 'watchlist'
-        ? [trendStartDate, latestDate, ...exclusionParams, ...watchParams, top]
-        : [trendStartDate, latestDate, ...exclusionParams, top];
+      sectorSelectParams = [trendStartDate, latestDate, ...exclusionParams, top];
     }
 
     pool.query(sectorSql, sectorSelectParams, function (topErr, latestRows) {

@@ -141,7 +141,7 @@ const SimpleAlarmTrend: React.FC = () => {
   const hotAlphaModeOptions = [
     { value: 'stage', label: '阶段热点' },
     { value: 'daily_top3', label: '每日Top3' },
-    { value: 'watchlist', label: '产业主线' },
+    { value: 'watchlist', label: '区间热点' },
     { value: 'peak', label: '区间峰值' },
     { value: 'latest', label: '结束日Top' },
   ];
