@@ -680,7 +680,7 @@ const renderComments = (comments?: string) => {
   const hotAlphaTags = tagTexts.filter((tag) => tag.startsWith('HA:'));
   const profitChipTags = tagTexts.filter((tag) => tag.startsWith('PC:'));
   const factorTags = tagTexts.filter((tag) =>
-    /^(C|T|P|R|E|M|DMI|MA|PA):/.test(tag)
+    /^(C|T|P|R|E|M|DMI|MA|PA|PAR):/.test(tag)
   );
   const riskTags = tagTexts.filter((tag) => tag.includes('风险'));
   const sortedRiskTags = [...riskTags].sort(
@@ -761,6 +761,9 @@ const renderComments = (comments?: string) => {
 const commentsWithAlertDecision = (alertDecision?: string, comments?: string) =>
   `${alertDecision ? `【${alertDecision}】` : ''}${comments || ''}`;
 
+const getPostAlertRiskTags = (comments?: string) =>
+  ((comments || '').match(/【后市风险:[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
+
 const formatPortraitDate = (value?: string) => {
   if (!value) return '';
   return String(value).split('T')[0];
@@ -835,9 +838,9 @@ const getCompressedState = (record: any) => {
 
 const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => {
   const state = getCompressedState(record);
-  const decision = record?.alert_decision;
-  const hotAlphaTags = getHotAlphaTagsFromComments(record?.comments);
-  const profitChipTags = getProfitChipTagsFromComments(record?.comments);
+  const decision =
+    record?.alert_decision ||
+    (record?.comments || '').match(/【((?:买|试|等|慎|避|跟踪)[:｜][^】]+)】/)?.[1];
   return (
     <div style={{ lineHeight: 1.7 }}>
       <div>
@@ -846,12 +849,6 @@ const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => 
           fontWeight: 800,
           fontSize: 17,
         })}
-        {hotAlphaTags.map((tag, index) =>
-          renderCommentTag(tag, `compressed-hot-alpha-${index}`, { fontWeight: 700 })
-        )}
-        {profitChipTags.map((tag, index) =>
-          renderCommentTag(tag, `compressed-profit-chip-${index}`, { fontWeight: 700 })
-        )}
         <Tag color={state.color} style={{ fontWeight: 700, fontSize: 15, lineHeight: '22px' }}>{state.label}</Tag>
       </div>
       <div style={{ color: '#666', fontSize: 13 }}>{state.desc}</div>
@@ -865,6 +862,7 @@ const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => 
 
 const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) => {
   const postGroup = getPostGroup(record?.post_alert_decision);
+  const postRiskTags = getPostAlertRiskTags(record?.post_alert_comments);
   const timingText = getPostEntryTimingText(record);
   const colorMap = {
     '优先接入': 'red',
@@ -887,6 +885,9 @@ const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) =>
   return (
     <div style={{ lineHeight: 1.7 }}>
       <Tag color={colorMap[postGroup]} style={{ fontWeight: 700 }}>{postGroup}</Tag>
+      {postRiskTags.map((tag, index) =>
+        renderCommentTag(tag, `compressed-post-risk-${index}`, { color: 'gold', fontWeight: 700 })
+      )}
       <span style={{ color: '#666', fontSize: 13 }}>{descMap[postGroup]}</span>
       <div style={{ color: '#333', fontSize: 13, fontWeight: postGroup === '优先接入' ? 700 : 500 }}>
         {timingText}
