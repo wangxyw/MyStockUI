@@ -811,8 +811,10 @@ const getCompressedState = (record: any) => {
   const postGroup = getPostGroup(record?.post_alert_decision);
   const tagTexts = (comments.match(/【[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
   const hotAlphaTags = getHotAlphaTagsFromComments(comments);
+  const profitChipTags = getProfitChipTagsFromComments(comments);
   const hasHotAlphaEm80 = hotAlphaTags.some((tag) => tag.startsWith('HA:em80'));
   const hasHotAlpha = hotAlphaTags.length > 0;
+  const hasProfitChipStrong = profitChipTags.some((tag) => tag.startsWith('PC:strong'));
   const statusTag = tagTexts.find((tag) => ['强信号', '观察', '无效'].includes(tag));
   const hasWarning = tagTexts.some((tag) => tag.includes('警戒:') || tag.includes('风险:'));
   const isPositive = /^(买|试|等|跟踪)[:｜]/.test(decision);
@@ -824,6 +826,7 @@ const getCompressedState = (record: any) => {
   if (postGroup === '确认跟踪' && ['强信号', '观察'].includes(statusTag || '')) return { label: '确认跟踪', color: 'red', desc: '后市已有确认信号，可继续跟踪主策略。' };
   if (hasHotAlphaEm80) return { label: '热点主线', color: 'magenta', desc: 'Hot Alpha em80 命中，说明该股已挂到高强度前瞻热点板块。' };
   if (hasHotAlpha) return { label: '热点增强', color: 'purple', desc: 'Hot Alpha em70q 命中，说明该股具备热点板块增强因子。' };
+  if (/^等[:｜]/.test(decision) && hasProfitChipStrong) return { label: '筹码强修复', color: 'volcano', desc: '等策略叠加 PC strong。成熟样本中收益中位和回撤控制均明显优于等策略基准，适合提高人工观察优先级。' };
   if (isPositive && hasWarning) return { label: '观察有风险', color: 'gold', desc: '主策略仍成立，但后台存在警戒；优先级低于优先观察。' };
   if (isPositive && ['强信号', '观察'].includes(statusTag || '')) return { label: '优先观察', color: 'red', desc: '主策略正向且无核心警戒，观察池内优先。' };
   if (isCautious) return { label: '谨慎观望', color: 'blue', desc: '主策略偏谨慎或无效，默认不做积极解读。' };
