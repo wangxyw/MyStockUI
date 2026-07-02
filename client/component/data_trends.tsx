@@ -539,7 +539,7 @@ const SimpleAlarmTrend: React.FC = () => {
     const latest = data?.latest || [];
     if (trends.length === 0 || latest.length === 0) return null;
 
-    const dates = Array.from(new Set(trends.map(item => item.datestr || '').filter(Boolean))).sort();
+    const dates = Array.from(new Set(trends.map(item => item.datestr || '').filter(Boolean))).sort((a, b) => b.localeCompare(a));
     if (data?.mode === 'daily_top3') {
       const rankMap = trends.reduce((acc, item) => {
         const rank = Number(item.daily_rank || 0);
@@ -679,7 +679,7 @@ const SimpleAlarmTrend: React.FC = () => {
     };
     return (
       <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, marginBottom: 12 }}>
-        {stages.map((stage) => (
+        {[...stages].sort((a, b) => b.stage_key.localeCompare(a.stage_key)).map((stage) => (
           <div key={stage.stage_key} style={{ flex: '0 0 285px', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 12px', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
               <span style={{ fontWeight: 700, color: '#262626' }}>{stage.stage_key}</span>
