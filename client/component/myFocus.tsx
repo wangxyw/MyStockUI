@@ -549,10 +549,26 @@ const parseHotAlphaTag = (tagText: string) => {
 const getHotAlphaTagsFromComments = (comments?: string) =>
   ((comments || '').match(/【HA:[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
 
+const parseProfitChipTag = (tagText: string) => {
+  if (!tagText.startsWith('PC:')) return null;
+  const [level = '', reason = '', code = ''] = tagText.slice(3).split(',');
+  return {
+    level,
+    reason: reason || '筹码异动',
+    code,
+  };
+};
+
+const getProfitChipTagsFromComments = (comments?: string) =>
+  ((comments || '').match(/【PC:[^】]+】/g) || []).map((tag) => tag.slice(1, -1));
+
 const getCommentTagColor = (tagText: string) => {
   if (tagText.startsWith('HA:em80')) return 'magenta';
   if (tagText.startsWith('HA:em70q')) return 'purple';
   if (tagText.startsWith('HA:')) return 'geekblue';
+  if (tagText.startsWith('PC:strong')) return 'volcano';
+  if (tagText.startsWith('PC:moderate')) return 'cyan';
+  if (tagText.startsWith('PC:')) return 'blue';
   if (tagText.includes('后市')) return getPostAlertTagColor(tagText);
   if (/^首次(D4D7|D60|D30|放弃|降权):/.test(tagText)) return getPostAlertTagColor(tagText);
   if (tagText.includes('序列确认:')) return 'red';
@@ -575,6 +591,12 @@ const formatCommentTagText = (tagText: string) => {
     const scoreText = hotAlpha.score ? `｜${hotAlpha.score}` : '';
     const rankText = hotAlpha.rank ? `｜#${hotAlpha.rank}` : '';
     return `热｜${hotAlpha.layer}｜${hotAlpha.sector}${scoreText}${rankText}`;
+  }
+  const profitChip = parseProfitChipTag(tagText);
+  if (profitChip) {
+    const levelText = profitChip.level === 'strong' ? '强' : profitChip.level === 'moderate' ? '稳' : profitChip.level;
+    const codeText = profitChip.code ? `｜${profitChip.code}` : '';
+    return `筹｜${levelText}｜${profitChip.reason}${codeText}`;
   }
   if (tagText.includes('后市画像:')) return tagText.replace('后市画像:', '后｜');
   if (tagText.startsWith('后市试:')) return tagText.replace('后市试:', '后试｜');
@@ -656,6 +678,7 @@ const renderComments = (comments?: string) => {
   );
   const decisionTag = tagTexts.find((tag) => /^(买|试|等|慎|避|跟踪)[:｜]/.test(tag));
   const hotAlphaTags = tagTexts.filter((tag) => tag.startsWith('HA:'));
+  const profitChipTags = tagTexts.filter((tag) => tag.startsWith('PC:'));
   const factorTags = tagTexts.filter((tag) =>
     /^(C|T|P|R|E|M|DMI|MA|PA):/.test(tag)
   );
@@ -670,13 +693,17 @@ const renderComments = (comments?: string) => {
       tag !== decisionTag &&
       !factorTags.includes(tag) &&
       !riskTags.includes(tag) &&
-      !hotAlphaTags.includes(tag)
+      !hotAlphaTags.includes(tag) &&
+      !profitChipTags.includes(tag)
   );
   const bestPickTag = decisionTag;
+  const leadingSignalTags = bestPickTag
+    ? signalTags
+    : [scoreTag, statusTag, ...signalTags].filter(Boolean) as string[];
 
   return (
     <div style={{ lineHeight: 1.6 }}>
-      {(bestPickTag || scoreTag || statusTag) && (
+      {bestPickTag && (
         <div>
         {bestPickTag &&
           renderCommentTag(bestPickTag, 'best-pick', {
@@ -705,12 +732,19 @@ const renderComments = (comments?: string) => {
           )}
         </div>
       )}
+      {profitChipTags.length > 0 && (
+        <div>
+          {profitChipTags.map((tag, index) =>
+            renderCommentTag(tag, `profit-chip-${index}`, { fontWeight: 700 })
+          )}
+        </div>
+      )}
       {riskTags.length > 0 && (
         <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
       )}
-      {signalTags.length > 0 && (
+      {leadingSignalTags.length > 0 && (
         <div>
-          {signalTags.map((tag, index) =>
+          {leadingSignalTags.map((tag, index) =>
             renderCommentTag(tag, `signal-${index}`)
           )}
         </div>
@@ -800,20 +834,25 @@ const renderCompressedPortrait = (record: any, rawComments: React.ReactNode) => 
   const state = getCompressedState(record);
   const decision = record?.alert_decision;
   const hotAlphaTags = getHotAlphaTagsFromComments(record?.comments);
+  const profitChipTags = getProfitChipTagsFromComments(record?.comments);
   return (
     <div style={{ lineHeight: 1.7 }}>
       <div>
         {decision && renderCommentTag(decision, 'compressed-decision', {
           color: getBestPickTagColor(decision),
-          fontWeight: 700,
+          fontWeight: 800,
+          fontSize: 17,
         })}
         {hotAlphaTags.map((tag, index) =>
           renderCommentTag(tag, `compressed-hot-alpha-${index}`, { fontWeight: 700 })
         )}
-        <Tag color={state.color} style={{ fontWeight: 700 }}>{state.label}</Tag>
+        {profitChipTags.map((tag, index) =>
+          renderCommentTag(tag, `compressed-profit-chip-${index}`, { fontWeight: 700 })
+        )}
+        <Tag color={state.color} style={{ fontWeight: 700, fontSize: 15, lineHeight: '22px' }}>{state.label}</Tag>
       </div>
       <div style={{ color: '#666', fontSize: 13 }}>{state.desc}</div>
-      <details style={{ marginTop: 4 }}>
+      <details open style={{ marginTop: 4 }}>
         <summary style={{ cursor: 'pointer', color: '#999' }}>原始画像标签</summary>
         <div style={{ marginTop: 4 }}>{rawComments}</div>
       </details>
@@ -849,7 +888,7 @@ const renderCompressedPostAlert = (record: any, rawComments: React.ReactNode) =>
       <div style={{ color: '#333', fontSize: 13, fontWeight: postGroup === '优先接入' ? 700 : 500 }}>
         {timingText}
       </div>
-      <details style={{ marginTop: 4 }}>
+      <details open style={{ marginTop: 4 }}>
         <summary style={{ cursor: 'pointer', color: '#999' }}>原始后市标签</summary>
         <div style={{ marginTop: 4 }}>{rawComments}</div>
       </details>
@@ -1183,7 +1222,7 @@ export const MyFocusListComponent = () => {
           record,
           renderCompressedPortrait(
             record,
-            renderComments(commentsWithAlertDecision(record?.alert_decision, text))
+            renderComments(text)
           )
         ),
     },
