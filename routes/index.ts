@@ -421,6 +421,35 @@ const applyRecord1NegativeGoodObserveDecision = (decisionTag: string | null, sco
   return decisionTag;
 };
 
+const applyRecord1SmallActiveObserveDecision = (decisionTag: string | null, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (decisionText && !decisionText.startsWith('慎:') && !decisionText.startsWith('避:')) return decisionTag;
+
+  const alertDate = details?.alert_date ? String(details.alert_date) : '';
+  if (alertDate.startsWith('2025-04')) return decisionTag;
+
+  const marketValue = details?.market_value === null || details?.market_value === undefined
+    ? null
+    : Number(details.market_value);
+  const dayTurn = details?.day_turnoverrate === null || details?.day_turnoverrate === undefined
+    ? null
+    : Number(details.day_turnoverrate);
+  const marketEnv = details?.market_env || {};
+  const marketTemp = String(marketEnv.temp || '');
+  const marketBreadth = String(marketEnv.alarm_dir || '');
+  const neutralMarket =
+    marketBreadth !== '报缩' &&
+    !marketTemp.includes('极冷') &&
+    !marketTemp.includes('热偏弱') &&
+    !(marketTemp === '热' && marketBreadth === '报扩');
+  const smallActiveWarmOrNeutral =
+    marketValue !== null && marketValue < 30 &&
+    dayTurn !== null && dayTurn >= 3 && dayTurn < 7 &&
+    (marketTemp === '温' || neutralMarket);
+
+  return smallActiveWarmOrNeutral ? '【等:小盘活跃修复观察】' : decisionTag;
+};
+
 const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any) => {
   const statusText = stripBrackets(statusTag);
   const tagText = tagTextOf(tags);
@@ -1072,7 +1101,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   const safeDate = sqlEscape(datestr);
 
   const commonRows: any = await queryDB(`
-    SELECT symbol, name, datestr, finalprice, marketvalue, profit_chip
+    SELECT symbol, name, datestr, finalprice, marketvalue, profit_chip, turnoverrate
     FROM stock_day_common_data
     WHERE symbol LIKE '%${symbolLike}%'
       AND datestr <= '${safeDate}'
@@ -1504,6 +1533,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     max_drop_20: maxDrop20 === null ? null : round2(maxDrop20),
     ma20_slope_5: ma20Slope5 === null ? null : round2(ma20Slope5),
     profit_change_5: profitChange5 === null ? null : round2(profitChange5),
+    market_value: common?.marketvalue === null || common?.marketvalue === undefined ? null : round2(toNumber(common.marketvalue)),
+    day_turnoverrate: common?.turnoverrate === null || common?.turnoverrate === undefined ? null : round2(toNumber(common.turnoverrate)),
+    alert_date: actualDate,
     raw_score: rawScore,
     risk_penalty: riskPenalty,
     pre_score: round2(preScore),
@@ -1538,15 +1570,18 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
   const decisionTag = applyRecord1PositiveLimitedWaitDecision(
-    applyRecord1NegativeGoodObserveDecision(
-      applyRecord1TrackingDecision(
-        applyRecord1MarketRiskDecision(
-          applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+    applyRecord1SmallActiveObserveDecision(
+      applyRecord1NegativeGoodObserveDecision(
+        applyRecord1TrackingDecision(
+          applyRecord1MarketRiskDecision(
+            applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+            details
+          ),
           details
         ),
+        score,
         details
       ),
-      score,
       details
     ),
     score,
@@ -1570,7 +1605,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_34',
+    model: 'record1_v12_35',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
