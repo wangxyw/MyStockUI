@@ -725,22 +725,16 @@ const renderComments = (comments?: string) => {
         {statusTag && renderCommentTag(statusTag, 'status', { fontWeight: 600 })}
         </div>
       )}
-      {hotAlphaTags.length > 0 && (
+      {(hotAlphaTags.length > 0 || profitChipTags.length > 0 || riskTags.length > 0) && (
         <div>
           {hotAlphaTags.map((tag, index) =>
             renderCommentTag(tag, `hot-alpha-${index}`, { fontWeight: 700 })
           )}
-        </div>
-      )}
-      {profitChipTags.length > 0 && (
-        <div>
           {profitChipTags.map((tag, index) =>
             renderCommentTag(tag, `profit-chip-${index}`, { fontWeight: 700 })
           )}
+          {sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}
         </div>
-      )}
-      {riskTags.length > 0 && (
-        <div>{sortedRiskTags.map((tag, index) => renderCommentTag(tag, `risk-${index}`))}</div>
       )}
       {leadingSignalTags.length > 0 && (
         <div>
