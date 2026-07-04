@@ -450,6 +450,26 @@ const applyRecord1SmallActiveObserveDecision = (decisionTag: string | null, deta
   return smallActiveWarmOrNeutral ? '【等:小盘活跃修复观察】' : decisionTag;
 };
 
+const applyRecord1SequenceMidRepairDecision = (decisionTag: string | null, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (decisionText !== '慎:低分序列警戒' && decisionText !== '慎:序列警戒') return decisionTag;
+
+  const pricePos60 = details?.price_pos_60 === null || details?.price_pos_60 === undefined
+    ? null
+    : Number(details.price_pos_60);
+  const profitChipDay0 = details?.profit_chip_day0 === null || details?.profit_chip_day0 === undefined
+    ? null
+    : Number(details.profit_chip_day0);
+  const marketEnv = details?.market_env || {};
+  const midPosition = pricePos60 !== null && pricePos60 >= 20 && pricePos60 < 50;
+  const midProfitChip = profitChipDay0 !== null && profitChipDay0 >= 5 && profitChipDay0 < 10;
+  const breadthExpand = marketEnv.alarm_dir === '报扩';
+
+  return midPosition && (midProfitChip || breadthExpand)
+    ? '【等:序列中位修复观察】'
+    : decisionTag;
+};
+
 const tradeDecisionTagRecord2 = (statusTag: string, tags: string[], details: any) => {
   const statusText = stripBrackets(statusTag);
   const tagText = tagTextOf(tags);
@@ -1570,16 +1590,19 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
   const decisionTag = applyRecord1PositiveLimitedWaitDecision(
-    applyRecord1SmallActiveObserveDecision(
-      applyRecord1NegativeGoodObserveDecision(
-        applyRecord1TrackingDecision(
-          applyRecord1MarketRiskDecision(
-            applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+    applyRecord1SequenceMidRepairDecision(
+      applyRecord1SmallActiveObserveDecision(
+        applyRecord1NegativeGoodObserveDecision(
+          applyRecord1TrackingDecision(
+            applyRecord1MarketRiskDecision(
+              applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+              details
+            ),
             details
           ),
+          score,
           details
         ),
-        score,
         details
       ),
       details
@@ -1605,7 +1628,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_35',
+    model: 'record1_v12_36',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,

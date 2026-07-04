@@ -932,6 +932,7 @@ const isRecord1ValidatedObserveCandidate = (record: any) => {
     decision.startsWith('等｜中分低换') ||
     decision.startsWith('等｜高换高位弹性') ||
     decision.startsWith('等｜小盘活跃修复') ||
+    decision.startsWith('等｜序列中位修复') ||
     decision.startsWith('等｜缩量低换')
   );
 };
