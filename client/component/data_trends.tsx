@@ -421,7 +421,13 @@ const SimpleAlarmTrend: React.FC = () => {
           </div>
         </div>
         <div style={{ marginTop: 6, fontSize: 12, color: '#595959' }}>
-          当前 {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 热 days: {stats.hotDays} ｜ 允许进攻 days: {stats.attackDays} ｜ 坏窗口 days: {stats.badDays}
+          当前 {latest?.datestr || '-'} ｜ M {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 策略窗口: {detectorStatus.title}
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, color: '#595959' }}>
+          近{latest?.trail_days || 20}天样本 {latest?.trail_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.trail_low_pos_pct)} ｜ 负面 {fmtPct(latest?.trail_negative_pct)} ｜ 报扩 {fmtPct(latest?.trail_m_expand_pct)}
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, color: '#8c8c8c' }}>
+          区间统计：热 days {stats.hotDays} ｜ 允许进攻 days {stats.attackDays} ｜ 历史坏窗口 days {stats.badDays}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
@@ -975,7 +981,7 @@ const SimpleAlarmTrend: React.FC = () => {
             {mTempR1.length > 0 ? (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
-                  中小盘(Record1) M 趋势：红色背景为“允许进攻窗口”
+                  中小盘(Record1) M 趋势：背景=市场窗口，散点=策略窗口
                 </div>
                 <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
@@ -987,7 +993,7 @@ const SimpleAlarmTrend: React.FC = () => {
             {mTempR2.length > 0 ? (
               <div>
                 <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
-                  中大盘(Record2) M 趋势：红色背景为“允许进攻窗口”
+                  中大盘(Record2) M 趋势：背景=市场窗口，散点=策略窗口
                 </div>
                 <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
