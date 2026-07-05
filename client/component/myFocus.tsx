@@ -913,6 +913,8 @@ const isRecord1MainStrategyCandidate = (record: any) => {
     decision.startsWith('买｜低位修复') ||
     decision.startsWith('试｜急跌修复') ||
     decision.startsWith('试｜低分修复') ||
+    decision.startsWith('试｜高活跃等候') ||
+    decision.startsWith('试｜高活跃报扩') ||
     decision.startsWith('跟踪｜热市修复') ||
     decision.startsWith('跟踪｜热市低位修复') ||
     decision.startsWith('跟踪｜转折型')
