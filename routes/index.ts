@@ -397,6 +397,30 @@ const applyRecord1PositiveLimitedWaitDecision = (decisionTag: string | null, sco
   return decisionTag;
 };
 
+const applyRecord1ShrinkLowMehotDeepRiskDecision = (decisionTag: string | null, details: any = {}) => {
+  const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
+  if (!decisionText.startsWith('等:')) return decisionTag;
+
+  const c0 = details?.conc_70 === null || details?.conc_70 === undefined
+    ? null
+    : Number(details.conc_70);
+  const rDd = details?.drawdown_from_60_high === null || details?.drawdown_from_60_high === undefined
+    ? null
+    : Number(details.drawdown_from_60_high);
+  const marketEnv = details?.market_env || {};
+  const meHotish = details?.market_exposure?.hotish_ratio_60 === null || details?.market_exposure?.hotish_ratio_60 === undefined
+    ? null
+    : Number(details.market_exposure.hotish_ratio_60);
+
+  const matched =
+    marketEnv.alarm_dir === '报缩' &&
+    meHotish !== null && meHotish < 20 &&
+    c0 !== null && c0 < 10 &&
+    rDd !== null && rDd < -25;
+
+  return matched ? '【慎:报缩低ME低C深回撤】' : decisionTag;
+};
+
 const applyRecord1NegativeGoodObserveDecision = (decisionTag: string | null, score: number, details: any = {}) => {
   const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
   if (decisionText && !decisionText.startsWith('慎:') && !decisionText.startsWith('避:')) return decisionTag;
@@ -1589,25 +1613,28 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   (details as any).market_env = marketEnv;
   (details as any).market_exposure = marketExposure;
   const baseDecisionTag = tradeDecisionTagRecord1(score, statusTag, tags, details);
-  const decisionTag = applyRecord1PositiveLimitedWaitDecision(
-    applyRecord1SequenceMidRepairDecision(
-      applyRecord1SmallActiveObserveDecision(
-        applyRecord1NegativeGoodObserveDecision(
-          applyRecord1TrackingDecision(
-            applyRecord1MarketRiskDecision(
-              applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+  const decisionTag = applyRecord1ShrinkLowMehotDeepRiskDecision(
+    applyRecord1PositiveLimitedWaitDecision(
+      applyRecord1SequenceMidRepairDecision(
+        applyRecord1SmallActiveObserveDecision(
+          applyRecord1NegativeGoodObserveDecision(
+            applyRecord1TrackingDecision(
+              applyRecord1MarketRiskDecision(
+                applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+                details
+              ),
               details
             ),
+            score,
             details
           ),
-          score,
           details
         ),
         details
       ),
+      score,
       details
     ),
-    score,
     details
   );
   const comments = [
@@ -1628,7 +1655,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_36',
+    model: 'record1_v12_38',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
