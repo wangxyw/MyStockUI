@@ -474,6 +474,17 @@ const applyRecord1SmallActiveObserveDecision = (decisionTag: string | null, deta
   return smallActiveWarmOrNeutral ? '【等:小盘活跃修复观察】' : decisionTag;
 };
 
+const applyRecord1AlertDayRangeObserveDecision = (decisionTag: string | null, details: any = {}) => {
+  if (decisionTag) return decisionTag;
+  const prior20Ret = details?.prior20_ret === null || details?.prior20_ret === undefined ? null : Number(details.prior20_ret);
+  const rangePct = details?.alert_day_range_pct === null || details?.alert_day_range_pct === undefined ? null : Number(details.alert_day_range_pct);
+  const closeLoc = details?.alert_day_close_loc === null || details?.alert_day_close_loc === undefined ? null : Number(details.alert_day_close_loc);
+  if (prior20Ret === null || rangePct === null || closeLoc === null) return decisionTag;
+  return prior20Ret > -5 && prior20Ret < 10 && rangePct < 5 && closeLoc <= 0.25
+    ? '【等:窄幅弱收修复观察】'
+    : decisionTag;
+};
+
 const applyRecord1SequenceMidRepairDecision = (decisionTag: string | null, details: any = {}) => {
   const decisionText = decisionTag ? stripBrackets(decisionTag) : '';
   if (decisionText !== '慎:低分序列警戒' && decisionText !== '慎:序列警戒') return decisionTag;
@@ -1144,6 +1155,21 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
     const base = closes[closes.length - count];
     return base > 0 ? (latestClose / base - 1) * 100 : null;
   };
+  const latestRow = rows[rows.length - 1];
+  const alertDayHigh = toNumber(latestRow?.day_max_price, NaN);
+  const alertDayLow = toNumber(latestRow?.day_min_price, NaN);
+  const alertDayChange = latestRow?.pricechange === null || latestRow?.pricechange === undefined
+    ? null
+    : toNumber(latestRow.pricechange);
+  const alertDayPrevClose = alertDayChange === null
+    ? (closes.length >= 2 ? closes[closes.length - 2] : null)
+    : latestClose - alertDayChange;
+  const validAlertDayRange =
+    alertDayPrevClose !== null && alertDayPrevClose > 0 &&
+    Number.isFinite(alertDayHigh) && Number.isFinite(alertDayLow) && alertDayHigh > alertDayLow;
+  const prior20Ret = rows.length >= 21 && closes[closes.length - 21] > 0
+    ? (closes[closes.length - 2] / closes[closes.length - 21] - 1) * 100
+    : null;
 
   return {
     price_pos_60: pricePos60,
@@ -1162,6 +1188,9 @@ const calcRecord1PriceVolumeStats = (rowsDesc: any[]) => {
     ret_5: rows.length >= 5 ? ret(5) : null,
     ret_10: rows.length >= 10 ? ret(10) : null,
     ret_20: rows.length >= 20 ? ret(20) : null,
+    prior20_ret: prior20Ret,
+    alert_day_range_pct: validAlertDayRange ? ((alertDayHigh - alertDayLow) / (alertDayPrevClose as number)) * 100 : null,
+    alert_day_close_loc: validAlertDayRange ? (latestClose - alertDayLow) / (alertDayHigh - alertDayLow) : null,
     vol_10: vol10 === null ? null : vol10 * Math.sqrt(252),
     vol_20: vol20 === null ? null : vol20 * Math.sqrt(252),
     vol_60: vol60 === null ? null : vol60 * Math.sqrt(252),
@@ -1268,7 +1297,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   `);
 
   const stockDayRows: any = await queryDB(`
-    SELECT datestr, finalprice, pricechangepct, totaltradevalue, totaltradevol,
+    SELECT datestr, finalprice, pricechange, pricechangepct, totaltradevalue, totaltradevol,
            turnoverrate, day_max_price, day_min_price, profit_chip, marketvalue
     FROM stock_day_common_data
     WHERE symbol = '${safeSymbol}'
@@ -1600,6 +1629,9 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
     ret_3: priceVolumeStats?.ret_3 === null || priceVolumeStats?.ret_3 === undefined ? null : round2(priceVolumeStats.ret_3),
     ret_10: ret10 === null ? null : round2(ret10),
     ret_20: ret20 === null ? null : round2(ret20),
+    prior20_ret: priceVolumeStats?.prior20_ret === null || priceVolumeStats?.prior20_ret === undefined ? null : round2(priceVolumeStats.prior20_ret),
+    alert_day_range_pct: priceVolumeStats?.alert_day_range_pct === null || priceVolumeStats?.alert_day_range_pct === undefined ? null : round2(priceVolumeStats.alert_day_range_pct),
+    alert_day_close_loc: priceVolumeStats?.alert_day_close_loc === null || priceVolumeStats?.alert_day_close_loc === undefined ? null : round2(priceVolumeStats.alert_day_close_loc),
     vol_10: vol10 === null ? null : round2(vol10),
     vol_20: vol20 === null ? null : round2(vol20),
     vol_60: vol60 === null ? null : round2(vol60),
@@ -1656,7 +1688,10 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
           applyRecord1NegativeGoodObserveDecision(
             applyRecord1TrackingDecision(
               applyRecord1MarketRiskDecision(
-                applyRecord1LowRepairWeakEnvironmentDecision(baseDecisionTag, details),
+                applyRecord1LowRepairWeakEnvironmentDecision(
+                  applyRecord1AlertDayRangeObserveDecision(baseDecisionTag, details),
+                  details
+                ),
                 details
               ),
               details
@@ -1691,7 +1726,7 @@ const buildRecord1Portrait = async (symbolInput: string, datestr: string, modelM
   return {
     symbol,
     name: common.name,
-    model: 'record1_v12_39',
+    model: 'record1_v12_40',
     ...modelMeta,
     query_datestr: datestr,
     datestr: actualDate,
