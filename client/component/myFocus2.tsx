@@ -491,11 +491,9 @@ const isRecord2MainStrategyCandidate = (record: any) => {
   return (
     decision.startsWith('买｜高弹强主') ||
     decision.startsWith('试｜承接修复') ||
-    decision.startsWith('试｜回撤修复') ||
     decision.startsWith('试｜小盘低活跃深修') ||
     decision.startsWith('跟踪｜热市深跌修复') ||
-    decision.startsWith('跟踪｜集中修复') ||
-    decision.startsWith('跟踪｜低分高集中修复')
+    decision.startsWith('跟踪｜集中修复')
   );
 };
 
