@@ -807,63 +807,99 @@ const parsedMarketRow = (row: any) => {
   };
 };
 
+const pctNum = (numerator: number, denominator: number) => denominator ? (100 * numerator) / denominator : 0;
+
+const calcWindowStats = (parsedRows: any[], datestr: string, trailDays: number) => {
+  const start = shiftDate(datestr, -trailDays);
+  const selected = parsedRows.filter((item: any) => item.datestr >= start && item.datestr <= datestr);
+  const n = selected.length;
+  const neutralPct = pctNum(selected.filter((item: any) => item.regime === 'neutral').length, n);
+  const weakPct = pctNum(selected.filter((item: any) => item.regime === 'weak_contract').length, n);
+  const hotPct = pctNum(selected.filter((item: any) => item.regime === 'hot_expand').length, n);
+  const contractPct = pctNum(selected.filter((item: any) => item.m_breadth === '报缩').length, n);
+  const expandPct = pctNum(selected.filter((item: any) => item.m_breadth === '报扩').length, n);
+  const negativePct = pctNum(selected.filter((item: any) => item.negative).length, n);
+  const lowPct = pctNum(selected.filter((item: any) => item.low_pos).length, n);
+  const hotishAvg = avg(selected.map((item: any) => item.me_hotish60).filter((value: any) => value !== null && value !== undefined));
+
+  return {
+    days: trailDays,
+    n,
+    neutralPct,
+    weakPct,
+    hotPct,
+    contractPct,
+    expandPct,
+    negativePct,
+    lowPct,
+    hotishAvg,
+  };
+};
+
+const detectMarketWindow = (stats: any) => {
+  let windowSignal = 'NEUTRAL_WAIT';
+  let windowTitle = '中性观察';
+  let windowDesc = '未触发明确坏窗口或好窗口，按策略自身条件判断。';
+  if (
+    (stats.lowPct >= 70 && stats.negativePct >= 88) ||
+    (stats.weakPct >= 55 && stats.contractPct >= 45 && stats.negativePct >= 90) ||
+    (stats.neutralPct >= 75 && stats.lowPct >= 50 && stats.negativePct >= 85 && toNumber(stats.hotishAvg) <= 2)
+  ) {
+    windowSignal = 'BAD_GUARD';
+    windowTitle = '坏窗口暂缓';
+    windowDesc = '低位拥挤或负面标签密集，历史回放中深回撤/PB10/B层策略 SL 显著升高。';
+  } else if (
+    (stats.hotPct >= 45 && stats.expandPct >= 70 && stats.lowPct <= 62) ||
+    (stats.expandPct >= 80 && stats.lowPct <= 60 && stats.negativePct <= 82)
+  ) {
+    windowSignal = 'GOOD_ALLOW';
+    windowTitle = '好窗口观察';
+    windowDesc = '扩散强且低位拥挤不高，可作为策略族放行/加权观察，不单独生成买入。';
+  }
+  return { windowSignal, windowTitle, windowDesc };
+};
+
 const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 20) => {
   const parsedRows = (focusRows || []).map(parsedMarketRow);
   return (trendRows || []).map((row: any) => {
     const datestr = formatDbDate(row.datestr);
-    const start = shiftDate(datestr, -trailDays);
-    const selected = parsedRows.filter((item: any) => item.datestr >= start && item.datestr <= datestr);
-    const n = selected.length;
-    const neutralPct = pctNum(selected.filter((item: any) => item.regime === 'neutral').length, n);
-    const weakPct = pctNum(selected.filter((item: any) => item.regime === 'weak_contract').length, n);
-    const hotPct = pctNum(selected.filter((item: any) => item.regime === 'hot_expand').length, n);
-    const contractPct = pctNum(selected.filter((item: any) => item.m_breadth === '报缩').length, n);
-    const expandPct = pctNum(selected.filter((item: any) => item.m_breadth === '报扩').length, n);
-    const negativePct = pctNum(selected.filter((item: any) => item.negative).length, n);
-    const lowPct = pctNum(selected.filter((item: any) => item.low_pos).length, n);
-    const hotishAvg = avg(selected.map((item: any) => item.me_hotish60).filter((value: any) => value !== null && value !== undefined));
-
-    let windowSignal = 'NEUTRAL_WAIT';
-    let windowTitle = '中性观察';
-    let windowDesc = '未触发明确坏窗口或好窗口，按策略自身条件判断。';
-    if (
-      (lowPct >= 70 && negativePct >= 88) ||
-      (weakPct >= 55 && contractPct >= 45 && negativePct >= 90) ||
-      (neutralPct >= 75 && lowPct >= 50 && negativePct >= 85 && toNumber(hotishAvg) <= 2)
-    ) {
-      windowSignal = 'BAD_GUARD';
-      windowTitle = '坏窗口暂缓';
-      windowDesc = '低位拥挤或负面标签密集，历史回放中深回撤/PB10/B层策略 SL 显著升高。';
-    } else if (
-      (hotPct >= 45 && expandPct >= 70 && lowPct <= 62) ||
-      (expandPct >= 80 && lowPct <= 60 && negativePct <= 82)
-    ) {
-      windowSignal = 'GOOD_ALLOW';
-      windowTitle = '好窗口观察';
-      windowDesc = '扩散强且低位拥挤不高，可作为策略族放行/加权观察，不单独生成买入。';
-    }
+    const trailStats = calcWindowStats(parsedRows, datestr, trailDays);
+    const shortStats = calcWindowStats(parsedRows, datestr, 5);
+    const trailWindow = detectMarketWindow(trailStats);
+    const shortWindow = detectMarketWindow(shortStats);
 
     return {
       ...row,
       datestr,
-      window_signal: windowSignal,
-      window_title: windowTitle,
-      window_desc: windowDesc,
+      window_signal: trailWindow.windowSignal,
+      window_title: trailWindow.windowTitle,
+      window_desc: trailWindow.windowDesc,
       trail_days: trailDays,
-      trail_signal_n: n,
-      trail_neutral_pct: round2(neutralPct),
-      trail_weak_contract_pct: round2(weakPct),
-      trail_hot_expand_pct: round2(hotPct),
-      trail_m_contract_pct: round2(contractPct),
-      trail_m_expand_pct: round2(expandPct),
-      trail_negative_pct: round2(negativePct),
-      trail_low_pos_pct: round2(lowPct),
-      trail_avg_me_hotish60: hotishAvg === null ? null : round2(hotishAvg),
+      trail_signal_n: trailStats.n,
+      trail_neutral_pct: round2(trailStats.neutralPct),
+      trail_weak_contract_pct: round2(trailStats.weakPct),
+      trail_hot_expand_pct: round2(trailStats.hotPct),
+      trail_m_contract_pct: round2(trailStats.contractPct),
+      trail_m_expand_pct: round2(trailStats.expandPct),
+      trail_negative_pct: round2(trailStats.negativePct),
+      trail_low_pos_pct: round2(trailStats.lowPct),
+      trail_avg_me_hotish60: trailStats.hotishAvg === null ? null : round2(trailStats.hotishAvg),
+      short_days: shortStats.days,
+      short_signal_n: shortStats.n,
+      short_window_signal: shortWindow.windowSignal,
+      short_window_title: shortWindow.windowTitle,
+      short_window_desc: shortWindow.windowDesc,
+      short_neutral_pct: round2(shortStats.neutralPct),
+      short_weak_contract_pct: round2(shortStats.weakPct),
+      short_hot_expand_pct: round2(shortStats.hotPct),
+      short_m_contract_pct: round2(shortStats.contractPct),
+      short_m_expand_pct: round2(shortStats.expandPct),
+      short_negative_pct: round2(shortStats.negativePct),
+      short_low_pos_pct: round2(shortStats.lowPct),
+      short_avg_me_hotish60: shortStats.hotishAvg === null ? null : round2(shortStats.hotishAvg),
     };
   });
 };
-
-const pctNum = (numerator: number, denominator: number) => denominator ? (100 * numerator) / denominator : 0;
 
 const loadMarketWindowSnapshot = async (
   recordType: 'record1' | 'record2',
