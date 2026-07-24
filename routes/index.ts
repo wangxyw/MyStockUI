@@ -782,6 +782,72 @@ const parseMValues = (comments: any) => {
   return match[1].split(',').map((value) => String(value ?? '').trim());
 };
 
+const buildCanonicalMTrendRows = (
+  legacyRows: any[],
+  focusRows: any[],
+  recordType: 'record1' | 'record2'
+) => {
+  const legacyByDate = new Map<string, any>();
+  (legacyRows || []).forEach((row: any) => {
+    const datestr = formatDbDate(row.datestr);
+    if (!datestr) return;
+    legacyByDate.set(datestr, { ...row, datestr });
+  });
+
+  const commentsMByDate = new Map<string, { count: number; tags: Map<string, any> }>();
+  (focusRows || []).forEach((row: any) => {
+    const datestr = formatDbDate(row.datestr);
+    if (!datestr) return;
+    const entry = commentsMByDate.get(datestr) || { count: 0, tags: new Map<string, any>() };
+    entry.count += 1;
+    const m = parseMValues(row.comments);
+    const rawVol = String(m[0] ?? '').trim();
+    const vol = rawVol ? Number(rawVol) : Number.NaN;
+    const temp = String(m[1] || '');
+    const alarmDir = String(m[2] || '');
+    if (Number.isFinite(vol) && temp && alarmDir) {
+      const key = `${vol}|${temp}|${alarmDir}`;
+      entry.tags.set(key, { vol, temp, alarmDir });
+    }
+    commentsMByDate.set(datestr, entry);
+  });
+
+  const dates = Array.from(new Set([
+    ...Array.from(legacyByDate.keys()),
+    ...Array.from(commentsMByDate.keys()),
+  ])).sort();
+  const commentsMetric = recordType === 'record2' ? 'vol20' : 'vol10';
+
+  return dates.map((datestr: string) => {
+    const legacy = legacyByDate.get(datestr);
+    const commentsEntry = commentsMByDate.get(datestr);
+    const uniqueTags = commentsEntry ? Array.from(commentsEntry.tags.values()) : [];
+    const commentsTag: any = uniqueTags.length === 1 ? uniqueTags[0] : null;
+    const mVolMed = commentsTag ? commentsTag.vol : toNumber(legacy?.vol10_med);
+    const mTempLabel = commentsTag ? commentsTag.temp : String(legacy?.temp_label || '');
+    const mAlarmDir = commentsTag ? commentsTag.alarmDir : String(legacy?.alarm_dir || '');
+    if (!Number.isFinite(mVolMed) || !mTempLabel || !mAlarmDir) return null;
+
+    return {
+      ...(legacy || {}),
+      datestr,
+      vol10_med: legacy?.vol10_med ?? null,
+      temp_label: legacy?.temp_label ?? null,
+      alarm_dir: legacy?.alarm_dir ?? null,
+      legacy_vol10_med: legacy?.vol10_med ?? null,
+      legacy_temp_label: legacy?.temp_label ?? null,
+      legacy_alarm_dir: legacy?.alarm_dir ?? null,
+      m_vol_med: round2(mVolMed),
+      m_vol_metric: commentsTag ? commentsMetric : 'legacy_vol10',
+      m_temp_label: mTempLabel,
+      m_alarm_dir: mAlarmDir,
+      m_source: commentsTag ? 'comments_m' : (uniqueTags.length > 1 ? 'legacy_conflict' : 'legacy_fallback'),
+      m_tag_unique_n: uniqueTags.length,
+      alarm_count: commentsTag ? commentsEntry?.count : toNumber(legacy?.alarm_count),
+    };
+  }).filter(Boolean);
+};
+
 const parseFactorValues = (comments: any, key: string) => {
   const match = String(comments ?? '').match(new RegExp(`【${key}:([^】]+)】`));
   if (!match) return [];
@@ -820,8 +886,16 @@ const parsedMarketRow = (row: any) => {
 
 const pctNum = (numerator: number, denominator: number) => denominator ? (100 * numerator) / denominator : 0;
 
+const shiftMarketWindowDate = (dateStr: string, days: number) => {
+  const [year, month, day] = String(dateStr || '').slice(0, 10).split('-').map(Number);
+  if (![year, month, day].every(Number.isFinite)) return '';
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
 const calcWindowStats = (parsedRows: any[], datestr: string, trailDays: number) => {
-  const start = shiftDate(datestr, -trailDays);
+  const start = shiftMarketWindowDate(datestr, -trailDays);
   const selected = parsedRows.filter((item: any) => item.datestr >= start && item.datestr <= datestr);
   const n = selected.length;
   const neutralPct = pctNum(selected.filter((item: any) => item.regime === 'neutral').length, n);
@@ -921,20 +995,21 @@ const loadMarketWindowSnapshot = async (
     SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count
     FROM daily_m
     WHERE record_type = '${sqlEscape(recordType)}'
+      AND datestr >= '${sqlEscape(shiftMarketWindowDate(targetDate, -40))}'
       AND datestr <= '${sqlEscape(targetDate)}'
-    ORDER BY datestr DESC
-    LIMIT 1
+    ORDER BY datestr
   `);
-  if (!mRows || !mRows.length) return null;
-  const mRow = { ...mRows[0], datestr: formatDbDate(mRows[0].datestr) };
   const focusRows: any = await queryDB(`
     SELECT datestr, comments
     FROM ${focusTable}
-    WHERE datestr >= '${sqlEscape(shiftDate(mRow.datestr, -20))}'
-      AND datestr <= '${sqlEscape(mRow.datestr)}'
+    WHERE datestr >= '${sqlEscape(shiftMarketWindowDate(targetDate, -40))}'
+      AND datestr <= '${sqlEscape(targetDate)}'
       AND comments LIKE '%【M:%'
     ORDER BY datestr
   `);
+  const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType);
+  const mRow = canonicalRows.filter((row: any) => row.datestr <= formatDbDate(targetDate)).pop();
+  if (!mRow) return null;
   return calcWindowDetectorRows([mRow], focusRows || [], 20)[0] || null;
 };
 
@@ -948,23 +1023,23 @@ const loadMarketWindowSeries = async (
     SELECT datestr, vol10_med, temp_label, alarm_dir, alarm_count
     FROM daily_m
     WHERE record_type = '${sqlEscape(recordType)}'
-      AND datestr >= '${sqlEscape(shiftDate(minDate, -5))}'
+      AND datestr >= '${sqlEscape(shiftMarketWindowDate(minDate, -5))}'
       AND datestr <= '${sqlEscape(maxDate)}'
     ORDER BY datestr
   `);
-  if (!mRows || !mRows.length) return [];
-  const formattedMRows = (mRows || []).map((row: any) => ({ ...row, datestr: formatDbDate(row.datestr) }));
-  const firstDate = formattedMRows[0].datestr;
-  const lastDate = formattedMRows[formattedMRows.length - 1].datestr;
+  const queryStart = shiftMarketWindowDate(minDate, -20);
   const focusRows: any = await queryDB(`
     SELECT datestr, comments
     FROM ${focusTable}
-    WHERE datestr >= '${sqlEscape(shiftDate(firstDate, -20))}'
-      AND datestr <= '${sqlEscape(lastDate)}'
+    WHERE datestr >= '${sqlEscape(queryStart)}'
+      AND datestr <= '${sqlEscape(maxDate)}'
       AND comments LIKE '%【M:%'
     ORDER BY datestr
   `);
-  return calcWindowDetectorRows(formattedMRows, focusRows || [], 20);
+  const trendStart = shiftMarketWindowDate(minDate, -5);
+  const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType)
+    .filter((row: any) => row.datestr >= trendStart && row.datestr <= maxDate);
+  return calcWindowDetectorRows(canonicalRows, focusRows || [], 20);
 };
 
 const pickMarketWindowForDate = (windowRows: any[], targetDate: string): any | null => {
@@ -5506,26 +5581,26 @@ router.get('/m_trend', function (req, res, next) {
       console.error('m_trend error:', err);
       return res.status(500).json({ error: err.message });
     }
-    if (!rows || rows.length === 0) return res.json([]);
-    const dates = rows.map((row: any) => formatDbDate(row.datestr)).filter(Boolean);
-    const minDate = shiftDate(dates[0], -20);
-    const maxDate = dates[dates.length - 1];
     pool.query(
       `
         SELECT datestr, comments
         FROM ${focusTable}
-        WHERE datestr >= ?
-          AND datestr <= ?
-          AND comments LIKE '%【M:%'
+        WHERE comments LIKE '%【M:%'
         ORDER BY datestr
       `,
-      [minDate, maxDate],
+      [],
       function (focusErr, focusRows) {
         if (focusErr) {
           console.error('m_trend window detector error:', focusErr);
           return res.status(500).json({ error: focusErr.message });
         }
-        res.json(calcWindowDetectorRows(rows, focusRows || [], 20));
+        const canonicalRows = buildCanonicalMTrendRows(
+          rows || [],
+          focusRows || [],
+          recordType === 'record2' ? 'record2' : 'record1'
+        );
+        if (!canonicalRows.length) return res.json([]);
+        res.json(calcWindowDetectorRows(canonicalRows, focusRows || [], 20));
       }
     );
   });
