@@ -93,6 +93,9 @@ interface MTempItem {
   window_signal?: string;
   window_title?: string;
   window_desc?: string;
+  trail_data_complete?: boolean;
+  trail_source_start_date?: string | null;
+  trail_required_start_date?: string | null;
   trail_days?: number;
   trail_signal_n?: number;
   trail_negative_pct?: number;
@@ -105,9 +108,14 @@ interface MTempItem {
   short_window_signal?: string;
   short_window_title?: string;
   short_window_desc?: string;
+  short_data_complete?: boolean;
+  short_required_start_date?: string | null;
   short_negative_pct?: number;
   short_low_pos_pct?: number;
   short_m_expand_pct?: number;
+  window_detector_version?: string;
+  window_source_snapshot?: string;
+  window_snapshot_frozen?: boolean;
 }
 
 const SimpleAlarmTrend: React.FC = () => {
@@ -341,7 +349,7 @@ const SimpleAlarmTrend: React.FC = () => {
           const windowStatus = getMWindowStatus(d);
           const detectorStatus = getWindowDetectorStatus(d);
           const shortStatus = getShortWindowMomentumStatus(d);
-          return `<b>${d.datestr}</b><br/>报警池M(${getMVolMetric(d)}): <b>${getMVolMed(d).toFixed(1)}</b><br/><span style="color:${c}">●</span> ${tempLabel} ${alarmDir}<br/>报警: ${d.alarm_count}条<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>策略窗口: <b style="color:${detectorStatus.color}">${detectorStatus.title}</b><br/>短周期: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
+          return `<b>${d.datestr}</b><br/>报警池M(${getMVolMetric(d)}): <b>${getMVolMed(d).toFixed(1)}</b><br/><span style="color:${c}">●</span> ${tempLabel} ${alarmDir}<br/>报警: ${d.alarm_count}条<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>策略窗口: <b style="color:${detectorStatus.color}">${detectorStatus.signal}</b> ｜ 新建买入条件单: <b style="color:${detectorStatus.color}">${detectorStatus.orderAction}</b><br/>短周期: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
         }
       },
       grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
@@ -368,7 +376,7 @@ const SimpleAlarmTrend: React.FC = () => {
           }
         },
         { name:'策略窗口', type:'scatter', yAxisIndex:0,
-          data: data.map(d => d.window_signal === 'BAD_GUARD' ? 78 : (d.window_signal === 'GOOD_ALLOW' ? 72 : null)),
+          data: data.map(d => d.window_signal && d.trail_data_complete !== false ? 76 : null),
           symbolSize: dataCount>100?6:8,
           itemStyle:{color:(params: any) => getWindowDetectorStatus(data[params.dataIndex]).color},
           tooltip:{show:false},
@@ -380,8 +388,9 @@ const SimpleAlarmTrend: React.FC = () => {
   };
 
   const getMTempStats = (data: MTempItem[]) => {
-    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, badDays: 0, goodDays: 0, latestLabel: '--', latestDir: '--' };
+    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, badDays: 0, neutralDays: 0, goodDays: 0, insufficientDays: 0, latestLabel: '--', latestDir: '--' };
     const latest = data[data.length - 1];
+    const validWindowRows = data.filter(d => d.trail_data_complete !== false);
     return {
       latest: getMVolMed(latest),
       latestMetric: getMVolMetric(latest),
@@ -389,8 +398,10 @@ const SimpleAlarmTrend: React.FC = () => {
       latestDir: getMAlarmDir(latest),
       hotDays: data.filter(d => getMTempLabel(d) === '热').length,
       attackDays: data.filter(isMAttackWindow).length,
-      badDays: data.filter(d => d.window_signal === 'BAD_GUARD').length,
-      goodDays: data.filter(d => d.window_signal === 'GOOD_ALLOW').length,
+      badDays: validWindowRows.filter(d => d.window_signal === 'BAD_GUARD').length,
+      neutralDays: validWindowRows.filter(d => d.window_signal === 'NEUTRAL_WAIT').length,
+      goodDays: validWindowRows.filter(d => d.window_signal === 'GOOD_ALLOW').length,
+      insufficientDays: data.length - validWindowRows.length,
     };
   };
   const fmtPct = (value?: number | null) => value === null || value === undefined ? '-' : `${Number(value).toFixed(1)}%`;
@@ -410,13 +421,14 @@ const SimpleAlarmTrend: React.FC = () => {
     return { title: '非热收缩', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: '报警池 M 非热且报警数量相对基线收缩。' };
   };
   const getWindowDetectorStatus = (item?: MTempItem) => {
-    if (!item) return { title: '暂无窗口', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待窗口识别数据加载。' };
-    if (item.window_signal === 'BAD_GUARD') return { title: item.window_title || '坏窗口暂缓', color: '#389e0d', bg: '#f6ffed', border: '#b7eb8f', desc: item.window_desc || '低位拥挤或负面标签密集，策略执行应暂缓。' };
-    if (item.window_signal === 'GOOD_ALLOW') return { title: item.window_title || '好窗口观察', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: item.window_desc || '可作为策略族放行观察，不单独生成买入。' };
-    return { title: item.window_title || '中性观察', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: item.window_desc || '未触发明确窗口信号。' };
+    if (!item) return { signal: 'NO_DATA', title: '暂无窗口', orderAction: '不可判断', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待窗口识别数据加载。' };
+    if (item.trail_data_complete === false) return { signal: 'DATA_INSUFFICIENT', title: '数据不足', orderAction: '不可判定', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: `窗口源数据始于 ${item.trail_source_start_date || '-'}，不足以覆盖 ${item.trail_required_start_date || '-'} 起的完整观察期；当前不解释为 NEUTRAL_WAIT。` };
+    if (item.window_signal === 'BAD_GUARD') return { signal: 'BAD_GUARD', title: '防守', orderAction: '不允许', color: '#389e0d', bg: '#f6ffed', border: '#b7eb8f', desc: '低位、弱势收缩或负面报警比例过高；不新建买入条件单，进入防守。' };
+    if (item.window_signal === 'GOOD_ALLOW') return { signal: 'GOOD_ALLOW', title: '放行', orderAction: '允许', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: '市场偏热、报警扩张、低位和负面比例受控；允许满足个股策略的候选新建买入条件单。' };
+    return { signal: 'NEUTRAL_WAIT', title: '等待', orderAction: '不允许', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: '不满足强势放行，也未达到高风险条件；不新建买入条件单，继续等待。' };
   };
   const getShortWindowMomentumStatus = (item?: MTempItem) => {
-    if (!item || !item.short_window_signal) return { title: '短周期暂无', color: '#8c8c8c', desc: '等待短周期数据。' };
+    if (!item || !item.short_window_signal || item.short_data_complete === false) return { title: '短周期数据不足', color: '#8c8c8c', desc: '短周期历史不完整，不判定状态。' };
     const main = item.window_signal || 'NEUTRAL_WAIT';
     const short = item.short_window_signal;
     if (main === 'BAD_GUARD' && short === 'BAD_GUARD') return { title: '短周期仍坏', color: '#389e0d', desc: '近5天仍满足坏窗口，主窗口暂缓有延续性。' };
@@ -459,11 +471,12 @@ const SimpleAlarmTrend: React.FC = () => {
           <div style={{ fontSize: 15, fontWeight: 700 }}>{label}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <span style={{ color: status.color, fontWeight: 700, fontSize: 14 }}>{status.title}</span>
-            <span style={{ color: detectorStatus.color, fontWeight: 700, fontSize: 14 }}>{detectorStatus.title}</span>
+            <Tag color={detectorStatus.color} style={{ marginRight: 0, fontWeight: 700 }}>{detectorStatus.signal}</Tag>
+            <span style={{ color: detectorStatus.color, fontWeight: 700, fontSize: 14 }}>新建条件单：{detectorStatus.orderAction}</span>
           </div>
         </div>
         <div style={{ marginTop: 6, fontSize: 14, color: '#595959' }}>
-          当前 {latest?.datestr || '-'} ｜ 报警池M({stats.latestMetric || 'legacy_vol10'}) {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 策略窗口: {detectorStatus.title}
+          当前 {latest?.datestr || '-'} ｜ 报警池M({stats.latestMetric || 'legacy_vol10'}) {stats.latest.toFixed(1)} {stats.latestLabel} {stats.latestDir} ｜ 策略窗口: <strong style={{ color: detectorStatus.color }}>{detectorStatus.signal}</strong>
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#595959' }}>
           近{latest?.trail_days || 20}天样本 {latest?.trail_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.trail_low_pos_pct)} ｜ 负面 {fmtPct(latest?.trail_negative_pct)} ｜ 报扩 {fmtPct(latest?.trail_m_expand_pct)}
@@ -472,7 +485,10 @@ const SimpleAlarmTrend: React.FC = () => {
           短周期 {shortStatus.title}：近{latest?.short_days || 5}天样本 {latest?.short_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.short_low_pos_pct)} ｜ 负面 {fmtPct(latest?.short_negative_pct)} ｜ 报扩 {fmtPct(latest?.short_m_expand_pct)}
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>
-          区间统计：热 days {stats.hotDays} ｜ 报警扩散 days {stats.attackDays} ｜ 历史坏窗口 days {stats.badDays}
+          区间统计：GOOD_ALLOW {stats.goodDays} 天 ｜ NEUTRAL_WAIT {stats.neutralDays} 天 ｜ BAD_GUARD {stats.badDays} 天 ｜ 数据不足 {stats.insufficientDays} 天
+        </div>
+        <div style={{ marginTop: 4, fontSize: 13, color: latest?.window_snapshot_frozen === false ? '#d46b08' : '#8c8c8c' }}>
+          窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ {latest?.window_snapshot_frozen === false ? '实时结果，尚未冻结' : `历史冻结 ${latest?.window_source_snapshot || '-'}`}
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
@@ -1022,9 +1038,11 @@ const SimpleAlarmTrend: React.FC = () => {
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>非热 + 报缩：观察防守</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f5f5f5', color: '#595959', border: '1px solid #d9d9d9', fontWeight: 600 }}>散点信号</span>
-                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f' }}>绿色散点：坏窗口暂缓</span>
-                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff1f0', color: '#cf1322', border: '1px solid #ffa39e' }}>红色散点：好窗口放行观察</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f5f5f5', color: '#595959', border: '1px solid #d9d9d9', fontWeight: 600 }}>策略窗口（散点）</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff1f0', color: '#cf1322', border: '1px solid #ffa39e' }}>GOOD_ALLOW：允许新建买入条件单</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>NEUTRAL_WAIT：不允许，等待</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f' }}>BAD_GUARD：不允许，防守</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#8c8c8c', border: '1px dashed #bfbfbf' }}>DATA_INSUFFICIENT：历史不完整，不判定窗口</span>
                   </div>
                 </div>
               </>

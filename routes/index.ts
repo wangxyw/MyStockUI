@@ -52,8 +52,11 @@ const TRADE_STRATEGIES_CONFIG_PATH = './config/trade_strategies_production.json'
 let tradeStrategiesConfigCache: any = null;
 let tradeStrategiesConfigMtimeMs = 0;
 const HOT_ALPHA_FILTER_CONFIG_PATH = '/Users/xywang/mystockdata/config/hot_alpha_sector_filters.yml';
+const MARKET_WINDOW_SNAPSHOT_PATH = '/Users/xywang/Documents/STOCK/config/market_window_daily_snapshot_v1.json';
 let hotAlphaFilterConfigCache: any = null;
 let hotAlphaFilterConfigMtimeMs = 0;
+let marketWindowSnapshotCache: any = null;
+let marketWindowSnapshotMtimeMs = 0;
 const betweenValue = (value: number, minValue: number, maxValue: number) =>
   value >= minValue && value <= maxValue;
 const shiftDate = (dateStr: string, days: number) => {
@@ -946,8 +949,16 @@ const detectMarketWindow = (stats: any) => {
 
 const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 20) => {
   const parsedRows = (focusRows || []).map(parsedMarketRow);
+  const sourceStartDate = parsedRows
+    .map((item: any) => item.datestr)
+    .filter(Boolean)
+    .sort()[0] || null;
   return (trendRows || []).map((row: any) => {
     const datestr = formatDbDate(row.datestr);
+    const trailRequiredStartDate = shiftMarketWindowDate(datestr, -trailDays);
+    const shortRequiredStartDate = shiftMarketWindowDate(datestr, -5);
+    const trailDataComplete = Boolean(sourceStartDate && sourceStartDate <= trailRequiredStartDate);
+    const shortDataComplete = Boolean(sourceStartDate && sourceStartDate <= shortRequiredStartDate);
     const trailStats = calcWindowStats(parsedRows, datestr, trailDays);
     const shortStats = calcWindowStats(parsedRows, datestr, 5);
     const trailWindow = detectMarketWindow(trailStats);
@@ -959,6 +970,9 @@ const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 
       window_signal: trailWindow.windowSignal,
       window_title: trailWindow.windowTitle,
       window_desc: trailWindow.windowDesc,
+      trail_data_complete: trailDataComplete,
+      trail_source_start_date: sourceStartDate,
+      trail_required_start_date: trailRequiredStartDate,
       trail_days: trailDays,
       trail_signal_n: trailStats.n,
       trail_neutral_pct: round2(trailStats.neutralPct),
@@ -974,6 +988,8 @@ const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 
       short_window_signal: shortWindow.windowSignal,
       short_window_title: shortWindow.windowTitle,
       short_window_desc: shortWindow.windowDesc,
+      short_data_complete: shortDataComplete,
+      short_required_start_date: shortRequiredStartDate,
       short_neutral_pct: round2(shortStats.neutralPct),
       short_weak_contract_pct: round2(shortStats.weakPct),
       short_hot_expand_pct: round2(shortStats.hotPct),
@@ -982,6 +998,72 @@ const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 
       short_negative_pct: round2(shortStats.negativePct),
       short_low_pos_pct: round2(shortStats.lowPct),
       short_avg_me_hotish60: shortStats.hotishAvg === null ? null : round2(shortStats.hotishAvg),
+    };
+  });
+};
+
+const loadMarketWindowSnapshotRows = () => {
+  if (!fs.existsSync(MARKET_WINDOW_SNAPSHOT_PATH)) return [];
+  const stat = fs.statSync(MARKET_WINDOW_SNAPSHOT_PATH);
+  if (!marketWindowSnapshotCache || marketWindowSnapshotMtimeMs !== stat.mtimeMs) {
+    const payload = JSON.parse(fs.readFileSync(MARKET_WINDOW_SNAPSHOT_PATH).toString());
+    marketWindowSnapshotCache = Array.isArray(payload?.rows) ? payload.rows : [];
+    marketWindowSnapshotMtimeMs = stat.mtimeMs;
+  }
+  return marketWindowSnapshotCache;
+};
+
+const snapshotBoolean = (value: any) => value === true || value === 'true' || value === 1 || value === '1';
+
+const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2') => {
+  const snapshotByDate = new Map(
+    loadMarketWindowSnapshotRows()
+      .filter((item: any) => item.record_type === recordType)
+      .map((item: any) => [String(item.datestr), item])
+  );
+  return (rows || []).map((row: any) => {
+    const snapshot: any = snapshotByDate.get(row.datestr);
+    if (!snapshot) {
+      return {
+        ...row,
+        window_detector_version: 'M_WINDOW_CAL20_V1',
+        window_source_snapshot: 'LIVE_UNFROZEN',
+        window_snapshot_frozen: false,
+      };
+    }
+    const trailComplete = snapshotBoolean(snapshot.cal20_data_complete);
+    const shortComplete = snapshotBoolean(snapshot.cal5_data_complete);
+    return {
+      ...row,
+      window_signal: trailComplete ? snapshot.cal20_signal : 'DATA_INSUFFICIENT',
+      window_signal_raw: snapshot.cal20_raw_signal,
+      trail_data_complete: trailComplete,
+      trail_source_start_date: snapshot.source_start_date,
+      trail_signal_n: toNumber(snapshot.cal20_signal_n),
+      trail_neutral_pct: round2(snapshot.cal20_neutral_pct),
+      trail_weak_contract_pct: round2(snapshot.cal20_weak_contract_pct),
+      trail_hot_expand_pct: round2(snapshot.cal20_hot_expand_pct),
+      trail_m_contract_pct: round2(snapshot.cal20_m_contract_pct),
+      trail_m_expand_pct: round2(snapshot.cal20_m_expand_pct),
+      trail_negative_pct: round2(snapshot.cal20_negative_pct),
+      trail_low_pos_pct: round2(snapshot.cal20_low_pos_pct),
+      trail_avg_me_hotish60: snapshot.cal20_avg_me_hotish60 === null ? null : round2(snapshot.cal20_avg_me_hotish60),
+      short_window_signal: shortComplete ? snapshot.cal5_signal : 'DATA_INSUFFICIENT',
+      short_window_signal_raw: snapshot.cal5_raw_signal,
+      short_data_complete: shortComplete,
+      short_signal_n: toNumber(snapshot.cal5_signal_n),
+      short_neutral_pct: round2(snapshot.cal5_neutral_pct),
+      short_weak_contract_pct: round2(snapshot.cal5_weak_contract_pct),
+      short_hot_expand_pct: round2(snapshot.cal5_hot_expand_pct),
+      short_m_contract_pct: round2(snapshot.cal5_m_contract_pct),
+      short_m_expand_pct: round2(snapshot.cal5_m_expand_pct),
+      short_negative_pct: round2(snapshot.cal5_negative_pct),
+      short_low_pos_pct: round2(snapshot.cal5_low_pos_pct),
+      short_avg_me_hotish60: snapshot.cal5_avg_me_hotish60 === null ? null : round2(snapshot.cal5_avg_me_hotish60),
+      window_detector_version: snapshot.detector_version,
+      window_source_snapshot: snapshot.source_snapshot,
+      window_snapshot_frozen: true,
+      window_row_hash: snapshot.row_hash,
     };
   });
 };
@@ -1010,7 +1092,7 @@ const loadMarketWindowSnapshot = async (
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType);
   const mRow = canonicalRows.filter((row: any) => row.datestr <= formatDbDate(targetDate)).pop();
   if (!mRow) return null;
-  return calcWindowDetectorRows([mRow], focusRows || [], 20)[0] || null;
+  return applyMarketWindowSnapshot(calcWindowDetectorRows([mRow], focusRows || [], 20), recordType)[0] || null;
 };
 
 const loadMarketWindowSeries = async (
@@ -1039,7 +1121,7 @@ const loadMarketWindowSeries = async (
   const trendStart = shiftMarketWindowDate(minDate, -5);
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType)
     .filter((row: any) => row.datestr >= trendStart && row.datestr <= maxDate);
-  return calcWindowDetectorRows(canonicalRows, focusRows || [], 20);
+  return applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), recordType);
 };
 
 const pickMarketWindowForDate = (windowRows: any[], targetDate: string): any | null => {
@@ -5600,7 +5682,8 @@ router.get('/m_trend', function (req, res, next) {
           recordType === 'record2' ? 'record2' : 'record1'
         );
         if (!canonicalRows.length) return res.json([]);
-        res.json(calcWindowDetectorRows(canonicalRows, focusRows || [], 20));
+        const safeRecordType = recordType === 'record2' ? 'record2' : 'record1';
+        res.json(applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), safeRecordType));
       }
     );
   });
