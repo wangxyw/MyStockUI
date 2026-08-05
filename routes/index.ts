@@ -52,11 +52,8 @@ const TRADE_STRATEGIES_CONFIG_PATH = './config/trade_strategies_production.json'
 let tradeStrategiesConfigCache: any = null;
 let tradeStrategiesConfigMtimeMs = 0;
 const HOT_ALPHA_FILTER_CONFIG_PATH = '/Users/xywang/mystockdata/config/hot_alpha_sector_filters.yml';
-const MARKET_WINDOW_SNAPSHOT_PATH = '/Users/xywang/Documents/STOCK/config/market_window_daily_snapshot_v1.json';
 let hotAlphaFilterConfigCache: any = null;
 let hotAlphaFilterConfigMtimeMs = 0;
-let marketWindowSnapshotCache: any = null;
-let marketWindowSnapshotMtimeMs = 0;
 const betweenValue = (value: number, minValue: number, maxValue: number) =>
   value >= minValue && value <= maxValue;
 const shiftDate = (dateStr: string, days: number) => {
@@ -1002,22 +999,31 @@ const calcWindowDetectorRows = (trendRows: any[], focusRows: any[], trailDays = 
   });
 };
 
-const loadMarketWindowSnapshotRows = () => {
-  if (!fs.existsSync(MARKET_WINDOW_SNAPSHOT_PATH)) return [];
-  const stat = fs.statSync(MARKET_WINDOW_SNAPSHOT_PATH);
-  if (!marketWindowSnapshotCache || marketWindowSnapshotMtimeMs !== stat.mtimeMs) {
-    const payload = JSON.parse(fs.readFileSync(MARKET_WINDOW_SNAPSHOT_PATH).toString());
-    marketWindowSnapshotCache = Array.isArray(payload?.rows) ? payload.rows : [];
-    marketWindowSnapshotMtimeMs = stat.mtimeMs;
-  }
-  return marketWindowSnapshotCache;
+const loadMarketWindowSnapshotRows = async (
+  recordType: 'record1' | 'record2',
+  minDate?: string,
+  maxDate?: string
+) => {
+  const conditions = [
+    `detector_version = 'M_WINDOW_CAL20_V1'`,
+    `record_type = '${sqlEscape(recordType)}'`,
+  ];
+  if (minDate) conditions.push(`datestr >= '${sqlEscape(minDate)}'`);
+  if (maxDate) conditions.push(`datestr <= '${sqlEscape(maxDate)}'`);
+  const rows: any = await queryDB(`
+    SELECT *
+    FROM market_window_daily_snapshot
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY datestr
+  `);
+  return (rows || []).map((row: any) => ({ ...row, datestr: formatDbDate(row.datestr) }));
 };
 
 const snapshotBoolean = (value: any) => value === true || value === 'true' || value === 1 || value === '1';
 
-const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2') => {
+const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2', snapshotRows: any[]) => {
   const snapshotByDate = new Map(
-    loadMarketWindowSnapshotRows()
+    (snapshotRows || [])
       .filter((item: any) => item.record_type === recordType)
       .map((item: any) => [String(item.datestr), item])
   );
@@ -1027,7 +1033,7 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       return {
         ...row,
         window_detector_version: 'M_WINDOW_CAL20_V1',
-        window_source_snapshot: 'LIVE_UNFROZEN',
+        window_source_snapshot: 'MYSQL_SNAPSHOT_MISSING',
         window_snapshot_frozen: false,
       };
     }
@@ -1092,7 +1098,8 @@ const loadMarketWindowSnapshot = async (
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType);
   const mRow = canonicalRows.filter((row: any) => row.datestr <= formatDbDate(targetDate)).pop();
   if (!mRow) return null;
-  return applyMarketWindowSnapshot(calcWindowDetectorRows([mRow], focusRows || [], 20), recordType)[0] || null;
+  const snapshotRows = await loadMarketWindowSnapshotRows(recordType, mRow.datestr, mRow.datestr);
+  return applyMarketWindowSnapshot(calcWindowDetectorRows([mRow], focusRows || [], 20), recordType, snapshotRows)[0] || null;
 };
 
 const loadMarketWindowSeries = async (
@@ -1121,7 +1128,8 @@ const loadMarketWindowSeries = async (
   const trendStart = shiftMarketWindowDate(minDate, -5);
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType)
     .filter((row: any) => row.datestr >= trendStart && row.datestr <= maxDate);
-  return applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), recordType);
+  const snapshotRows = await loadMarketWindowSnapshotRows(recordType, trendStart, maxDate);
+  return applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), recordType, snapshotRows);
 };
 
 const pickMarketWindowForDate = (windowRows: any[], targetDate: string): any | null => {
@@ -5683,7 +5691,14 @@ router.get('/m_trend', function (req, res, next) {
         );
         if (!canonicalRows.length) return res.json([]);
         const safeRecordType = recordType === 'record2' ? 'record2' : 'record1';
-        res.json(applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), safeRecordType));
+        loadMarketWindowSnapshotRows(safeRecordType)
+          .then((snapshotRows: any[]) => {
+            res.json(applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), safeRecordType, snapshotRows));
+          })
+          .catch((snapshotErr: any) => {
+            console.error('m_trend snapshot error:', snapshotErr);
+            res.status(500).json({ error: snapshotErr.message });
+          });
       }
     );
   });
