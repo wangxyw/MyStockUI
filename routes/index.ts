@@ -1016,7 +1016,19 @@ const loadMarketWindowSnapshotRows = async (
     WHERE ${conditions.join(' AND ')}
     ORDER BY datestr
   `);
-  return (rows || []).map((row: any) => ({ ...row, datestr: formatDbDate(row.datestr) }));
+  return (rows || [])
+    .map((row: any) => ({
+      ...row,
+      datestr: formatDbDate(row.datestr),
+      source_max_date: formatDbDate(row.source_max_date),
+    }))
+    .filter((row: any) =>
+      row.snapshot_scope === 'POINT_IN_TIME' &&
+      Boolean(row.calculated_at) &&
+      /^[0-9a-f]{64}$/.test(String(row.input_hash || '')) &&
+      Boolean(row.source_max_date) &&
+      row.source_max_date <= row.datestr
+    );
 };
 
 const snapshotBoolean = (value: any) => value === true || value === 'true' || value === 1 || value === '1';
@@ -1127,7 +1139,10 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
         short_data_complete: false,
         window_detector_version: 'M_WINDOW_CAL20_V1',
         window_interpretation_version: 'M_WINDOW_INTERPRETATION_V2_20260806',
-        window_source_snapshot: 'MYSQL_SNAPSHOT_MISSING',
+        window_source_snapshot: 'PIT_SNAPSHOT_MISSING',
+        window_snapshot_scope: 'NONE',
+        window_snapshot_captured_at: null,
+        window_snapshot_input_hash: null,
         window_snapshot_frozen: false,
         ...interpretMarketWindow(recordType, 'DATA_INSUFFICIENT', 'DATA_INSUFFICIENT'),
       };
@@ -1166,6 +1181,9 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       window_detector_version: snapshot.detector_version,
       window_interpretation_version: 'M_WINDOW_INTERPRETATION_V2_20260806',
       window_source_snapshot: snapshot.source_snapshot,
+      window_snapshot_scope: snapshot.snapshot_scope,
+      window_snapshot_captured_at: snapshot.calculated_at,
+      window_snapshot_input_hash: snapshot.input_hash,
       window_snapshot_frozen: true,
       window_row_hash: snapshot.row_hash,
       ...interpretMarketWindow(recordType, mainSignal, shortSignal),
@@ -1195,10 +1213,12 @@ const loadMarketWindowSnapshot = async (
     ORDER BY datestr
   `);
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType);
-  const mRow = canonicalRows.filter((row: any) => row.datestr <= formatDbDate(targetDate)).pop();
-  if (!mRow) return null;
-  const snapshotRows = await loadMarketWindowSnapshotRows(recordType, mRow.datestr, mRow.datestr);
-  return applyMarketWindowSnapshot(calcWindowDetectorRows([mRow], focusRows || [], 20), recordType, snapshotRows)[0] || null;
+  const safeTargetDate = formatDbDate(targetDate);
+  const latestMRow = canonicalRows.filter((row: any) => row.datestr <= safeTargetDate).pop();
+  const snapshotRows = await loadMarketWindowSnapshotRows(recordType, safeTargetDate, safeTargetDate);
+  if (!snapshotRows.length) return null;
+  const decisionRow = { ...(latestMRow || {}), datestr: safeTargetDate };
+  return applyMarketWindowSnapshot(calcWindowDetectorRows([decisionRow], focusRows || [], 20), recordType, snapshotRows)[0] || null;
 };
 
 const loadMarketWindowSeries = async (
@@ -1228,7 +1248,14 @@ const loadMarketWindowSeries = async (
   const canonicalRows = buildCanonicalMTrendRows(mRows || [], focusRows || [], recordType)
     .filter((row: any) => row.datestr >= trendStart && row.datestr <= maxDate);
   const snapshotRows = await loadMarketWindowSnapshotRows(recordType, trendStart, maxDate);
-  return applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), recordType, snapshotRows);
+  const rowsByDate = new Map(canonicalRows.map((row: any) => [row.datestr, row]));
+  snapshotRows.forEach((snapshot: any) => {
+    if (rowsByDate.has(snapshot.datestr)) return;
+    const latest = canonicalRows.filter((row: any) => row.datestr <= snapshot.datestr).pop();
+    rowsByDate.set(snapshot.datestr, { ...(latest || {}), datestr: snapshot.datestr });
+  });
+  const decisionRows = Array.from(rowsByDate.values()).sort((left: any, right: any) => left.datestr.localeCompare(right.datestr));
+  return applyMarketWindowSnapshot(calcWindowDetectorRows(decisionRows, focusRows || [], 20), recordType, snapshotRows);
 };
 
 const pickMarketWindowForDate = (windowRows: any[], targetDate: string): any | null => {

@@ -115,6 +115,9 @@ interface MTempItem {
   short_m_expand_pct?: number;
   window_detector_version?: string;
   window_interpretation_version?: string;
+  window_snapshot_scope?: string;
+  window_snapshot_captured_at?: string | null;
+  window_snapshot_input_hash?: string | null;
   window_source_snapshot?: string;
   window_snapshot_frozen?: boolean;
   window_sequence?: string;
@@ -506,7 +509,7 @@ const SimpleAlarmTrend: React.FC = () => {
           区间统计：GOOD_ALLOW {stats.goodDays} 天 ｜ NEUTRAL_WAIT {stats.neutralDays} 天 ｜ BAD_GUARD {stats.badDays} 天 ｜ 数据不足 {stats.insufficientDays} 天
         </div>
         <div style={{ marginTop: 4, fontSize: 13, color: latest?.window_snapshot_frozen === false ? '#d46b08' : '#8c8c8c' }}>
-          窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ 解释 {latest?.window_interpretation_version || '-'} ｜ {latest?.window_snapshot_frozen === false ? '正式结果缺失' : `历史快照 ${latest?.window_source_snapshot || '-'}`}
+          窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ 解释 {latest?.window_interpretation_version || '-'} ｜ {latest?.window_snapshot_frozen === false ? 'PIT正式快照缺失' : `PIT不可变快照 ${latest?.window_source_snapshot || '-'}`}
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
