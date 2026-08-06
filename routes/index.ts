@@ -1021,6 +1021,95 @@ const loadMarketWindowSnapshotRows = async (
 
 const snapshotBoolean = (value: any) => value === true || value === 'true' || value === 1 || value === '1';
 
+const marketWindowSequence = (mainSignal: string, shortSignal: string) => {
+  if (mainSignal === 'GOOD_ALLOW' && shortSignal === 'GOOD_ALLOW') return 'GOOD_CONFIRMED';
+  if (mainSignal === 'GOOD_ALLOW') return 'GOOD_COOLING';
+  if (mainSignal === 'BAD_GUARD' && shortSignal === 'BAD_GUARD') return 'BAD_CONFIRMED';
+  if (mainSignal === 'BAD_GUARD') return 'BAD_EASING';
+  if (mainSignal === 'NEUTRAL_WAIT' && shortSignal === 'GOOD_ALLOW') return 'NEUTRAL_REPAIR';
+  if (mainSignal === 'NEUTRAL_WAIT' && shortSignal === 'BAD_GUARD') return 'NEUTRAL_WEAKENING';
+  return 'NEUTRAL_STABLE';
+};
+
+const interpretMarketWindow = (
+  recordType: 'record1' | 'record2',
+  mainSignal: string,
+  shortSignal: string
+) => {
+  if (mainSignal === 'DATA_INSUFFICIENT') {
+    return {
+      window_sequence: 'DATA_INSUFFICIENT',
+      window_interpretation_title: '数据不足',
+      window_evidence_level: 'NONE',
+      window_action_hint: '不可判定',
+      window_interpretation_desc: '正式窗口结果缺失或历史观察期不完整。',
+    };
+  }
+
+  const sequence = marketWindowSequence(mainSignal, shortSignal);
+  if (recordType === 'record1' && mainSignal === 'BAD_GUARD') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: sequence === 'BAD_EASING' ? '风险缓和中' : '风险防守',
+      window_evidence_level: 'HIGH',
+      window_action_hint: '风险约束',
+      window_interpretation_desc: 'record1历史复盘支持风险识别；结合短周期判断风险延续或缓和。',
+    };
+  }
+  if (recordType === 'record2' && mainSignal === 'GOOD_ALLOW') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: sequence === 'GOOD_CONFIRMED' ? '偏强确认' : '偏强降温',
+      window_evidence_level: 'MEDIUM_SPARSE',
+      window_action_hint: '增强确认',
+      window_interpretation_desc: 'record2历史方向较强但样本稀疏，仅作为个股策略的增强证据。',
+    };
+  }
+  if (recordType === 'record2' && mainSignal === 'BAD_GUARD') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: '风险待确认',
+      window_evidence_level: 'LOW',
+      window_action_hint: '结合record1',
+      window_interpretation_desc: 'record2 BAD历史方向与阈值稳定性不足，不能单独解释为防守指令。',
+    };
+  }
+  if (mainSignal === 'GOOD_ALLOW') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: sequence === 'GOOD_CONFIRMED' ? '偏强观察' : '偏强降温',
+      window_evidence_level: 'MEDIUM',
+      window_action_hint: '策略独立判断',
+      window_interpretation_desc: 'record1 GOOD存在正向区分但跨期不稳定，不作为独立买入开关。',
+    };
+  }
+  if (sequence === 'NEUTRAL_REPAIR') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: '中性修复',
+      window_evidence_level: recordType === 'record1' ? 'MEDIUM' : 'LOW',
+      window_action_hint: '关注修复',
+      window_interpretation_desc: '主窗口中性、短周期转好；保留策略机会，不解释为统一禁止。',
+    };
+  }
+  if (sequence === 'NEUTRAL_WEAKENING') {
+    return {
+      window_sequence: sequence,
+      window_interpretation_title: '中性转弱',
+      window_evidence_level: 'MEDIUM',
+      window_action_hint: '降低风险',
+      window_interpretation_desc: '主窗口中性、短周期转坏；历史路径弱于稳定中性。',
+    };
+  }
+  return {
+    window_sequence: sequence,
+    window_interpretation_title: '中性稳定',
+    window_evidence_level: 'LOW',
+    window_action_hint: '策略独立判断',
+    window_interpretation_desc: '未触发明确偏强或高风险状态，按具体策略和资金效率判断。',
+  };
+};
+
 const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2', snapshotRows: any[]) => {
   const snapshotByDate = new Map(
     (snapshotRows || [])
@@ -1032,16 +1121,24 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
     if (!snapshot) {
       return {
         ...row,
+        window_signal: 'DATA_INSUFFICIENT',
+        short_window_signal: 'DATA_INSUFFICIENT',
+        trail_data_complete: false,
+        short_data_complete: false,
         window_detector_version: 'M_WINDOW_CAL20_V1',
+        window_interpretation_version: 'M_WINDOW_INTERPRETATION_V2_20260806',
         window_source_snapshot: 'MYSQL_SNAPSHOT_MISSING',
         window_snapshot_frozen: false,
+        ...interpretMarketWindow(recordType, 'DATA_INSUFFICIENT', 'DATA_INSUFFICIENT'),
       };
     }
     const trailComplete = snapshotBoolean(snapshot.cal20_data_complete);
     const shortComplete = snapshotBoolean(snapshot.cal5_data_complete);
+    const mainSignal = trailComplete ? snapshot.cal20_signal : 'DATA_INSUFFICIENT';
+    const shortSignal = shortComplete ? snapshot.cal5_signal : 'DATA_INSUFFICIENT';
     return {
       ...row,
-      window_signal: trailComplete ? snapshot.cal20_signal : 'DATA_INSUFFICIENT',
+      window_signal: mainSignal,
       window_signal_raw: snapshot.cal20_raw_signal,
       trail_data_complete: trailComplete,
       trail_source_start_date: snapshot.source_start_date,
@@ -1054,7 +1151,7 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       trail_negative_pct: round2(snapshot.cal20_negative_pct),
       trail_low_pos_pct: round2(snapshot.cal20_low_pos_pct),
       trail_avg_me_hotish60: snapshot.cal20_avg_me_hotish60 === null ? null : round2(snapshot.cal20_avg_me_hotish60),
-      short_window_signal: shortComplete ? snapshot.cal5_signal : 'DATA_INSUFFICIENT',
+      short_window_signal: shortSignal,
       short_window_signal_raw: snapshot.cal5_raw_signal,
       short_data_complete: shortComplete,
       short_signal_n: toNumber(snapshot.cal5_signal_n),
@@ -1067,9 +1164,11 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       short_low_pos_pct: round2(snapshot.cal5_low_pos_pct),
       short_avg_me_hotish60: snapshot.cal5_avg_me_hotish60 === null ? null : round2(snapshot.cal5_avg_me_hotish60),
       window_detector_version: snapshot.detector_version,
+      window_interpretation_version: 'M_WINDOW_INTERPRETATION_V2_20260806',
       window_source_snapshot: snapshot.source_snapshot,
       window_snapshot_frozen: true,
       window_row_hash: snapshot.row_hash,
+      ...interpretMarketWindow(recordType, mainSignal, shortSignal),
     };
   });
 };
