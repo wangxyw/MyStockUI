@@ -1007,6 +1007,7 @@ const loadMarketWindowSnapshotRows = async (
   const conditions = [
     `detector_version = 'M_WINDOW_CAL20_V1'`,
     `record_type = '${sqlEscape(recordType)}'`,
+    `evidence_scope = 'POINT_IN_TIME'`,
   ];
   if (minDate) conditions.push(`datestr >= '${sqlEscape(minDate)}'`);
   if (maxDate) conditions.push(`datestr <= '${sqlEscape(maxDate)}'`);
@@ -1023,12 +1024,48 @@ const loadMarketWindowSnapshotRows = async (
       source_max_date: formatDbDate(row.source_max_date),
     }))
     .filter((row: any) =>
-      row.snapshot_scope === 'POINT_IN_TIME' &&
-      Boolean(row.calculated_at) &&
+      row.evidence_scope === 'POINT_IN_TIME' &&
+      Boolean(row.captured_at) &&
       /^[0-9a-f]{64}$/.test(String(row.input_hash || '')) &&
       Boolean(row.source_max_date) &&
       row.source_max_date <= row.datestr
     );
+};
+
+const loadMarketWindowDisplayRows = async (
+  recordType: 'record1' | 'record2',
+  minDate?: string,
+  maxDate?: string
+) => {
+  const conditions = [
+    `detector_version = 'M_WINDOW_CAL20_V1'`,
+    `record_type = '${sqlEscape(recordType)}'`,
+  ];
+  if (minDate) conditions.push(`datestr >= '${sqlEscape(minDate)}'`);
+  if (maxDate) conditions.push(`datestr <= '${sqlEscape(maxDate)}'`);
+  const rows: any = await queryDB(`
+    SELECT *
+    FROM market_window_daily_snapshot
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY datestr
+  `);
+  return (rows || []).map((row: any) => ({ ...row, datestr: formatDbDate(row.datestr) }));
+};
+
+const includeMarketWindowDisplayDates = (canonicalRows: any[], displayRows: any[]) => {
+  const rowsByDate = new Map((canonicalRows || []).map((row: any) => [row.datestr, row]));
+  (displayRows || []).forEach((snapshot: any) => {
+    if (rowsByDate.has(snapshot.datestr)) return;
+    const latest = (canonicalRows || []).filter((row: any) => row.datestr <= snapshot.datestr).pop();
+    if (!latest) return;
+    rowsByDate.set(snapshot.datestr, {
+      ...latest,
+      datestr: snapshot.datestr,
+      alarm_count: 0,
+      m_source: 'snapshot_date_carry_forward',
+    });
+  });
+  return Array.from(rowsByDate.values()).sort((left: any, right: any) => left.datestr.localeCompare(right.datestr));
 };
 
 const snapshotBoolean = (value: any) => value === true || value === 'true' || value === 1 || value === '1';
@@ -1181,10 +1218,10 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       window_detector_version: snapshot.detector_version,
       window_interpretation_version: 'M_WINDOW_INTERPRETATION_V2_20260806',
       window_source_snapshot: snapshot.source_snapshot,
-      window_snapshot_scope: snapshot.snapshot_scope,
-      window_snapshot_captured_at: snapshot.calculated_at,
+      window_snapshot_scope: snapshot.evidence_scope,
+      window_snapshot_captured_at: snapshot.captured_at,
       window_snapshot_input_hash: snapshot.input_hash,
-      window_snapshot_frozen: true,
+      window_snapshot_frozen: snapshot.evidence_scope === 'POINT_IN_TIME',
       window_row_hash: snapshot.row_hash,
       ...interpretMarketWindow(recordType, mainSignal, shortSignal),
     };
@@ -5817,9 +5854,10 @@ router.get('/m_trend', function (req, res, next) {
         );
         if (!canonicalRows.length) return res.json([]);
         const safeRecordType = recordType === 'record2' ? 'record2' : 'record1';
-        loadMarketWindowSnapshotRows(safeRecordType)
-          .then((snapshotRows: any[]) => {
-            res.json(applyMarketWindowSnapshot(calcWindowDetectorRows(canonicalRows, focusRows || [], 20), safeRecordType, snapshotRows));
+        loadMarketWindowDisplayRows(safeRecordType)
+          .then((displayRows: any[]) => {
+            const chartRows = includeMarketWindowDisplayDates(canonicalRows, displayRows);
+            res.json(applyMarketWindowSnapshot(calcWindowDetectorRows(chartRows, focusRows || [], 20), safeRecordType, displayRows));
           })
           .catch((snapshotErr: any) => {
             console.error('m_trend snapshot error:', snapshotErr);

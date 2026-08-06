@@ -358,7 +358,8 @@ const SimpleAlarmTrend: React.FC = () => {
           const windowStatus = getMWindowStatus(d);
           const detectorStatus = getWindowDetectorStatus(d);
           const shortStatus = getShortWindowMomentumStatus(d);
-          return `<b>${d.datestr}</b><br/>报警池M(${getMVolMetric(d)}): <b>${getMVolMed(d).toFixed(1)}</b><br/><span style="color:${c}">●</span> ${tempLabel} ${alarmDir}<br/>报警: ${d.alarm_count}条<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>窗口事实: <b style="color:${detectorStatus.color}">${detectorStatus.signal}</b> ｜ 策略参考: <b style="color:${detectorStatus.color}">${detectorStatus.actionHint}</b><br/>组合状态: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
+          const evidenceLabel = d.window_snapshot_scope === 'POINT_IN_TIME' ? 'PIT不可变正式快照' : d.window_snapshot_scope === 'RECONSTRUCTED' ? '历史研究重构（非PIT/非OOS）' : '正式快照缺失';
+          return `<b>${d.datestr}</b><br/>报警池M(${getMVolMetric(d)}): <b>${getMVolMed(d).toFixed(1)}</b><br/><span style="color:${c}">●</span> ${tempLabel} ${alarmDir}<br/>报警: ${d.alarm_count}条<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>窗口事实: <b style="color:${detectorStatus.color}">${detectorStatus.signal}</b> ｜ 策略参考: <b style="color:${detectorStatus.color}">${detectorStatus.actionHint}</b><br/>证据来源: <b>${evidenceLabel}</b><br/>组合状态: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
         }
       },
       grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
@@ -384,12 +385,19 @@ const SimpleAlarmTrend: React.FC = () => {
             ]
           }
         },
-        { name:'策略窗口', type:'scatter', yAxisIndex:0,
-          data: data.map(d => d.window_signal && d.trail_data_complete !== false ? 76 : null),
-          symbolSize: dataCount>100?6:8,
+        { name:'历史研究窗口', type:'scatter', yAxisIndex:0,
+          data: data.map(d => d.window_snapshot_scope === 'RECONSTRUCTED' && d.window_signal && d.trail_data_complete !== false ? 76 : null),
+          symbol:'emptyCircle', symbolSize: dataCount>100?7:9,
           itemStyle:{color:(params: any) => getWindowDetectorStatus(data[params.dataIndex]).color},
           tooltip:{show:false},
-          z:5,
+          z:4,
+        },
+        { name:'正式PIT窗口', type:'scatter', yAxisIndex:0,
+          data: data.map(d => d.window_snapshot_scope === 'POINT_IN_TIME' && d.window_signal && d.trail_data_complete !== false ? 76 : null),
+          symbol:'circle', symbolSize: dataCount>100?8:10,
+          itemStyle:{color:(params: any) => getWindowDetectorStatus(data[params.dataIndex]).color, borderColor:'#fff', borderWidth:1},
+          tooltip:{show:false},
+          z:6,
         }
       ],
       dataZoom: dataCount>50?[{type:'slider',start:0,end:100,bottom:0,height:20}]:[],
@@ -397,7 +405,7 @@ const SimpleAlarmTrend: React.FC = () => {
   };
 
   const getMTempStats = (data: MTempItem[]) => {
-    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, badDays: 0, neutralDays: 0, goodDays: 0, insufficientDays: 0, latestLabel: '--', latestDir: '--' };
+    if (!data || data.length === 0) return { latest: 0, hotDays: 0, attackDays: 0, badDays: 0, neutralDays: 0, goodDays: 0, insufficientDays: 0, pitDays: 0, researchDays: 0, latestLabel: '--', latestDir: '--' };
     const latest = data[data.length - 1];
     const validWindowRows = data.filter(d => d.trail_data_complete !== false);
     return {
@@ -411,6 +419,8 @@ const SimpleAlarmTrend: React.FC = () => {
       neutralDays: validWindowRows.filter(d => d.window_signal === 'NEUTRAL_WAIT').length,
       goodDays: validWindowRows.filter(d => d.window_signal === 'GOOD_ALLOW').length,
       insufficientDays: data.length - validWindowRows.length,
+      pitDays: validWindowRows.filter(d => d.window_snapshot_scope === 'POINT_IN_TIME').length,
+      researchDays: validWindowRows.filter(d => d.window_snapshot_scope === 'RECONSTRUCTED').length,
     };
   };
   const fmtPct = (value?: number | null) => value === null || value === undefined ? '-' : `${Number(value).toFixed(1)}%`;
@@ -506,10 +516,10 @@ const SimpleAlarmTrend: React.FC = () => {
           短周期 {shortStatus.title}：近{latest?.short_days || 5}天样本 {latest?.short_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.short_low_pos_pct)} ｜ 负面 {fmtPct(latest?.short_negative_pct)} ｜ 报扩 {fmtPct(latest?.short_m_expand_pct)}
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>
-          区间统计：GOOD_ALLOW {stats.goodDays} 天 ｜ NEUTRAL_WAIT {stats.neutralDays} 天 ｜ BAD_GUARD {stats.badDays} 天 ｜ 数据不足 {stats.insufficientDays} 天
+          区间统计：GOOD_ALLOW {stats.goodDays} 天 ｜ NEUTRAL_WAIT {stats.neutralDays} 天 ｜ BAD_GUARD {stats.badDays} 天 ｜ PIT {stats.pitDays} 天 ｜ 研究重构 {stats.researchDays} 天 ｜ 数据不足 {stats.insufficientDays} 天
         </div>
         <div style={{ marginTop: 4, fontSize: 13, color: latest?.window_snapshot_frozen === false ? '#d46b08' : '#8c8c8c' }}>
-          窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ 解释 {latest?.window_interpretation_version || '-'} ｜ {latest?.window_snapshot_frozen === false ? 'PIT正式快照缺失' : `PIT不可变快照 ${latest?.window_source_snapshot || '-'}`}
+          窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ 解释 {latest?.window_interpretation_version || '-'} ｜ {latest?.window_snapshot_scope === 'POINT_IN_TIME' ? `PIT不可变快照 ${latest?.window_source_snapshot || '-'}` : latest?.window_snapshot_scope === 'RECONSTRUCTED' ? '历史研究重构（非PIT/非OOS）' : 'PIT正式快照缺失'}
         </div>
         <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
@@ -1064,7 +1074,7 @@ const SimpleAlarmTrend: React.FC = () => {
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>非热 + 报缩：观察防守</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f5f5f5', color: '#595959', border: '1px solid #d9d9d9', fontWeight: 600 }}>窗口事实（散点）</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f5f5f5', color: '#595959', border: '1px solid #d9d9d9', fontWeight: 600 }}>窗口散点：实心=PIT正式，空心=历史研究重构</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff1f0', color: '#cf1322', border: '1px solid #ffa39e' }}>GOOD_ALLOW：偏强环境证据</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>NEUTRAL_WAIT：结合CAL5分化</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f' }}>BAD_GUARD：结合record确认风险</span>
@@ -1076,7 +1086,7 @@ const SimpleAlarmTrend: React.FC = () => {
             {mTempR1.length > 0 ? (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
-                  中小盘(Record1) 报警池M(vol10)：背景=M环境，散点=策略窗口
+                  中小盘(Record1) 报警池M(vol10)：背景=M环境，实心=PIT，空心=研究重构
                 </div>
                 <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
@@ -1088,7 +1098,7 @@ const SimpleAlarmTrend: React.FC = () => {
             {mTempR2.length > 0 ? (
               <div>
                 <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
-                  中大盘(Record2) 报警池M(vol20)：背景=M环境，散点=策略窗口
+                  中大盘(Record2) 报警池M(vol20)：背景=M环境，实心=PIT，空心=研究重构
                 </div>
                 <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
