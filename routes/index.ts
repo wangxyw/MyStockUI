@@ -1059,10 +1059,20 @@ const includeMarketWindowDisplayDates = (canonicalRows: any[], displayRows: any[
     const latest = (canonicalRows || []).filter((row: any) => row.datestr <= snapshot.datestr).pop();
     if (!latest) return;
     rowsByDate.set(snapshot.datestr, {
-      ...latest,
       datestr: snapshot.datestr,
+      vol10_med: null,
+      temp_label: null,
+      alarm_dir: null,
+      legacy_vol10_med: null,
+      legacy_temp_label: null,
+      legacy_alarm_dir: null,
+      m_vol_med: null,
+      m_vol_metric: latest.m_vol_metric || 'legacy_vol10',
+      m_temp_label: null,
+      m_alarm_dir: null,
       alarm_count: 0,
-      m_source: 'snapshot_date_carry_forward',
+      m_source: 'no_alert_sample',
+      m_tag_unique_n: 0,
     });
   });
   return Array.from(rowsByDate.values()).sort((left: any, right: any) => left.datestr.localeCompare(right.datestr));
@@ -1181,6 +1191,10 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
         window_snapshot_captured_at: null,
         window_snapshot_input_hash: null,
         window_snapshot_frozen: false,
+        window_title: '数据不足',
+        window_desc: '正式窗口快照缺失，不解释为NEUTRAL_WAIT。',
+        short_window_title: '数据不足',
+        short_window_desc: '正式短周期窗口快照缺失。',
         ...interpretMarketWindow(recordType, 'DATA_INSUFFICIENT', 'DATA_INSUFFICIENT'),
       };
     }
@@ -1188,6 +1202,11 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
     const shortComplete = snapshotBoolean(snapshot.cal5_data_complete);
     const mainSignal = trailComplete ? snapshot.cal20_signal : 'DATA_INSUFFICIENT';
     const shortSignal = shortComplete ? snapshot.cal5_signal : 'DATA_INSUFFICIENT';
+    const interpretation = interpretMarketWindow(recordType, mainSignal, shortSignal);
+    const windowTitle = mainSignal === 'DATA_INSUFFICIENT' ? '数据不足' :
+      mainSignal === 'GOOD_ALLOW' ? '偏强窗口' : mainSignal === 'BAD_GUARD' ? '风险窗口' : '中性窗口';
+    const shortWindowTitle = shortSignal === 'DATA_INSUFFICIENT' ? '数据不足' :
+      shortSignal === 'GOOD_ALLOW' ? '短周期偏强' : shortSignal === 'BAD_GUARD' ? '短周期风险' : '短周期中性';
     return {
       ...row,
       window_signal: mainSignal,
@@ -1223,7 +1242,11 @@ const applyMarketWindowSnapshot = (rows: any[], recordType: 'record1' | 'record2
       window_snapshot_input_hash: snapshot.input_hash,
       window_snapshot_frozen: snapshot.evidence_scope === 'POINT_IN_TIME',
       window_row_hash: snapshot.row_hash,
-      ...interpretMarketWindow(recordType, mainSignal, shortSignal),
+      window_title: windowTitle,
+      window_desc: interpretation.window_interpretation_desc,
+      short_window_title: shortWindowTitle,
+      short_window_desc: shortSignal === 'DATA_INSUFFICIENT' ? '短周期历史不完整，不判定窗口。' : `CAL5窗口为${shortSignal}。`,
+      ...interpretation,
     };
   });
 };
