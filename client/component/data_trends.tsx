@@ -127,6 +127,21 @@ interface MTempItem {
   window_interpretation_desc?: string;
 }
 
+const M_TREND_DEFAULT_MONTHS = 18;
+
+const getMTrendDefaultViewport = (dates: string[]) => {
+  if (!dates.length) return { startDate: '', startIndex: 0, endIndex: 0, visibleDataCount: 0 };
+  const endIndex = dates.length - 1;
+  const latestDate = moment(dates[endIndex], 'YYYY-MM-DD', true);
+  if (!latestDate.isValid()) {
+    return { startDate: dates[0], startIndex: 0, endIndex, visibleDataCount: dates.length };
+  }
+  const startDate = latestDate.clone().subtract(M_TREND_DEFAULT_MONTHS, 'months').format('YYYY-MM-DD');
+  const matchedIndex = dates.findIndex(date => date >= startDate);
+  const startIndex = matchedIndex >= 0 ? matchedIndex : 0;
+  return { startDate, startIndex, endIndex, visibleDataCount: endIndex - startIndex + 1 };
+};
+
 const SimpleAlarmTrend: React.FC = () => {
   const hotAlphaDefaultStartMonth = '2025-03';
   const [days, setDays] = useState<number>(120);
@@ -326,6 +341,8 @@ const SimpleAlarmTrend: React.FC = () => {
     const values = data.map(getMVolMed);
     const numericValues = values.filter((value): value is number => value !== null);
     const dataCount = dates.length;
+    const defaultViewport = getMTrendDefaultViewport(dates);
+    const axisLabelInterval = Math.max(0, Math.ceil(defaultViewport.visibleDataCount / 15) - 1);
     const displayValues = values.map((value, index) => value === null ? {
       value: 0,
       symbol: 'diamond',
@@ -377,7 +394,7 @@ const SimpleAlarmTrend: React.FC = () => {
         }
       },
       grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
-      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:10,color:'#aaa',interval:Math.floor(dataCount/15)}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
+      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:10,color:'#aaa',interval:axisLabelInterval}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
       yAxis: [
         { type:'value', name:metricLabel, nameTextStyle:{fontSize:10,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
         { type:'value', name:'报警', nameTextStyle:{fontSize:10,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
@@ -414,7 +431,13 @@ const SimpleAlarmTrend: React.FC = () => {
           z:6,
         }
       ],
-      dataZoom: dataCount>50?[{type:'slider',start:0,end:100,bottom:0,height:20}]:[],
+      dataZoom: dataCount>50?[{
+        type:'slider',
+        startValue:defaultViewport.startIndex,
+        endValue:defaultViewport.endIndex,
+        bottom:0,
+        height:20,
+      }]:[],
     };
   };
 
