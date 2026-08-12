@@ -48,6 +48,26 @@ const toNumber = (value: any, defaultValue = 0) => {
   return Number.isFinite(num) ? num : defaultValue;
 };
 const round2 = (value: any) => Math.round(toNumber(value) * 100) / 100;
+const MARKET_ANOMALY_MODEL_VERSION = 'MARKET_ANOMALY_DUAL_TRACK_V1_20260812';
+const MARKET_ANOMALY_DEV_END = '2025-12-31';
+const MARKET_ANOMALY_CACHE_MS = 5 * 60 * 1000;
+let marketAnomalyCache: { cachedAt: number; payload: any } | null = null;
+const MARKET_ANOMALY_THRESHOLDS = {
+  ewQ10: -1.73449346,
+  ewQ90: 1.83593648,
+  ew5Q10: -3.46584080373,
+  ew5Q90: 4.670386911153,
+  ew10Q10: -5.059503264826,
+  ew10Q90: 7.302452147564,
+  breadthQ10: 15.441606,
+  breadthQ90: 82.864504,
+  breadth5Q10: 35.9276404,
+  breadth5Q90: 63.0849668,
+  down3Q90: 27.022808,
+  down3Avg3Q90: 24.547373333333,
+  up3Q90: 24.224028,
+  up3Avg3Q90: 22.567844666667,
+};
 const TRADE_STRATEGIES_CONFIG_PATH = './config/trade_strategies_production.json';
 let tradeStrategiesConfigCache: any = null;
 let tradeStrategiesConfigMtimeMs = 0;
@@ -5888,6 +5908,82 @@ router.get('/m_trend', function (req, res, next) {
           });
       }
     );
+  });
+});
+
+router.get('/market_anomaly_trend', function (req, res) {
+  if (marketAnomalyCache && Date.now() - marketAnomalyCache.cachedAt < MARKET_ANOMALY_CACHE_MS) {
+    return res.json(marketAnomalyCache.payload);
+  }
+  const sql = `
+    SELECT
+      DATE_FORMAT(datestr, '%Y-%m-%d') AS datestr,
+      AVG(pricechangepct) AS ew_ret,
+      100.0 * SUM(pricechangepct > 0) / COUNT(*) AS breadth_up,
+      100.0 * SUM(pricechangepct <= -3) / COUNT(*) AS down3_pct,
+      100.0 * SUM(pricechangepct >= 3) / COUNT(*) AS up3_pct
+    FROM stock_day_common_data
+    WHERE datestr >= '2024-01-02'
+      AND finalprice > 0
+      AND marketvalue > 0
+      AND pricechangepct BETWEEN -30 AND 30
+      AND symbol REGEXP '^(sh(60|68)[0-9]{4}|sz(00|30)[0-9]{4}|bj[0-9]{6})$'
+    GROUP BY datestr
+    ORDER BY datestr
+  `;
+  pool.query(sql, [], function (err, rows) {
+    if (err) {
+      console.error('market_anomaly_trend error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    const daily = (rows || []).map((row: any) => ({
+      datestr: formatDbDate(row.datestr),
+      ewRet: toNumber(row.ew_ret),
+      breadthUp: toNumber(row.breadth_up),
+      down3Pct: toNumber(row.down3_pct),
+      up3Pct: toNumber(row.up3_pct),
+    }));
+    const compound = (values: number[]) => (values.reduce((product, value) => product * (1 + value / 100), 1) - 1) * 100;
+    const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const result = daily.map((row: any, index: number) => {
+      if (index < 20) {
+        return { datestr: row.datestr, state: 'NORMAL', weak: false, hot: false, evidence_scope: 'RECONSTRUCTED' };
+      }
+      const last5 = daily.slice(index - 4, index + 1);
+      const last10 = daily.slice(index - 9, index + 1);
+      const last3 = daily.slice(index - 2, index + 1);
+      const ew5 = compound(last5.map((item: any) => item.ewRet));
+      const ew10 = compound(last10.map((item: any) => item.ewRet));
+      const breadth5 = mean(last5.map((item: any) => item.breadthUp));
+      const down3Avg3 = mean(last3.map((item: any) => item.down3Pct));
+      const up3Avg3 = mean(last3.map((item: any) => item.up3Pct));
+      const lossAxis = row.ewRet <= MARKET_ANOMALY_THRESHOLDS.ewQ10 || ew5 <= MARKET_ANOMALY_THRESHOLDS.ew5Q10 || ew10 <= MARKET_ANOMALY_THRESHOLDS.ew10Q10;
+      const weakAxis = row.breadthUp <= MARKET_ANOMALY_THRESHOLDS.breadthQ10 || breadth5 <= MARKET_ANOMALY_THRESHOLDS.breadth5Q10 || row.down3Pct >= MARKET_ANOMALY_THRESHOLDS.down3Q90 || down3Avg3 >= MARKET_ANOMALY_THRESHOLDS.down3Avg3Q90;
+      const gainAxis = row.ewRet >= MARKET_ANOMALY_THRESHOLDS.ewQ90 || ew5 >= MARKET_ANOMALY_THRESHOLDS.ew5Q90 || ew10 >= MARKET_ANOMALY_THRESHOLDS.ew10Q90;
+      const hotAxis = row.breadthUp >= MARKET_ANOMALY_THRESHOLDS.breadthQ90 || breadth5 >= MARKET_ANOMALY_THRESHOLDS.breadth5Q90 || row.up3Pct >= MARKET_ANOMALY_THRESHOLDS.up3Q90 || up3Avg3 >= MARKET_ANOMALY_THRESHOLDS.up3Avg3Q90;
+      const weak = lossAxis && weakAxis;
+      const hot = gainAxis && hotAxis;
+      return {
+        datestr: row.datestr,
+        state: weak && hot ? 'OVERLAP' : hot ? 'HOT' : weak ? 'WEAK' : 'NORMAL',
+        weak,
+        hot,
+        ew_ret: round2(row.ewRet),
+        ew_ret5: round2(ew5),
+        ew_ret10: round2(ew10),
+        breadth_up: round2(row.breadthUp),
+        evidence_scope: 'RECONSTRUCTED',
+      };
+    });
+    const payload = {
+      model_version: MARKET_ANOMALY_MODEL_VERSION,
+      dev_end: MARKET_ANOMALY_DEV_END,
+      data_through: result[result.length - 1]?.datestr || null,
+      timing: 'CLOSE_ONLY_SAME_DAY_IDENTIFICATION_NOT_EARLY_WARNING',
+      rows: result,
+    };
+    marketAnomalyCache = { cachedAt: Date.now(), payload };
+    res.json(payload);
   });
 });
 // ========== 舆情板块股票映射 API ==========

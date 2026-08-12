@@ -127,6 +127,21 @@ interface MTempItem {
   window_interpretation_desc?: string;
 }
 
+interface MarketAnomalyItem {
+  datestr: string;
+  state: 'NORMAL' | 'WEAK' | 'HOT' | 'OVERLAP';
+  weak: boolean;
+  hot: boolean;
+  evidence_scope: 'RECONSTRUCTED' | 'POINT_IN_TIME';
+}
+
+interface MarketAnomalyResponse {
+  model_version: string;
+  data_through: string | null;
+  timing: string;
+  rows: MarketAnomalyItem[];
+}
+
 const M_TREND_DEFAULT_MONTHS = 18;
 
 const getMTrendDefaultViewport = (dates: string[]) => {
@@ -164,6 +179,8 @@ const SimpleAlarmTrend: React.FC = () => {
   // M 市场温度数据
   const [mTempR1, setMTempR1] = useState<MTempItem[]>([]);
   const [mTempR2, setMTempR2] = useState<MTempItem[]>([]);
+  const [marketAnomaly, setMarketAnomaly] = useState<MarketAnomalyResponse | null>(null);
+  const [mZoom, setMZoom] = useState<{ start: number; end: number } | null>(null);
   const [mTempLoading, setMTempLoading] = useState<boolean>(false);
 
   // 天数选项
@@ -246,15 +263,19 @@ const SimpleAlarmTrend: React.FC = () => {
   const fetchMTempData = useCallback(async () => {
     setMTempLoading(true);
     try {
-      const [r1Res, r2Res] = await Promise.all([
+      const [r1Res, r2Res, anomalyRes] = await Promise.all([
         fetch('/api/m_trend?record_type=record1'),
         fetch('/api/m_trend?record_type=record2'),
+        fetch('/api/market_anomaly_trend'),
       ]);
       const r1Data = await r1Res.json();
       const r2Data = await r2Res.json();
+      const anomalyData = await anomalyRes.json();
       console.log('M Temp R1:', r1Data?.length, 'rows, R2:', r2Data?.length, 'rows');
       if (r1Res.ok && Array.isArray(r1Data)) setMTempR1(r1Data);
       if (r2Res.ok && Array.isArray(r2Data)) setMTempR2(r2Data);
+      if (anomalyRes.ok && Array.isArray(anomalyData?.rows)) setMarketAnomaly(anomalyData);
+      else setMarketAnomaly(null);
     } catch (error) {
       console.error('Failed to fetch M temp data:', error);
     } finally {
@@ -334,7 +355,36 @@ const SimpleAlarmTrend: React.FC = () => {
   const getMTempLabel = (item?: MTempItem) => item?.m_source === 'no_alert_sample' ? '无样本' : item?.m_temp_label || item?.temp_label || '未知';
   const getMAlarmDir = (item?: MTempItem) => item?.m_source === 'no_alert_sample' ? '无样本' : item?.m_alarm_dir || item?.alarm_dir || '未知';
 
-  const getMTempChartOption = (data: MTempItem[], title: string) => {
+  const sharedMTrendDates = Array.from(new Set([
+    ...mTempR1.map(item => item.datestr),
+    ...mTempR2.map(item => item.datestr),
+    ...(marketAnomaly?.rows || []).map(item => item.datestr),
+  ])).sort();
+  const mDateFloor = [mTempR1[0]?.datestr, mTempR2[0]?.datestr].filter(Boolean).sort()[0];
+  const mDateCeiling = [mTempR1[mTempR1.length - 1]?.datestr, mTempR2[mTempR2.length - 1]?.datestr].filter(Boolean).sort().pop();
+  const sharedMDisplayDates = sharedMTrendDates.filter(date => (!mDateFloor || date >= mDateFloor) && (!mDateCeiling || date <= mDateCeiling));
+  const alignMTrendRows = (data: MTempItem[]) => {
+    const byDate = new Map(data.map(item => [item.datestr, item]));
+    const metric = data.find(item => item.m_vol_metric)?.m_vol_metric || 'legacy_vol10';
+    return sharedMDisplayDates.map(date => byDate.get(date) || {
+      datestr: date,
+      vol10_med: null,
+      temp_label: null,
+      alarm_dir: null,
+      m_vol_med: null,
+      m_vol_metric: metric,
+      m_temp_label: null,
+      m_alarm_dir: null,
+      m_source: 'no_alert_sample' as const,
+      alarm_count: 0,
+      trail_data_complete: false,
+      window_signal: 'DATA_INSUFFICIENT',
+    });
+  };
+  const alignedMTempR1 = alignMTrendRows(mTempR1);
+  const alignedMTempR2 = alignMTrendRows(mTempR2);
+
+  const getMTempChartOption = (data: MTempItem[], title: string, zoom?: { start: number; end: number } | null) => {
     if (!data || data.length === 0) return null;
     const dates = data.map(d => d.datestr);
     const counts = data.map(d => d.alarm_count);
@@ -348,7 +398,7 @@ const SimpleAlarmTrend: React.FC = () => {
       symbol: 'diamond',
       symbolSize: dataCount > 100 ? 9 : 12,
       itemStyle: { color: '#8c8c8c', borderColor: '#fff', borderWidth: 1 },
-      label: { show: index === data.length - 1, formatter: '无报警', position: 'top', color: '#595959', fontSize: 10 },
+      label: { show: index === data.length - 1, formatter: '无报警', position: 'top', color: '#595959', fontSize: 12 },
     } : value);
     const metric = getMVolMetric(data[data.length - 1]);
     const metricLabel = metric === 'vol20' ? 'vol20' : 'vol10';
@@ -394,10 +444,10 @@ const SimpleAlarmTrend: React.FC = () => {
         }
       },
       grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
-      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:10,color:'#aaa',interval:axisLabelInterval}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
+      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:12,color:'#aaa',interval:axisLabelInterval}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
       yAxis: [
-        { type:'value', name:metricLabel, nameTextStyle:{fontSize:10,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
-        { type:'value', name:'报警', nameTextStyle:{fontSize:10,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
+        { type:'value', name:metricLabel, nameTextStyle:{fontSize:12,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
+        { type:'value', name:'报警', nameTextStyle:{fontSize:12,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
       ],
       series: [
         { name:'报警数', type:'bar', yAxisIndex:1, data:counts, itemStyle:{color:(params: any) => isMAttackWindow(data[params.dataIndex]) ? 'rgba(255,77,79,0.38)' : 'rgba(24,144,255,0.25)', borderRadius:[3,3,0,0]}, barWidth:'80%', barGap:'0%', z:1, emphasis:{itemStyle:{color:'rgba(24,144,255,0.45)'}} },
@@ -411,8 +461,8 @@ const SimpleAlarmTrend: React.FC = () => {
           } : undefined,
           markLine:{silent:true,symbol:'none',lineStyle:{type:'dashed',width:1},
             data:[
-              {yAxis:35,label:{formatter:'热 35',position:'start',fontSize:12,color:'#e74c3c'},lineStyle:{color:'#e74c3c'}},
-              {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:12,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
+              {yAxis:35,label:{formatter:'热 35',position:'start',fontSize:14,color:'#e74c3c'},lineStyle:{color:'#e74c3c'}},
+              {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:14,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
             ]
           }
         },
@@ -433,12 +483,54 @@ const SimpleAlarmTrend: React.FC = () => {
       ],
       dataZoom: dataCount>50?[{
         type:'slider',
-        startValue:defaultViewport.startIndex,
-        endValue:defaultViewport.endIndex,
+        ...(zoom ? { start: zoom.start, end: zoom.end } : { startValue: defaultViewport.startIndex, endValue: defaultViewport.endIndex }),
         bottom:0,
         height:20,
       }]:[],
     };
+  };
+
+  const handleMDataZoom = (event: any) => {
+    const payload = event?.batch?.[0] || event || {};
+    if (Number.isFinite(payload.start) && Number.isFinite(payload.end)) {
+      setMZoom({ start: payload.start, end: payload.end });
+    }
+  };
+
+  const renderMarketAnomalyStrip = () => {
+    const dates = sharedMDisplayDates;
+    if (!dates.length || !marketAnomaly?.rows?.length) return null;
+    const anomalyByDate = new Map(marketAnomaly.rows.map(item => [item.datestr, item]));
+    const defaultViewport = getMTrendDefaultViewport(dates);
+    const startPct = mZoom?.start ?? (100 * defaultViewport.startIndex / Math.max(1, dates.length - 1));
+    const endPct = mZoom?.end ?? 100;
+    const startIndex = Math.max(0, Math.floor((dates.length - 1) * startPct / 100));
+    const endIndex = Math.min(dates.length - 1, Math.ceil((dates.length - 1) * endPct / 100));
+    const visibleDates = dates.slice(startIndex, endIndex + 1);
+    const latest = anomalyByDate.get(dates[dates.length - 1]);
+    const latestTitle = latest?.state === 'HOT' ? '短期偏热' : latest?.state === 'WEAK' ? '明显偏弱' : latest?.state === 'OVERLAP' ? '偏热与偏弱同时出现' : '正常';
+    return (
+      <div style={{ margin: '4px 15px 14px 52px', padding: '8px 10px', border: '1px solid #e8e8e8', borderRadius: 6, background: '#fff' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6, fontSize: 14, color: '#595959' }}>
+          <strong>全市场异常提示</strong>
+          <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#cf1322', borderRadius: 2, marginRight: 4 }} />短期偏热</span>
+          <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#389e0d', borderRadius: 2, marginRight: 4 }} />明显偏弱</span>
+          <span><i style={{ display: 'inline-block', width: 11, height: 8, background: 'linear-gradient(to bottom,#cf1322 0 50%,#389e0d 50% 100%)', borderRadius: 2, marginRight: 4 }} />同时出现</span>
+          <span style={{ marginLeft: 'auto' }}>当前：<strong>{latestTitle}</strong></span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleDates.length}, minmax(1px, 1fr))`, gap: visibleDates.length > 180 ? 0 : 1, height: 10, background: '#f0f0f0', overflow: 'hidden', borderRadius: 3 }}>
+          {visibleDates.map(date => {
+            const item = anomalyByDate.get(date);
+            const background = item?.state === 'HOT' ? '#cf1322' : item?.state === 'WEAK' ? '#389e0d' : item?.state === 'OVERLAP' ? 'linear-gradient(to bottom,#cf1322 0 50%,#389e0d 50% 100%)' : 'transparent';
+            const title = item?.state === 'HOT' ? '短期偏热' : item?.state === 'WEAK' ? '明显偏弱' : item?.state === 'OVERLAP' ? '偏热与偏弱同时出现' : '正常';
+            return <span key={date} title={`${date}｜${title}`} style={{ background }} />;
+          })}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 13, color: '#999' }}>
+          <span>{visibleDates[0]}</span><span>独立于报警池M、背景区间和窗口散点，仅供市场环境参考</span><span>{visibleDates[visibleDates.length - 1]}</span>
+        </div>
+      </div>
+    );
   };
 
   const getMTempStats = (data: MTempItem[]) => {
@@ -540,29 +632,29 @@ const SimpleAlarmTrend: React.FC = () => {
     return (
       <div style={{ flex: 1, minWidth: 280, border: `1px solid ${isBadWindow ? detectorStatus.border : status.border}`, background: isBadWindow ? detectorStatus.bg : status.bg, borderRadius: 8, padding: '10px 12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{label}</div>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{label}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <span style={{ color: status.color, fontWeight: 700, fontSize: 14 }}>{status.title}</span>
+            <span style={{ color: status.color, fontWeight: 700, fontSize: 15 }}>{status.title}</span>
             <Tag color={detectorStatus.color} style={{ marginRight: 0, fontWeight: 700 }}>{detectorStatus.signal}</Tag>
-            <span style={{ color: detectorStatus.color, fontWeight: 700, fontSize: 14 }}>策略参考：{detectorStatus.actionHint}</span>
+            <span style={{ color: detectorStatus.color, fontWeight: 700, fontSize: 15 }}>策略参考：{detectorStatus.actionHint}</span>
           </div>
         </div>
-        <div style={{ marginTop: 6, fontSize: 14, color: '#595959' }}>
+        <div style={{ marginTop: 6, fontSize: 15, color: '#595959' }}>
           当前 {latest?.datestr || '-'} ｜ 报警池M({stats.latestMetric || 'legacy_vol10'}) {latestMText} ｜ 策略窗口: <strong style={{ color: detectorStatus.color }}>{detectorStatus.signal}</strong>
         </div>
-        <div style={{ marginTop: 4, fontSize: 14, color: '#595959' }}>
+        <div style={{ marginTop: 4, fontSize: 15, color: '#595959' }}>
           近{latest?.trail_days || 20}天样本 {latest?.trail_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.trail_low_pos_pct)} ｜ 负面 {fmtPct(latest?.trail_negative_pct)} ｜ 报扩 {fmtPct(latest?.trail_m_expand_pct)}
         </div>
-        <div style={{ marginTop: 4, fontSize: 14, color: shortStatus.color }}>
+        <div style={{ marginTop: 4, fontSize: 15, color: shortStatus.color }}>
           短周期 {shortStatus.title}：近{latest?.short_days || 5}天样本 {latest?.short_signal_n ?? '-'} ｜ 低位 {fmtPct(latest?.short_low_pos_pct)} ｜ 负面 {fmtPct(latest?.short_negative_pct)} ｜ 报扩 {fmtPct(latest?.short_m_expand_pct)}
         </div>
-        <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>
+        <div style={{ marginTop: 4, fontSize: 15, color: '#8c8c8c' }}>
           区间统计：GOOD_ALLOW {stats.goodDays} 天 ｜ NEUTRAL_WAIT {stats.neutralDays} 天 ｜ BAD_GUARD {stats.badDays} 天 ｜ PIT {stats.pitDays} 天 ｜ 研究重构 {stats.researchDays} 天 ｜ 数据不足 {stats.insufficientDays} 天
         </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: latest?.window_snapshot_frozen === false ? '#d46b08' : '#8c8c8c' }}>
+        <div style={{ marginTop: 4, fontSize: 14, color: latest?.window_snapshot_frozen === false ? '#d46b08' : '#8c8c8c' }}>
           窗口口径 {latest?.window_detector_version || 'M_WINDOW_CAL20_V1'} ｜ 解释 {latest?.window_interpretation_version || '-'} ｜ {latest?.window_snapshot_scope === 'POINT_IN_TIME' ? `PIT不可变快照 ${latest?.window_source_snapshot || '-'}` : latest?.window_snapshot_scope === 'RECONSTRUCTED' ? '历史研究重构（非PIT/非OOS）' : 'PIT正式快照缺失'}
         </div>
-        <div style={{ marginTop: 4, fontSize: 14, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
+        <div style={{ marginTop: 4, fontSize: 15, color: '#8c8c8c' }}>{detectorStatus.desc}</div>
       </div>
     );
   };
@@ -1095,7 +1187,7 @@ const SimpleAlarmTrend: React.FC = () => {
             </Space>
           }
         >
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, fontSize: 14 }}>
             {(mTempR1.length > 0 || mTempR2.length > 0) && (
               <>
                 <div style={{ marginBottom: 12, padding: '8px 12px', borderLeft: `4px solid ${crossRecordWindowStatus.color}`, background: '#fafafa', color: '#595959' }}>
@@ -1106,7 +1198,7 @@ const SimpleAlarmTrend: React.FC = () => {
                   {mTempR1.length > 0 && renderMMarketStatus('中小盘 Record1', mTempR1, r1Stats)}
                   {mTempR2.length > 0 && renderMMarketStatus('中大盘 Record2', mTempR2, r2Stats)}
                 </div>
-                <div style={{ marginBottom: 12, fontSize: 12, color: '#595959' }}>
+                <div style={{ marginBottom: 12, fontSize: 14, color: '#595959' }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f5f5f5', color: '#595959', border: '1px solid #d9d9d9', fontWeight: 600 }}>背景区间</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fff1f0', color: '#cf1322', border: '1px solid #ffa39e' }}>热 + 报扩：报警扩散</span>
@@ -1123,14 +1215,15 @@ const SimpleAlarmTrend: React.FC = () => {
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #bfbfbf', fontWeight: 600 }}>0轴灰色菱形：当日无报警，M无定义；0仅用于绘图，不参与统计</span>
                   </div>
                 </div>
+                {renderMarketAnomalyStrip()}
               </>
             )}
             {mTempR1.length > 0 ? (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
+                <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
                   中小盘(Record1) 报警池M(vol10)：背景=M环境，实心=PIT，空心=研究重构
                 </div>
-                <ReactEcharts option={getMTempChartOption(mTempR1, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
+                <ReactEcharts option={getMTempChartOption(alignedMTempR1, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
@@ -1139,10 +1232,10 @@ const SimpleAlarmTrend: React.FC = () => {
             )}
             {mTempR2.length > 0 ? (
               <div>
-                <div style={{ marginBottom: 6, fontSize: 13, color: '#595959', fontWeight: 600 }}>
+                <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
                   中大盘(Record2) 报警池M(vol20)：背景=M环境，实心=PIT，空心=研究重构
                 </div>
-                <ReactEcharts option={getMTempChartOption(mTempR2, '')} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
+                <ReactEcharts option={getMTempChartOption(alignedMTempR2, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
