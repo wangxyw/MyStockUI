@@ -5411,6 +5411,140 @@ router.get('/board/available_dates', (req: Request, res: Response) => {
   });
 });
 
+// 申万二级行业资金流向：只读原始截面，并返回所选行业近期趋势
+router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
+  const requestedDate = String(req.query.date || '').trim();
+  const requestedSector = String(req.query.sector || '').trim();
+  const allowedDays = [7, 14, 30, 60, 90];
+  const requestedDays = parseInt(String(req.query.days || '30'), 10);
+  const days = allowedDays.includes(requestedDays) ? requestedDays : 30;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+    res.status(400).json({ error: 'Invalid date format, expected YYYY-MM-DD' });
+    return;
+  }
+
+  pool.query(
+    `SELECT DATE_FORMAT(MAX(flow.date), '%Y-%m-%d') AS as_of_date
+     FROM raw_sector_fund_flow flow
+     INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
+       ON trade.datestr = flow.date
+     WHERE flow.date <= ?`,
+    [requestedDate, requestedDate],
+    (dateErr: Error | null, dateRows: any[]) => {
+      if (dateErr) {
+        console.error('sector_fund_flow date error:', dateErr);
+        res.status(500).json({ error: 'Query failed' });
+        return;
+      }
+
+      const asOfDate = dateRows?.[0]?.as_of_date;
+      if (!asOfDate) {
+        res.status(404).json({ error: `No sector fund flow found on or before ${requestedDate}` });
+        return;
+      }
+
+      pool.query(
+        `SELECT sector_code, sector_name, CAST(main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
+         FROM raw_sector_fund_flow
+         WHERE date = ?
+         ORDER BY main_inflow_yi DESC, sector_name ASC`,
+        [asOfDate],
+        (snapshotErr: Error | null, snapshotRows: any[]) => {
+          if (snapshotErr) {
+            console.error('sector_fund_flow snapshot error:', snapshotErr);
+            res.status(500).json({ error: 'Query failed' });
+            return;
+          }
+
+          const sectors = (snapshotRows || []).map((row: any) => ({
+            sector_code: row.sector_code,
+            sector_name: row.sector_name,
+            main_inflow_yi: round2(row.main_inflow_yi),
+          }));
+          const selectedSector = sectors.some((row: any) => row.sector_name === requestedSector)
+            ? requestedSector
+            : sectors[0]?.sector_name || null;
+          const totalNet = round2(sectors.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
+          const topInflows = sectors.filter((row: any) => row.main_inflow_yi > 0).slice(0, 10);
+          const topOutflows = [...sectors]
+            .filter((row: any) => row.main_inflow_yi < 0)
+            .sort((a: any, b: any) => a.main_inflow_yi - b.main_inflow_yi)
+            .slice(0, 10);
+
+          if (!selectedSector) {
+            res.json({
+              requested_date: requestedDate,
+              as_of_date: asOfDate,
+              sector_count: 0,
+              inflow_count: 0,
+              outflow_count: 0,
+              total_net_inflow_yi: 0,
+              top_inflows: [],
+              top_outflows: [],
+              sectors: [],
+              selected_sector: null,
+              requested_days: days,
+              covered_days: 0,
+              period_inflow_yi: 0,
+              period_outflow_yi: 0,
+              period_net_inflow_yi: 0,
+              trend: [],
+            });
+            return;
+          }
+
+          pool.query(
+            `SELECT DATE_FORMAT(flow.date, '%Y-%m-%d') AS date,
+                    CAST(flow.main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
+             FROM raw_sector_fund_flow flow
+             INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
+               ON trade.datestr = flow.date
+             WHERE flow.sector_name = ? AND flow.date <= ?
+             ORDER BY flow.date DESC
+             LIMIT ?`,
+            [asOfDate, selectedSector, asOfDate, days],
+            (trendErr: Error | null, trendRows: any[]) => {
+              if (trendErr) {
+                console.error('sector_fund_flow trend error:', trendErr);
+                res.status(500).json({ error: 'Query failed' });
+                return;
+              }
+
+              const trend = (trendRows || []).reverse().map((row: any) => ({
+                date: row.date,
+                main_inflow_yi: round2(row.main_inflow_yi),
+              }));
+              const periodInflow = round2(trend.reduce((sum: number, row: any) => sum + Math.max(row.main_inflow_yi, 0), 0));
+              const periodOutflow = round2(trend.reduce((sum: number, row: any) => sum + Math.abs(Math.min(row.main_inflow_yi, 0)), 0));
+              const periodNet = round2(trend.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
+
+              res.json({
+                requested_date: requestedDate,
+                as_of_date: asOfDate,
+                sector_count: sectors.length,
+                inflow_count: sectors.filter((row: any) => row.main_inflow_yi > 0).length,
+                outflow_count: sectors.filter((row: any) => row.main_inflow_yi < 0).length,
+                total_net_inflow_yi: totalNet,
+                top_inflows: topInflows,
+                top_outflows: topOutflows,
+                sectors,
+                selected_sector: selectedSector,
+                requested_days: days,
+                covered_days: trend.length,
+                period_inflow_yi: periodInflow,
+                period_outflow_yi: periodOutflow,
+                period_net_inflow_yi: periodNet,
+                trend,
+              });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
 // 2. 获取单日数据
 router.get('/board/daily', (req: Request, res: Response) => {
   const date = req.query.date as string;
