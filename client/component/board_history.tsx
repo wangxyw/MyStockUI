@@ -130,6 +130,16 @@ interface SectorFundFlowItem {
   main_inflow_yi: number;
 }
 
+interface SectorFundFlowPeriodRankItem {
+  sector_code: string;
+  sector_name: string;
+  period_inflow_yi: number;
+  period_outflow_yi: number;
+  period_net_inflow_yi: number;
+  period_net_outflow_yi: number;
+  covered_days: number;
+}
+
 interface SectorFundFlowData {
   requested_date: string;
   as_of_date: string;
@@ -142,6 +152,9 @@ interface SectorFundFlowData {
   sectors: SectorFundFlowItem[];
   selected_sector: string | null;
   requested_days: number;
+  ranking_covered_days: number;
+  period_top_inflows: SectorFundFlowPeriodRankItem[];
+  period_top_outflows: SectorFundFlowPeriodRankItem[];
   covered_days: number;
   period_inflow_yi: number;
   period_outflow_yi: number;
@@ -275,6 +288,7 @@ const BoardHistory: React.FC = () => {
   const [sectorFundFlowLoading, setSectorFundFlowLoading] = useState<boolean>(false);
   const [selectedFlowSector, setSelectedFlowSector] = useState<string>('');
   const [sectorFlowPeriod, setSectorFlowPeriod] = useState<number>(30);
+  const [sectorFlowDate, setSectorFlowDate] = useState<string>(moment().format('YYYY-MM-DD'));
 
   // ========== 过滤后的股票列表 ==========
   const filteredStocks = useMemo(() => {
@@ -381,11 +395,11 @@ const BoardHistory: React.FC = () => {
   }, []);
 
   const fetchSectorFundFlow = useCallback(async (sectorName?: string, periodDays?: number) => {
-    if (!selectedDate) return;
+    if (!sectorFlowDate) return;
     setSectorFundFlowLoading(true);
     try {
       const targetDays = periodDays || sectorFlowPeriod;
-      const params = new URLSearchParams({ date: selectedDate, days: String(targetDays) });
+      const params = new URLSearchParams({ date: sectorFlowDate, days: String(targetDays) });
       const targetSector = sectorName || selectedFlowSector;
       if (targetSector) params.set('sector', targetSector);
       const response = await fetch(`/api/board/sector_fund_flow?${params.toString()}`);
@@ -400,7 +414,7 @@ const BoardHistory: React.FC = () => {
     } finally {
       setSectorFundFlowLoading(false);
     }
-  }, [selectedDate, selectedFlowSector, sectorFlowPeriod]);
+  }, [sectorFlowDate, selectedFlowSector, sectorFlowPeriod]);
 
   // 获取单日数据（纯新闻版）
   const fetchSingleDayData = useCallback(async () => {
@@ -727,7 +741,7 @@ const BoardHistory: React.FC = () => {
 
   useEffect(() => {
     fetchSectorFundFlow();
-  }, [selectedDate]);
+  }, [sectorFlowDate]);
 
   // 视图模式切换时重新获取数据
   const handleViewModeChange = (checked: boolean) => {
@@ -1477,6 +1491,32 @@ const BoardHistory: React.FC = () => {
     };
   };
 
+  const getSectorFlowPeriodRankOption = (items: SectorFundFlowPeriodRankItem[], direction: 'inflow' | 'outflow') => {
+    const rows = [...items].reverse();
+    const color = direction === 'inflow' ? '#ff4d4f' : '#52c41a';
+    const valueKey = direction === 'inflow' ? 'period_net_inflow_yi' : 'period_net_outflow_yi';
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any[]) => {
+          const row = rows.find(item => item.sector_name === params[0].name);
+          if (!row) return params[0].name;
+          return `${row.sector_name}<br/>累计流入：${row.period_inflow_yi.toFixed(2)} 亿元<br/>累计流出：${row.period_outflow_yi.toFixed(2)} 亿元<br/>${direction === 'inflow' ? '流入－流出' : '流出－流入'}：${row[valueKey].toFixed(2)} 亿元`;
+        },
+      },
+      grid: { top: 8, bottom: 16, left: 90, right: 45, containLabel: true },
+      xAxis: { type: 'value', min: 0, axisLabel: { formatter: (value: number) => `${value}亿` }, splitLine: { lineStyle: { type: 'dashed', color: '#f0f0f0' } } },
+      yAxis: { type: 'category', data: rows.map(row => row.sector_name), axisLabel: { fontSize: 13 }, axisTick: { show: false } },
+      series: [{
+        type: 'bar',
+        data: rows.map(row => row[valueKey]),
+        itemStyle: { color, borderRadius: [0, 4, 4, 0] },
+        label: { show: true, position: 'right', formatter: (params: any) => Number(params.value).toFixed(1), fontSize: 12, color },
+      }],
+    };
+  };
+
   const getSectorFlowTrendOption = (data: SectorFundFlowData) => ({
     tooltip: { trigger: 'axis', formatter: (params: any[]) => `${params[0].axisValue}<br/>主力净流向：${params[0].value > 0 ? '+' : ''}${Number(params[0].value).toFixed(2)} 亿元` },
     grid: { top: 20, bottom: 48, left: 65, right: 25, containLabel: true },
@@ -1731,6 +1771,20 @@ const BoardHistory: React.FC = () => {
         style={{ marginBottom: 20 }}
         extra={<Button icon={<ReloadOutlined />} size="small" onClick={() => fetchSectorFundFlow()} loading={sectorFundFlowLoading}>刷新</Button>}
       >
+        <Space style={{ marginBottom: 12 }} wrap>
+          <CalendarOutlined style={{ color: '#1890ff' }} />
+          <span style={{ fontWeight: 600 }}>资金日期：</span>
+          <DatePicker
+            value={moment(sectorFlowDate)}
+            format="YYYY-MM-DD"
+            allowClear={false}
+            disabledDate={(current) => current && current > moment().endOf('day')}
+            onChange={(date) => {
+              if (date) setSectorFlowDate(date.format('YYYY-MM-DD'));
+            }}
+          />
+          <span style={{ color: '#8c8c8c' }}>下方三个部分共用该日期</span>
+        </Space>
         <Spin spinning={sectorFundFlowLoading}>
           {sectorFundFlow ? (
             <>
@@ -1757,15 +1811,7 @@ const BoardHistory: React.FC = () => {
               </Row>
               <Divider style={{ margin: '12px 0 16px' }} />
               <Space style={{ marginBottom: 8 }} wrap>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>板块近期资金趋势：</span>
-                <Select
-                  showSearch
-                  value={selectedFlowSector || undefined}
-                  style={{ width: 220 }}
-                  optionFilterProp="label"
-                  options={sectorFundFlow.sectors.map(row => ({ value: row.sector_name, label: row.sector_name }))}
-                  onChange={(value) => fetchSectorFundFlow(value)}
-                />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>区间资金净流向 TOP5：</span>
                 <Button.Group>
                   {[7, 14, 30, 60, 90].map(days => (
                     <Button
@@ -1778,7 +1824,36 @@ const BoardHistory: React.FC = () => {
                     </Button>
                   ))}
                 </Button.Group>
-                <span style={{ color: '#8c8c8c' }}>点击上方柱形也可切换板块</span>
+                <span style={{ color: '#8c8c8c' }}>
+                  实际覆盖 {sectorFundFlow.ranking_covered_days} / {sectorFundFlow.requested_days} 个有效交易日
+                </span>
+              </Space>
+              <Row gutter={[20, 16]}>
+                <Col xs={24} lg={12}>
+                  <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#cf1322' }}>{sectorFundFlow.requested_days}日 流入－流出 TOP5</div>
+                  {sectorFundFlow.period_top_inflows.length > 0 ? (
+                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_inflows, 'inflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name, sectorFlowPeriod) }} />
+                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无净流入板块" />}
+                </Col>
+                <Col xs={24} lg={12}>
+                  <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#389e0d' }}>{sectorFundFlow.requested_days}日 流出－流入 TOP5</div>
+                  {sectorFundFlow.period_top_outflows.length > 0 ? (
+                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_outflows, 'outflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name, sectorFlowPeriod) }} />
+                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无净流出板块" />}
+                </Col>
+              </Row>
+              <Divider style={{ margin: '12px 0 16px' }} />
+              <Space style={{ marginBottom: 8 }} wrap>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>板块近期资金趋势：</span>
+                <Select
+                  showSearch
+                  value={selectedFlowSector || undefined}
+                  style={{ width: 220 }}
+                  optionFilterProp="label"
+                  options={sectorFundFlow.sectors.map(row => ({ value: row.sector_name, label: row.sector_name }))}
+                  onChange={(value) => fetchSectorFundFlow(value)}
+                />
+                <span style={{ color: '#8c8c8c' }}>跟随上方 {sectorFundFlow.requested_days} 日区间；点击任一排名柱形也可切换板块</span>
               </Space>
               <Row gutter={[16, 12]} style={{ marginTop: 8, marginBottom: 4 }}>
                 <Col xs={12} md={6}><Statistic title="实际覆盖" value={sectorFundFlow.covered_days} suffix={`/ ${sectorFundFlow.requested_days} 个交易日`} /></Col>

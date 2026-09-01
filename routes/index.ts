@@ -5485,6 +5485,9 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
               sectors: [],
               selected_sector: null,
               requested_days: days,
+              ranking_covered_days: 0,
+              period_top_inflows: [],
+              period_top_outflows: [],
               covered_days: 0,
               period_inflow_yi: 0,
               period_outflow_yi: 0,
@@ -5495,48 +5498,103 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
           }
 
           pool.query(
-            `SELECT DATE_FORMAT(flow.date, '%Y-%m-%d') AS date,
-                    CAST(flow.main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
+            `SELECT flow.sector_code,
+                    flow.sector_name,
+                    SUM(CASE WHEN flow.main_inflow_yi > 0 THEN flow.main_inflow_yi ELSE 0 END) AS period_inflow_yi,
+                    SUM(CASE WHEN flow.main_inflow_yi < 0 THEN -flow.main_inflow_yi ELSE 0 END) AS period_outflow_yi,
+                    COALESCE(SUM(flow.main_inflow_yi), 0) AS period_net_inflow_yi,
+                    COUNT(DISTINCT flow.date) AS covered_days
              FROM raw_sector_fund_flow flow
-             INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
-               ON trade.datestr = flow.date
-             WHERE flow.sector_name = ? AND flow.date <= ?
-             ORDER BY flow.date DESC
-             LIMIT ?`,
-            [asOfDate, selectedSector, asOfDate, days],
-            (trendErr: Error | null, trendRows: any[]) => {
-              if (trendErr) {
-                console.error('sector_fund_flow trend error:', trendErr);
+             INNER JOIN (
+               SELECT DISTINCT datestr
+               FROM stock_day_common_data
+               WHERE datestr <= ?
+               ORDER BY datestr DESC
+               LIMIT ?
+             ) trade ON trade.datestr = flow.date
+             WHERE flow.date <= ?
+             GROUP BY flow.sector_code, flow.sector_name`,
+            [asOfDate, days, asOfDate],
+            (rankingErr: Error | null, rankingRows: any[]) => {
+              if (rankingErr) {
+                console.error('sector_fund_flow period ranking error:', rankingErr);
                 res.status(500).json({ error: 'Query failed' });
                 return;
               }
 
-              const trend = (trendRows || []).reverse().map((row: any) => ({
-                date: row.date,
-                main_inflow_yi: round2(row.main_inflow_yi),
-              }));
-              const periodInflow = round2(trend.reduce((sum: number, row: any) => sum + Math.max(row.main_inflow_yi, 0), 0));
-              const periodOutflow = round2(trend.reduce((sum: number, row: any) => sum + Math.abs(Math.min(row.main_inflow_yi, 0)), 0));
-              const periodNet = round2(trend.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
-
-              res.json({
-                requested_date: requestedDate,
-                as_of_date: asOfDate,
-                sector_count: sectors.length,
-                inflow_count: sectors.filter((row: any) => row.main_inflow_yi > 0).length,
-                outflow_count: sectors.filter((row: any) => row.main_inflow_yi < 0).length,
-                total_net_inflow_yi: totalNet,
-                top_inflows: topInflows,
-                top_outflows: topOutflows,
-                sectors,
-                selected_sector: selectedSector,
-                requested_days: days,
-                covered_days: trend.length,
-                period_inflow_yi: periodInflow,
-                period_outflow_yi: periodOutflow,
-                period_net_inflow_yi: periodNet,
-                trend,
+              const periodRows = (rankingRows || []).map((row: any) => {
+                const periodNetInflow = round2(row.period_net_inflow_yi);
+                return {
+                  sector_code: row.sector_code,
+                  sector_name: row.sector_name,
+                  period_inflow_yi: round2(row.period_inflow_yi),
+                  period_outflow_yi: round2(row.period_outflow_yi),
+                  period_net_inflow_yi: periodNetInflow,
+                  period_net_outflow_yi: round2(-periodNetInflow),
+                  covered_days: Number(row.covered_days) || 0,
+                };
               });
+              const periodTopInflows = periodRows
+                .filter((row: any) => row.period_net_inflow_yi > 0)
+                .sort((a: any, b: any) => b.period_net_inflow_yi - a.period_net_inflow_yi || a.sector_name.localeCompare(b.sector_name))
+                .slice(0, 5);
+              const periodTopOutflows = periodRows
+                .filter((row: any) => row.period_net_outflow_yi > 0)
+                .sort((a: any, b: any) => b.period_net_outflow_yi - a.period_net_outflow_yi || a.sector_name.localeCompare(b.sector_name))
+                .slice(0, 5);
+              const rankingCoveredDays = periodRows.reduce(
+                (maxDays: number, row: any) => Math.max(maxDays, row.covered_days),
+                0
+              );
+
+              pool.query(
+                `SELECT DATE_FORMAT(flow.date, '%Y-%m-%d') AS date,
+                        CAST(flow.main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
+                 FROM raw_sector_fund_flow flow
+                 INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
+                   ON trade.datestr = flow.date
+                 WHERE flow.sector_name = ? AND flow.date <= ?
+                 ORDER BY flow.date DESC
+                 LIMIT ?`,
+                [asOfDate, selectedSector, asOfDate, days],
+                (trendErr: Error | null, trendRows: any[]) => {
+                  if (trendErr) {
+                    console.error('sector_fund_flow trend error:', trendErr);
+                    res.status(500).json({ error: 'Query failed' });
+                    return;
+                  }
+
+                  const trend = (trendRows || []).reverse().map((row: any) => ({
+                    date: row.date,
+                    main_inflow_yi: round2(row.main_inflow_yi),
+                  }));
+                  const periodInflow = round2(trend.reduce((sum: number, row: any) => sum + Math.max(row.main_inflow_yi, 0), 0));
+                  const periodOutflow = round2(trend.reduce((sum: number, row: any) => sum + Math.abs(Math.min(row.main_inflow_yi, 0)), 0));
+                  const periodNet = round2(trend.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
+
+                  res.json({
+                    requested_date: requestedDate,
+                    as_of_date: asOfDate,
+                    sector_count: sectors.length,
+                    inflow_count: sectors.filter((row: any) => row.main_inflow_yi > 0).length,
+                    outflow_count: sectors.filter((row: any) => row.main_inflow_yi < 0).length,
+                    total_net_inflow_yi: totalNet,
+                    top_inflows: topInflows,
+                    top_outflows: topOutflows,
+                    sectors,
+                    selected_sector: selectedSector,
+                    requested_days: days,
+                    ranking_covered_days: rankingCoveredDays,
+                    period_top_inflows: periodTopInflows,
+                    period_top_outflows: periodTopOutflows,
+                    covered_days: trend.length,
+                    period_inflow_yi: periodInflow,
+                    period_outflow_yi: periodOutflow,
+                    period_net_inflow_yi: periodNet,
+                    trend,
+                  });
+                }
+              );
             }
           );
         }
