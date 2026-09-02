@@ -5603,6 +5603,162 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
   );
 });
 
+// 申万二级行业成分股：返回截至资金实际日期的最近一次历史报警及涨跌幅
+router.get('/board/sector_fund_flow_stocks', (req: Request, res: Response) => {
+  const requestedDate = String(req.query.date || '').trim();
+  const sectorName = String(req.query.sector || '').trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+    res.status(400).json({ error: 'Invalid date format, expected YYYY-MM-DD' });
+    return;
+  }
+  if (!sectorName || sectorName.length > 100) {
+    res.status(400).json({ error: 'Invalid sector name' });
+    return;
+  }
+
+  pool.query(
+    `SELECT DATE_FORMAT(MAX(flow.date), '%Y-%m-%d') AS as_of_date
+     FROM raw_sector_fund_flow flow
+     INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
+       ON trade.datestr = flow.date
+     WHERE flow.date <= ? AND flow.sector_name = ?`,
+    [requestedDate, requestedDate, sectorName],
+    (dateErr: Error | null, dateRows: any[]) => {
+      if (dateErr) {
+        console.error('sector_fund_flow_stocks date error:', dateErr);
+        res.status(500).json({ error: 'Query failed' });
+        return;
+      }
+
+      const asOfDate = dateRows?.[0]?.as_of_date;
+      if (!asOfDate) {
+        res.status(404).json({ error: `No sector fund flow found for ${sectorName} on or before ${requestedDate}` });
+        return;
+      }
+
+      const stocksSql = `
+        SELECT
+          sbs.symbol,
+          COALESCE(st.name, st_stocks.name, sbs.symbol) AS stock_name,
+          GROUP_CONCAT(DISTINCT b.name ORDER BY b.name SEPARATOR '|') AS business_display_names,
+          GROUP_CONCAT(DISTINCT b.code ORDER BY b.name SEPARATOR '|') AS business_codes,
+          GROUP_CONCAT(DISTINCT all_business.name ORDER BY all_business.name SEPARATOR '|') AS all_business_display_names,
+          MAX(r1.datestr) AS record1_date,
+          MAX(r1.alert_decision) AS record1_decision,
+          MAX(r1.final_price) AS record1_price,
+          MAX(r2.datestr) AS record2_date,
+          MAX(r2.alert_decision) AS record2_decision,
+          MAX(r2.final_price) AS record2_price,
+          MAX(as_of_price.finalprice) AS as_of_price
+        FROM business b
+        INNER JOIN sw_stock_business sbs ON sbs.business_code = b.code
+        LEFT JOIN stocks st ON sbs.symbol = st.symbol
+        LEFT JOIN st_stocks ON sbs.symbol = st_stocks.symbol
+        LEFT JOIN sw_stock_business all_link ON all_link.symbol = sbs.symbol
+        LEFT JOIN business all_business ON all_business.code = all_link.business_code
+        LEFT JOIN focus_stocks_ai r1 ON r1.id = (
+          SELECT r1_pick.id
+          FROM focus_stocks_ai r1_pick
+          WHERE r1_pick.symbol = sbs.symbol
+            AND r1_pick.datestr < DATE_FORMAT(DATE_ADD(?, INTERVAL 1 DAY), '%Y-%m-%d')
+          ORDER BY r1_pick.datestr DESC, r1_pick.id DESC
+          LIMIT 1
+        )
+        LEFT JOIN focus_stocks2_ai r2 ON r2.id = (
+          SELECT r2_pick.id
+          FROM focus_stocks2_ai r2_pick
+          WHERE r2_pick.symbol = sbs.symbol
+            AND r2_pick.datestr < DATE_FORMAT(DATE_ADD(?, INTERVAL 1 DAY), '%Y-%m-%d')
+          ORDER BY r2_pick.datestr DESC, r2_pick.id DESC
+          LIMIT 1
+        )
+        LEFT JOIN stock_day_common_data as_of_price
+          ON as_of_price.symbol = sbs.symbol AND as_of_price.datestr = ?
+        WHERE b.business_type = 'sw2_hy'
+          AND (
+            b.name = ?
+            OR (? = '银行Ⅱ' AND b.code IN ('sw2_480200', 'sw2_480300', 'sw2_480400', 'sw2_480500'))
+          )
+        GROUP BY sbs.symbol, stock_name
+        ORDER BY
+          CASE WHEN MAX(r1.datestr) IS NOT NULL OR MAX(r2.datestr) IS NOT NULL THEN 0 ELSE 1 END,
+          GREATEST(COALESCE(MAX(r1.datestr), ''), COALESCE(MAX(r2.datestr), '')) DESC,
+          sbs.symbol ASC
+      `;
+
+      pool.query(stocksSql, [asOfDate, asOfDate, asOfDate, sectorName, sectorName], (stocksErr: Error | null, rows: any[]) => {
+        if (stocksErr) {
+          console.error('sector_fund_flow_stocks stocks error:', stocksErr);
+          res.status(500).json({ error: 'Query failed' });
+          return;
+        }
+
+        const businessNames = new Set<string>();
+        let latestRecord1Count = 0;
+        let latestRecord2Count = 0;
+        let historyAlertCount = 0;
+        const stocks = (rows || []).map((row: any) => {
+          const names = String(row.business_display_names || '').split('|').filter(Boolean);
+          names.forEach((name: string) => businessNames.add(name));
+          const record1Date = row.record1_date ? String(row.record1_date).slice(0, 10) : '';
+          const record2Date = row.record2_date ? String(row.record2_date).slice(0, 10) : '';
+          const hasHistoryAlert = Boolean(record1Date || record2Date);
+          const useRecord1 = Boolean(record1Date && (!record2Date || record1Date >= record2Date));
+          const latestRecordType = useRecord1 ? 'Record1' : hasHistoryAlert ? 'Record2' : '';
+          const latestAlertDate = useRecord1 ? record1Date : record2Date;
+          const latestAlertDecision = useRecord1 ? row.record1_decision : row.record2_decision;
+          const rawAlertPrice = useRecord1 ? row.record1_price : row.record2_price;
+          const alertPrice = rawAlertPrice == null ? null : Number(rawAlertPrice);
+          const asOfPrice = row.as_of_price == null ? null : Number(row.as_of_price);
+          const priceChangePct = hasHistoryAlert && alertPrice && asOfPrice != null
+            ? round2((asOfPrice / alertPrice - 1) * 100)
+            : null;
+          if (latestRecordType === 'Record1') latestRecord1Count += 1;
+          if (latestRecordType === 'Record2') latestRecord2Count += 1;
+          if (hasHistoryAlert) historyAlertCount += 1;
+
+          return {
+            symbol: row.symbol,
+            name: row.stock_name,
+            business_display_name: names[0] || sectorName,
+            business_display_names: row.business_display_names || sectorName,
+            business_codes: row.business_codes || '',
+            all_business_display_names: row.all_business_display_names || row.business_display_names || sectorName,
+            ai_focus: {
+              is_focused: hasHistoryAlert,
+              datestr: hasHistoryAlert ? latestAlertDate : undefined,
+              latest_alert: hasHistoryAlert ? {
+                record_type: latestRecordType,
+                datestr: latestAlertDate,
+                alert_decision: latestAlertDecision || '',
+                alert_price: alertPrice,
+                as_of_date: asOfDate,
+                as_of_price: asOfPrice,
+                price_change_pct: priceChangePct,
+              } : null,
+            },
+          };
+        });
+
+        res.json({
+          source: 'sw2',
+          sector_name: sectorName,
+          requested_date: requestedDate,
+          as_of_date: asOfDate,
+          business_names: Array.from(businessNames).sort(),
+          stock_count: stocks.length,
+          history_alert_count: historyAlertCount,
+          latest_record1_count: latestRecord1Count,
+          latest_record2_count: latestRecord2Count,
+          no_history_alert_count: stocks.length - historyAlertCount,
+          stocks,
+        });
+      });
+    }
+  );
+});
+
 // 2. 获取单日数据
 router.get('/board/daily', (req: Request, res: Response) => {
   const date = req.query.date as string;

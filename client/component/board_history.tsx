@@ -91,12 +91,22 @@ interface StockInfo {
   business_display_name: string;
   business_display_names?: string;  // 新增：多个业务板块，用 | 分隔
   business_codes?: string;          // 新增：多个业务代码
+  all_business_display_names?: string;
   ai_focus?: {
     is_focused: boolean;
     datestr?: string;
     max_240_pct?: number;
     min_240_pct?: number;
     price_change?: string;
+    latest_alert?: {
+      record_type: 'Record1' | 'Record2';
+      datestr: string;
+      alert_decision?: string;
+      alert_price?: number | null;
+      as_of_date: string;
+      as_of_price?: number | null;
+      price_change_pct?: number | null;
+    } | null;
   };
 }
 
@@ -114,6 +124,12 @@ interface BoardStocksData {
   stocks: StockInfo[];
   stock_count: number;
   mapping_count: number;
+  requested_date?: string;
+  as_of_date?: string;
+  history_alert_count?: number;
+  latest_record1_count?: number;
+  latest_record2_count?: number;
+  no_history_alert_count?: number;
 }
 
 interface BoardSummary {
@@ -263,6 +279,7 @@ const BoardHistory: React.FC = () => {
   // 股票信息弹窗
   const [stocksModalVisible, setStocksModalVisible] = useState<boolean>(false);
   const [stocksLoading, setStocksLoading] = useState<boolean>(false);
+  const [stocksModalSource, setStocksModalSource] = useState<'sentiment' | 'sw2'>('sentiment');
   const [selectedBusinessFilter, setSelectedBusinessFilter] = useState<string | null>(null); // 新增：业务板块过滤
   const [stocksData, setStocksData] = useState<BoardStocksData>({
     board_name: '',
@@ -620,6 +637,7 @@ const BoardHistory: React.FC = () => {
       return;
     }
     
+    setStocksModalSource('sentiment');
     setStocksModalVisible(true);
     setCurrentBoard(board);
     setStocksLoading(true);
@@ -730,6 +748,63 @@ const BoardHistory: React.FC = () => {
     }
   };
 
+  // 获取申万二级板块成分股及截至资金实际日期的最近历史报警
+  const fetchSectorFundFlowStocks = async (sectorName: string) => {
+    if (!sectorName || !sectorFlowDate) {
+      message.error('板块或资金日期无效');
+      return;
+    }
+
+    setStocksModalSource('sw2');
+    setStocksModalVisible(true);
+    setCurrentBoard(sectorName);
+    setStocksLoading(true);
+    setSelectedBusinessFilter(null);
+    setStocksData({
+      board_name: sectorName,
+      keywords: [],
+      business_names: [],
+      stocks: [],
+      stock_count: 0,
+      mapping_count: 0,
+      requested_date: sectorFlowDate,
+    });
+
+    try {
+      const params = new URLSearchParams({ sector: sectorName, date: sectorFlowDate });
+      const response = await fetch(`/api/board/sector_fund_flow_stocks?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data?.error || '获取申万二级成分股失败');
+
+      setStocksData({
+        board_name: data.sector_name,
+        keywords: [],
+        business_names: data.business_names || [],
+        stocks: data.stocks || [],
+        stock_count: data.stock_count || 0,
+        mapping_count: (data.business_names || []).length,
+        requested_date: data.requested_date,
+        as_of_date: data.as_of_date,
+        history_alert_count: data.history_alert_count || 0,
+        latest_record1_count: data.latest_record1_count || 0,
+        latest_record2_count: data.latest_record2_count || 0,
+        no_history_alert_count: data.no_history_alert_count || 0,
+      });
+    } catch (error) {
+      console.error('Failed to fetch sector fund flow stocks:', error);
+      message.error(error instanceof Error ? error.message : '获取申万二级成分股失败');
+    } finally {
+      setStocksLoading(false);
+    }
+  };
+
+  const handleSectorFundFlowRankClick = (params: any, periodDays?: number) => {
+    const sectorName = String(params?.name || '').trim();
+    if (!sectorName) return;
+    fetchSectorFundFlow(sectorName, periodDays);
+    fetchSectorFundFlowStocks(sectorName);
+  };
+
   // ========== 初始加载 ==========
   useEffect(() => {
     fetchAvailableDates();
@@ -762,6 +837,44 @@ const BoardHistory: React.FC = () => {
         fetchBoardTrend();
       }
     }
+  };
+
+  const getStockFundTopRelations = (stock: StockInfo) => {
+    if (!sectorFundFlow) return [];
+    const businessNames = new Set(
+      String(stock.all_business_display_names || stock.business_display_names || stock.business_display_name || '')
+        .split('|')
+        .filter(Boolean)
+    );
+    const relations: Array<{
+      key: string;
+      sectorName: string;
+      scopeLabel: string;
+      direction: 'inflow' | 'outflow';
+      directionLabel: string;
+    }> = [];
+    const appendRelations = (
+      rows: Array<{ sector_name: string }>,
+      scopeLabel: string,
+      direction: 'inflow' | 'outflow'
+    ) => {
+      rows.forEach((row) => {
+        if (!businessNames.has(row.sector_name) || row.sector_name === stocksData.board_name) return;
+        relations.push({
+          key: `${scopeLabel}-${direction}-${row.sector_name}`,
+          sectorName: row.sector_name,
+          scopeLabel,
+          direction,
+          directionLabel: direction === 'inflow' ? 'TOP流入' : 'TOP流出',
+        });
+      });
+    };
+
+    appendRelations(sectorFundFlow.top_inflows, '当日', 'inflow');
+    appendRelations(sectorFundFlow.top_outflows, '当日', 'outflow');
+    appendRelations(sectorFundFlow.period_top_inflows, `${sectorFundFlow.requested_days}日`, 'inflow');
+    appendRelations(sectorFundFlow.period_top_outflows, `${sectorFundFlow.requested_days}日`, 'outflow');
+    return relations;
   };
 
   // ========== 股票表格列定义 ==========
@@ -815,11 +928,32 @@ const BoardHistory: React.FC = () => {
     //   ),
     // },
     {
-      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>所属业务板块</span>,
+      title: <span style={{ fontSize: 14, fontWeight: 'bold' }}>{stocksModalSource === 'sw2' ? '其他资金TOP关联' : '所属业务板块'}</span>,
       dataIndex: 'business_display_name',
       key: 'business_display_name',
-      width: 200,
+      width: stocksModalSource === 'sw2' ? 300 : 200,
       render: (_: any, record: StockInfo) => {
+        if (stocksModalSource === 'sw2') {
+          const topRelations = getStockFundTopRelations(record);
+          if (topRelations.length === 0) {
+            return <span style={{ color: '#bfbfbf', fontSize: 13 }}>暂无其他TOP关联</span>;
+          }
+          return (
+            <Space wrap size={4}>
+              {topRelations.map((relation) => (
+                <Tooltip key={relation.key} title={`${relation.scopeLabel}${relation.directionLabel}：${relation.sectorName}`}>
+                  <Tag
+                    color={relation.direction === 'inflow' ? 'red' : 'green'}
+                    style={{ fontSize: 12, padding: '2px 8px', margin: 0 }}
+                  >
+                    {relation.scopeLabel}·{relation.sectorName}
+                  </Tag>
+                </Tooltip>
+              ))}
+            </Space>
+          );
+        }
+
         // 如果有多个业务板块，显示多个 Tag
         if (record.business_display_names && record.business_display_names.includes('|')) {
           const businesses = record.business_display_names.split('|');
@@ -846,6 +980,39 @@ const BoardHistory: React.FC = () => {
       key: 'ai_info',
       width: 320,
       render: (_: any, record: StockInfo) => {
+        if (stocksModalSource === 'sw2') {
+          const latestAlert = record.ai_focus?.latest_alert;
+          if (!record.ai_focus?.is_focused || !latestAlert) {
+            return <Tag color="default" style={{ fontSize: 13, padding: '4px 10px' }}>历史无报警</Tag>;
+          }
+
+          const hasPriceChange = typeof latestAlert.price_change_pct === 'number';
+          const priceChange = latestAlert.price_change_pct || 0;
+          const priceColor = priceChange > 0 ? '#ff4d4f' : priceChange < 0 ? '#52c41a' : '#8c8c8c';
+          const priceText = hasPriceChange ? `${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)}%` : '涨跌幅暂无';
+          const recordTagColor = latestAlert.record_type === 'Record1' ? 'orange' : 'purple';
+
+          return (
+            <div>
+              <Space wrap size={4}>
+                <Tooltip
+                  title={
+                    <div>
+                      <div>报警价：{latestAlert.alert_price == null ? '暂无' : latestAlert.alert_price.toFixed(2)}</div>
+                      <div>{latestAlert.as_of_date}价格：{latestAlert.as_of_price == null ? '暂无' : latestAlert.as_of_price.toFixed(2)}</div>
+                    </div>
+                  }
+                >
+                  <Tag color={recordTagColor} style={{ fontSize: 13, padding: '4px 10px' }}><RobotOutlined /> {latestAlert.record_type} 最近报警</Tag>
+                </Tooltip>
+                <Tag style={{ fontSize: 13, padding: '4px 10px', color: priceColor, borderColor: priceColor }}>{priceText}</Tag>
+              </Space>
+              <div style={{ marginTop: 4, fontSize: 12, color: '#595959' }}>报警日期：{latestAlert.datestr}</div>
+              {latestAlert.alert_decision && <div style={{ marginTop: 2, fontSize: 12, color: latestAlert.record_type === 'Record1' ? '#ad6800' : '#531dab' }}>{latestAlert.alert_decision}</div>}
+            </div>
+          );
+        }
+
         if (record.ai_focus?.is_focused) {
           const { datestr, max_240_pct, min_240_pct, price_change } = record.ai_focus;
           
@@ -1802,11 +1969,11 @@ const BoardHistory: React.FC = () => {
               <Row gutter={[20, 16]}>
                 <Col xs={24} lg={12}>
                   <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#cf1322' }}>主力净流入 TOP10</div>
-                  <ReactEcharts option={getSectorFlowRankOption(sectorFundFlow.top_inflows, 'inflow')} style={{ height: 350 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name) }} />
+                  <ReactEcharts option={getSectorFlowRankOption(sectorFundFlow.top_inflows, 'inflow')} style={{ height: 350 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => handleSectorFundFlowRankClick(params) }} />
                 </Col>
                 <Col xs={24} lg={12}>
                   <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#389e0d' }}>主力净流出 TOP10</div>
-                  <ReactEcharts option={getSectorFlowRankOption(sectorFundFlow.top_outflows, 'outflow')} style={{ height: 350 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name) }} />
+                  <ReactEcharts option={getSectorFlowRankOption(sectorFundFlow.top_outflows, 'outflow')} style={{ height: 350 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => handleSectorFundFlowRankClick(params) }} />
                 </Col>
               </Row>
               <Divider style={{ margin: '12px 0 16px' }} />
@@ -1832,13 +1999,13 @@ const BoardHistory: React.FC = () => {
                 <Col xs={24} lg={12}>
                   <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#cf1322' }}>{sectorFundFlow.requested_days}日 流入－流出 TOP5</div>
                   {sectorFundFlow.period_top_inflows.length > 0 ? (
-                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_inflows, 'inflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name, sectorFlowPeriod) }} />
+                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_inflows, 'inflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => handleSectorFundFlowRankClick(params, sectorFlowPeriod) }} />
                   ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无净流入板块" />}
                 </Col>
                 <Col xs={24} lg={12}>
                   <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#389e0d' }}>{sectorFundFlow.requested_days}日 流出－流入 TOP5</div>
                   {sectorFundFlow.period_top_outflows.length > 0 ? (
-                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_outflows, 'outflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => fetchSectorFundFlow(params.name, sectorFlowPeriod) }} />
+                    <ReactEcharts option={getSectorFlowPeriodRankOption(sectorFundFlow.period_top_outflows, 'outflow')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: (params: any) => handleSectorFundFlowRankClick(params, sectorFlowPeriod) }} />
                   ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无净流出板块" />}
                 </Col>
               </Row>
@@ -1853,7 +2020,7 @@ const BoardHistory: React.FC = () => {
                   options={sectorFundFlow.sectors.map(row => ({ value: row.sector_name, label: row.sector_name }))}
                   onChange={(value) => fetchSectorFundFlow(value)}
                 />
-                <span style={{ color: '#8c8c8c' }}>跟随上方 {sectorFundFlow.requested_days} 日区间；点击任一排名柱形也可切换板块</span>
+                <span style={{ color: '#8c8c8c' }}>跟随上方 {sectorFundFlow.requested_days} 日区间；点击任一排名柱形可查看成分股，并同步切换趋势板块</span>
               </Space>
               <Row gutter={[16, 12]} style={{ marginTop: 8, marginBottom: 4 }}>
                 <Col xs={12} md={6}><Statistic title="实际覆盖" value={sectorFundFlow.covered_days} suffix={`/ ${sectorFundFlow.requested_days} 个交易日`} /></Col>
@@ -1976,7 +2143,7 @@ const BoardHistory: React.FC = () => {
                   opts={{ renderer: 'canvas' }}
                 />
                 {viewMode === 'enhanced' && (
-                  <Card 
+                  <Card
                     title={<span><RiseOutlined style={{ marginRight: 8, color: '#ff4d4f' }} />实际涨幅 TOP10（市值加权）</span>}
                     size="small"
                     style={{ marginTop: 16 }}
@@ -2118,7 +2285,12 @@ const BoardHistory: React.FC = () => {
 
       {/* 优化后的股票列表弹窗 */}
       <Modal
-        title={<span style={{ fontSize: 18 }}><StockOutlined style={{ marginRight: 8, color: '#52c41a' }} />{stocksData.board_name} 板块 - 相关股票（舆情映射）</span>}
+        title={
+          <span style={{ fontSize: 18 }}>
+            <StockOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+            {stocksData.board_name} 板块 - {stocksModalSource === 'sw2' ? '申万二级成分股' : '相关股票（舆情映射）'}
+          </span>
+        }
         visible={stocksModalVisible}
         onCancel={() => {
           setStocksModalVisible(false);
@@ -2136,30 +2308,43 @@ const BoardHistory: React.FC = () => {
               <Row gutter={16} style={{ marginBottom: 16 }}>
                 <Col span={24}>
                   <Card size="small">
-                    <Row gutter={16}>
-                      <Col span={6}><Statistic title="板块名称" value={stocksData.board_name} valueStyle={{ fontSize: 18, fontWeight: 'bold', color: '#1890ff' }} /></Col>
-                      <Col span={6}><Statistic title="股票总数" value={stocksData.stock_count} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }} /></Col>
-                      <Col span={6}><Statistic title="AI关注股票" value={stocksData.stocks.filter(s => s.ai_focus?.is_focused).length} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }} prefix={<RobotOutlined style={{ fontSize: 18 }} />} /></Col>
-                      <Col span={6}><Statistic title="映射业务板块数" value={stocksData.business_names.length} valueStyle={{ fontSize: 18 }} /></Col>
-                    </Row>
+                    {stocksModalSource === 'sw2' ? (
+                      <Row gutter={[16, 12]}>
+                        <Col xs={12} md={4}><Statistic title="板块名称" value={stocksData.board_name} valueStyle={{ fontSize: 17, fontWeight: 'bold', color: '#1890ff' }} /></Col>
+                        <Col xs={12} md={4}><Statistic title="资金实际日期" value={stocksData.as_of_date || '-'} valueStyle={{ fontSize: 17, fontWeight: 'bold' }} /></Col>
+                        <Col xs={12} md={4}><Statistic title="股票总数" value={stocksData.stock_count} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }} /></Col>
+                        <Col xs={12} md={4}><Statistic title="历史曾报警" value={stocksData.history_alert_count || 0} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#fa541c' }} prefix={<RobotOutlined style={{ fontSize: 18 }} />} /></Col>
+                        <Col xs={12} md={4}><Statistic title="最近报警 R1 / R2" value={`${stocksData.latest_record1_count || 0} / ${stocksData.latest_record2_count || 0}`} valueStyle={{ fontSize: 18, fontWeight: 'bold', color: '#722ed1' }} /></Col>
+                        <Col xs={12} md={4}><Statistic title="历史无报警" value={stocksData.no_history_alert_count || 0} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#8c8c8c' }} /></Col>
+                      </Row>
+                    ) : (
+                      <Row gutter={16}>
+                        <Col span={6}><Statistic title="板块名称" value={stocksData.board_name} valueStyle={{ fontSize: 18, fontWeight: 'bold', color: '#1890ff' }} /></Col>
+                        <Col span={6}><Statistic title="股票总数" value={stocksData.stock_count} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#52c41a' }} /></Col>
+                        <Col span={6}><Statistic title="AI关注股票" value={stocksData.stocks.filter(s => s.ai_focus?.is_focused).length} valueStyle={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }} prefix={<RobotOutlined style={{ fontSize: 18 }} />} /></Col>
+                        <Col span={6}><Statistic title="映射业务板块数" value={stocksData.business_names.length} valueStyle={{ fontSize: 18 }} /></Col>
+                      </Row>
+                    )}
                   </Card>
                 </Col>
               </Row>
               
-              <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={12}>
-                  <Card size="small" title="相关关键词">
-                    <div style={{ maxHeight: 80, overflowY: 'auto' }}>
-                      {stocksData.keywords.map(kw => <Tag key={kw} color="cyan" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>{kw}</Tag>)}
-                    </div>
-                  </Card>
-                </Col>
-                <Col span={12}>
-                </Col>
-              </Row>
+              {stocksModalSource === 'sentiment' && (
+                <>
+                  <Row gutter={16} style={{ marginBottom: 16 }}>
+                    <Col span={12}>
+                      <Card size="small" title="相关关键词">
+                        <div style={{ maxHeight: 80, overflowY: 'auto' }}>
+                          {stocksData.keywords.map(kw => <Tag key={kw} color="cyan" style={{ marginBottom: 4, fontSize: 13, padding: '4px 10px' }}>{kw}</Tag>)}
+                        </div>
+                      </Card>
+                    </Col>
+                    <Col span={12}>
+                    </Col>
+                  </Row>
 
-              <Card 
-                    size="small" 
+                  <Card
+                    size="small"
                     title={
                       <Space>
                         🎯 核心业务板块
@@ -2176,8 +2361,8 @@ const BoardHistory: React.FC = () => {
                         )}
                       </Space>
                     }
-              >
-                <div style={{ maxHeight: 150, overflowY: 'auto' }}>
+                  >
+                    <div style={{ maxHeight: 150, overflowY: 'auto' }}>
                       {(stocksData as any).business_names_with_stats?.map((item: any) => {
                         const stockCount = stocksData.stocks.filter(s => s.business_display_name === item.name).length;
                         const isActive = selectedBusinessFilter === item.name;
@@ -2234,8 +2419,10 @@ const BoardHistory: React.FC = () => {
                           </Tooltip>
                         );
                       })}
-                </div>
-              </Card>
+                    </div>
+                  </Card>
+                </>
+              )}
         
               <Divider orientation="left" style={{ margin: '8px 0', fontSize: 15 }}>
                 <Space>
@@ -2246,7 +2433,7 @@ const BoardHistory: React.FC = () => {
                       筛选: {selectedBusinessFilter}
                     </Tag>
                   )}
-                  <Tag color="cyan"><RobotOutlined /> AI关注: {filteredStocks.filter(s => s.ai_focus?.is_focused).length}</Tag>
+                  <Tag color="cyan"><RobotOutlined /> {stocksModalSource === 'sw2' ? '历史曾报警' : 'AI关注'}: {filteredStocks.filter(s => s.ai_focus?.is_focused).length}</Tag>
                 </Space>
               </Divider>
               
@@ -2264,7 +2451,15 @@ const BoardHistory: React.FC = () => {
                 scroll={{ y: 'calc(100vh - 500px)' }}
               />
             </>
-          ) : (!stocksLoading && <Empty description={<span>暂无 {stocksData.board_name} 板块的相关股票数据<br /><span style={{ fontSize: 12, color: '#999' }}>请确认舆情映射配置是否正确</span></span>} />)}
+          ) : (!stocksLoading && (
+            <Empty
+              description={
+                stocksModalSource === 'sw2'
+                  ? `暂无 ${stocksData.board_name} 板块的申万二级成分股数据`
+                  : <span>暂无 {stocksData.board_name} 板块的相关股票数据<br /><span style={{ fontSize: 12, color: '#999' }}>请确认舆情映射配置是否正确</span></span>
+              }
+            />
+          ))}
         </Spin>
       </Modal>
     </div>
