@@ -5488,6 +5488,12 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
               ranking_covered_days: 0,
               period_top_inflows: [],
               period_top_outflows: [],
+              daily_alert_stock_count: 0,
+              daily_alert_covered_sector_count: 0,
+              period_alert_stock_day_count: 0,
+              period_alert_unique_stock_count: 0,
+              daily_alert_sector_top5: [],
+              period_alert_sector_top5: [],
               covered_days: 0,
               period_inflow_yi: 0,
               period_outflow_yi: 0,
@@ -5503,7 +5509,8 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
                     SUM(CASE WHEN flow.main_inflow_yi > 0 THEN flow.main_inflow_yi ELSE 0 END) AS period_inflow_yi,
                     SUM(CASE WHEN flow.main_inflow_yi < 0 THEN -flow.main_inflow_yi ELSE 0 END) AS period_outflow_yi,
                     COALESCE(SUM(flow.main_inflow_yi), 0) AS period_net_inflow_yi,
-                    COUNT(DISTINCT flow.date) AS covered_days
+                    COUNT(DISTINCT flow.date) AS covered_days,
+                    DATE_FORMAT(MIN(flow.date), '%Y-%m-%d') AS period_start_date
              FROM raw_sector_fund_flow flow
              INNER JOIN (
                SELECT DISTINCT datestr
@@ -5522,6 +5529,10 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
                 return;
               }
 
+              const periodStartDate = (rankingRows || [])
+                .map((row: any) => formatDbDate(row.period_start_date))
+                .filter(Boolean)
+                .sort()[0] || asOfDate;
               const periodRows = (rankingRows || []).map((row: any) => {
                 const periodNetInflow = round2(row.period_net_inflow_yi);
                 return {
@@ -5547,52 +5558,123 @@ router.get('/board/sector_fund_flow', (req: Request, res: Response) => {
                 0
               );
 
+              const alertSectorSql = `
+                SELECT mapped.sector_name,
+                       COUNT(DISTINCT CASE WHEN alerts.datestr = ? THEN alerts.symbol END) AS alert_stock_count,
+                       COUNT(DISTINCT CONCAT(alerts.datestr, '|', alerts.symbol)) AS alert_stock_day_count,
+                       COUNT(DISTINCT alerts.symbol) AS unique_stock_count
+                FROM (
+                  SELECT merged.datestr, merged.symbol
+                  FROM (
+                    SELECT r1.datestr, r1.symbol
+                    FROM focus_stocks_ai r1
+                    WHERE r1.datestr >= ? AND r1.datestr <= ?
+                    UNION ALL
+                    SELECT r2.datestr, r2.symbol
+                    FROM focus_stocks2_ai r2
+                    WHERE r2.datestr >= ? AND r2.datestr <= ?
+                  ) merged
+                  GROUP BY merged.datestr, merged.symbol
+                ) alerts
+                INNER JOIN (
+                  SELECT DISTINCT sbs.symbol,
+                         CASE
+                           WHEN b.code IN ('sw2_480200', 'sw2_480300', 'sw2_480400', 'sw2_480500') THEN '银行Ⅱ'
+                           ELSE b.name
+                         END AS sector_name
+                  FROM sw_stock_business sbs
+                  INNER JOIN business b ON b.code = sbs.business_code
+                  WHERE b.business_type = 'sw2_hy'
+                ) mapped ON mapped.symbol = alerts.symbol
+                INNER JOIN (
+                  SELECT DISTINCT sector_name
+                  FROM raw_sector_fund_flow
+                  WHERE date = ?
+                ) flow_sector ON flow_sector.sector_name = mapped.sector_name
+                GROUP BY mapped.sector_name WITH ROLLUP`;
+
               pool.query(
-                `SELECT DATE_FORMAT(flow.date, '%Y-%m-%d') AS date,
-                        CAST(flow.main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
-                 FROM raw_sector_fund_flow flow
-                 INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
-                   ON trade.datestr = flow.date
-                 WHERE flow.sector_name = ? AND flow.date <= ?
-                 ORDER BY flow.date DESC
-                 LIMIT ?`,
-                [asOfDate, selectedSector, asOfDate, days],
-                (trendErr: Error | null, trendRows: any[]) => {
-                  if (trendErr) {
-                    console.error('sector_fund_flow trend error:', trendErr);
+                alertSectorSql,
+                [asOfDate, periodStartDate, asOfDate, periodStartDate, asOfDate, asOfDate],
+                (alertSectorErr: Error | null, alertSectorRows: any[]) => {
+                  if (alertSectorErr) {
+                    console.error('sector_fund_flow alert sector ranking error:', alertSectorErr);
                     res.status(500).json({ error: 'Query failed' });
                     return;
                   }
 
-                  const trend = (trendRows || []).reverse().map((row: any) => ({
-                    date: row.date,
-                    main_inflow_yi: round2(row.main_inflow_yi),
-                  }));
-                  const periodInflow = round2(trend.reduce((sum: number, row: any) => sum + Math.max(row.main_inflow_yi, 0), 0));
-                  const periodOutflow = round2(trend.reduce((sum: number, row: any) => sum + Math.abs(Math.min(row.main_inflow_yi, 0)), 0));
-                  const periodNet = round2(trend.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
+                  const alertTotalRow = (alertSectorRows || []).find((row: any) => row.sector_name == null) || {};
+                  const alertRows = (alertSectorRows || [])
+                    .filter((row: any) => row.sector_name != null)
+                    .map((row: any) => ({
+                      sector_name: row.sector_name,
+                      alert_stock_count: Number(row.alert_stock_count) || 0,
+                      alert_stock_day_count: Number(row.alert_stock_day_count) || 0,
+                      unique_stock_count: Number(row.unique_stock_count) || 0,
+                    }));
+                  const dailyAlertTop5 = [...alertRows]
+                    .filter((row: any) => row.alert_stock_count > 0)
+                    .sort((a: any, b: any) => b.alert_stock_count - a.alert_stock_count || a.sector_name.localeCompare(b.sector_name))
+                    .slice(0, 5);
+                  const periodAlertTop5 = [...alertRows]
+                    .filter((row: any) => row.alert_stock_day_count > 0)
+                    .sort((a: any, b: any) => b.alert_stock_day_count - a.alert_stock_day_count || b.unique_stock_count - a.unique_stock_count || a.sector_name.localeCompare(b.sector_name))
+                    .slice(0, 5);
 
-                  res.json({
-                    requested_date: requestedDate,
-                    as_of_date: asOfDate,
-                    sector_count: sectors.length,
-                    inflow_count: sectors.filter((row: any) => row.main_inflow_yi > 0).length,
-                    outflow_count: sectors.filter((row: any) => row.main_inflow_yi < 0).length,
-                    total_net_inflow_yi: totalNet,
-                    top_inflows: topInflows,
-                    top_outflows: topOutflows,
-                    sectors,
-                    selected_sector: selectedSector,
-                    requested_days: days,
-                    ranking_covered_days: rankingCoveredDays,
-                    period_top_inflows: periodTopInflows,
-                    period_top_outflows: periodTopOutflows,
-                    covered_days: trend.length,
-                    period_inflow_yi: periodInflow,
-                    period_outflow_yi: periodOutflow,
-                    period_net_inflow_yi: periodNet,
-                    trend,
-                  });
+                  pool.query(
+                    `SELECT DATE_FORMAT(flow.date, '%Y-%m-%d') AS date,
+                            CAST(flow.main_inflow_yi AS DECIMAL(12,2)) AS main_inflow_yi
+                     FROM raw_sector_fund_flow flow
+                     INNER JOIN (SELECT DISTINCT datestr FROM stock_day_common_data WHERE datestr <= ?) trade
+                       ON trade.datestr = flow.date
+                     WHERE flow.sector_name = ? AND flow.date <= ?
+                     ORDER BY flow.date DESC
+                     LIMIT ?`,
+                    [asOfDate, selectedSector, asOfDate, days],
+                    (trendErr: Error | null, trendRows: any[]) => {
+                      if (trendErr) {
+                        console.error('sector_fund_flow trend error:', trendErr);
+                        res.status(500).json({ error: 'Query failed' });
+                        return;
+                      }
+
+                      const trend = (trendRows || []).reverse().map((row: any) => ({
+                        date: row.date,
+                        main_inflow_yi: round2(row.main_inflow_yi),
+                      }));
+                      const periodInflow = round2(trend.reduce((sum: number, row: any) => sum + Math.max(row.main_inflow_yi, 0), 0));
+                      const periodOutflow = round2(trend.reduce((sum: number, row: any) => sum + Math.abs(Math.min(row.main_inflow_yi, 0)), 0));
+                      const periodNet = round2(trend.reduce((sum: number, row: any) => sum + row.main_inflow_yi, 0));
+
+                      res.json({
+                        requested_date: requestedDate,
+                        as_of_date: asOfDate,
+                        sector_count: sectors.length,
+                        inflow_count: sectors.filter((row: any) => row.main_inflow_yi > 0).length,
+                        outflow_count: sectors.filter((row: any) => row.main_inflow_yi < 0).length,
+                        total_net_inflow_yi: totalNet,
+                        top_inflows: topInflows,
+                        top_outflows: topOutflows,
+                        sectors,
+                        selected_sector: selectedSector,
+                        requested_days: days,
+                        ranking_covered_days: rankingCoveredDays,
+                        period_top_inflows: periodTopInflows,
+                        period_top_outflows: periodTopOutflows,
+                        daily_alert_stock_count: Number(alertTotalRow.alert_stock_count) || 0,
+                        daily_alert_covered_sector_count: alertRows.filter((row: any) => row.alert_stock_count > 0).length,
+                        period_alert_stock_day_count: Number(alertTotalRow.alert_stock_day_count) || 0,
+                        period_alert_unique_stock_count: Number(alertTotalRow.unique_stock_count) || 0,
+                        daily_alert_sector_top5: dailyAlertTop5,
+                        period_alert_sector_top5: periodAlertTop5,
+                        covered_days: trend.length,
+                        period_inflow_yi: periodInflow,
+                        period_outflow_yi: periodOutflow,
+                        period_net_inflow_yi: periodNet,
+                        trend,
+                      });
+                    }
+                  );
                 }
               );
             }

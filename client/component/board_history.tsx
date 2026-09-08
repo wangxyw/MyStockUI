@@ -156,6 +156,13 @@ interface SectorFundFlowPeriodRankItem {
   covered_days: number;
 }
 
+interface SectorAlertRankItem {
+  sector_name: string;
+  alert_stock_count: number;
+  alert_stock_day_count: number;
+  unique_stock_count: number;
+}
+
 interface SectorFundFlowData {
   requested_date: string;
   as_of_date: string;
@@ -171,6 +178,12 @@ interface SectorFundFlowData {
   ranking_covered_days: number;
   period_top_inflows: SectorFundFlowPeriodRankItem[];
   period_top_outflows: SectorFundFlowPeriodRankItem[];
+  daily_alert_stock_count: number;
+  daily_alert_covered_sector_count: number;
+  period_alert_stock_day_count: number;
+  period_alert_unique_stock_count: number;
+  daily_alert_sector_top5: SectorAlertRankItem[];
+  period_alert_sector_top5: SectorAlertRankItem[];
   covered_days: number;
   period_inflow_yi: number;
   period_outflow_yi: number;
@@ -306,6 +319,10 @@ const BoardHistory: React.FC = () => {
   const [selectedFlowSector, setSelectedFlowSector] = useState<string>('');
   const [sectorFlowPeriod, setSectorFlowPeriod] = useState<number>(30);
   const [sectorFlowDate, setSectorFlowDate] = useState<string>(moment().format('YYYY-MM-DD'));
+  const [sectorAlertConcentration, setSectorAlertConcentration] = useState<SectorFundFlowData | null>(null);
+  const [sectorAlertLoading, setSectorAlertLoading] = useState<boolean>(false);
+  const [sectorAlertPeriod, setSectorAlertPeriod] = useState<number>(30);
+  const [sectorAlertDate, setSectorAlertDate] = useState<string>(moment().format('YYYY-MM-DD'));
 
   // ========== 过滤后的股票列表 ==========
   const filteredStocks = useMemo(() => {
@@ -432,6 +449,25 @@ const BoardHistory: React.FC = () => {
       setSectorFundFlowLoading(false);
     }
   }, [sectorFlowDate, selectedFlowSector, sectorFlowPeriod]);
+
+  const fetchSectorAlertConcentration = useCallback(async (periodDays?: number) => {
+    if (!sectorAlertDate) return;
+    setSectorAlertLoading(true);
+    try {
+      const targetDays = periodDays || sectorAlertPeriod;
+      const params = new URLSearchParams({ date: sectorAlertDate, days: String(targetDays) });
+      const response = await fetch(`/api/board/sector_fund_flow?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '报警股票板块集中度加载失败');
+      setSectorAlertConcentration(data);
+      setSectorAlertPeriod(data.requested_days || targetDays);
+    } catch (error) {
+      console.error('Failed to fetch sector alert concentration:', error);
+      setSectorAlertConcentration(null);
+    } finally {
+      setSectorAlertLoading(false);
+    }
+  }, [sectorAlertDate, sectorAlertPeriod]);
 
   // 获取单日数据（纯新闻版）
   const fetchSingleDayData = useCallback(async () => {
@@ -749,8 +785,9 @@ const BoardHistory: React.FC = () => {
   };
 
   // 获取申万二级板块成分股及截至资金实际日期的最近历史报警
-  const fetchSectorFundFlowStocks = async (sectorName: string) => {
-    if (!sectorName || !sectorFlowDate) {
+  const fetchSectorFundFlowStocks = async (sectorName: string, dateOverride?: string) => {
+    const targetDate = dateOverride || sectorFlowDate;
+    if (!sectorName || !targetDate) {
       message.error('板块或资金日期无效');
       return;
     }
@@ -767,11 +804,11 @@ const BoardHistory: React.FC = () => {
       stocks: [],
       stock_count: 0,
       mapping_count: 0,
-      requested_date: sectorFlowDate,
+      requested_date: targetDate,
     });
 
     try {
-      const params = new URLSearchParams({ sector: sectorName, date: sectorFlowDate });
+      const params = new URLSearchParams({ sector: sectorName, date: targetDate });
       const response = await fetch(`/api/board/sector_fund_flow_stocks?${params.toString()}`);
       const data = await response.json();
       if (!response.ok || data.error) throw new Error(data?.error || '获取申万二级成分股失败');
@@ -805,6 +842,13 @@ const BoardHistory: React.FC = () => {
     fetchSectorFundFlowStocks(sectorName);
   };
 
+  const handleSectorAlertRankClick = (params: any) => {
+    const sectorName = String(params?.name || '').trim();
+    if (!sectorName) return;
+    fetchSectorFundFlow(sectorName);
+    fetchSectorFundFlowStocks(sectorName, sectorAlertDate);
+  };
+
   // ========== 初始加载 ==========
   useEffect(() => {
     fetchAvailableDates();
@@ -817,6 +861,10 @@ const BoardHistory: React.FC = () => {
   useEffect(() => {
     fetchSectorFundFlow();
   }, [sectorFlowDate]);
+
+  useEffect(() => {
+    fetchSectorAlertConcentration();
+  }, [sectorAlertDate]);
 
   // 视图模式切换时重新获取数据
   const handleViewModeChange = (checked: boolean) => {
@@ -1684,6 +1732,33 @@ const BoardHistory: React.FC = () => {
     };
   };
 
+  const getSectorAlertRankOption = (items: SectorAlertRankItem[], scope: 'daily' | 'period') => {
+    const rows = [...items].reverse();
+    const valueKey = scope === 'daily' ? 'alert_stock_count' : 'alert_stock_day_count';
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any[]) => {
+          const row = rows.find(item => item.sector_name === params[0].name);
+          if (!row) return params[0].name;
+          return scope === 'daily'
+            ? `${row.sector_name}<br/>当日报警股票：${row.alert_stock_count} 只`
+            : `${row.sector_name}<br/>区间累计报警：${row.alert_stock_day_count} 股次<br/>区间去重股票：${row.unique_stock_count} 只`;
+        },
+      },
+      grid: { top: 8, bottom: 16, left: 90, right: 45, containLabel: true },
+      xAxis: { type: 'value', min: 0, minInterval: 1, axisLabel: { formatter: (value: number) => `${value}` }, splitLine: { lineStyle: { type: 'dashed', color: '#f0f0f0' } } },
+      yAxis: { type: 'category', data: rows.map(row => row.sector_name), axisLabel: { fontSize: 13 }, axisTick: { show: false } },
+      series: [{
+        type: 'bar',
+        data: rows.map(row => row[valueKey]),
+        itemStyle: { color: '#1677ff', borderRadius: [0, 4, 4, 0] },
+        label: { show: true, position: 'right', formatter: (params: any) => `${params.value}${scope === 'daily' ? '只' : '股次'}`, fontSize: 12, color: '#1677ff' },
+      }],
+    };
+  };
+
   const getSectorFlowTrendOption = (data: SectorFundFlowData) => ({
     tooltip: { trigger: 'axis', formatter: (params: any[]) => `${params[0].axisValue}<br/>主力净流向：${params[0].value > 0 ? '+' : ''}${Number(params[0].value).toFixed(2)} 亿元` },
     grid: { top: 20, bottom: 48, left: 65, right: 25, containLabel: true },
@@ -1950,7 +2025,7 @@ const BoardHistory: React.FC = () => {
               if (date) setSectorFlowDate(date.format('YYYY-MM-DD'));
             }}
           />
-          <span style={{ color: '#8c8c8c' }}>下方三个部分共用该日期</span>
+          <span style={{ color: '#8c8c8c' }}>资金榜与趋势三个部分共用该日期</span>
         </Space>
         <Spin spinning={sectorFundFlowLoading}>
           {sectorFundFlow ? (
@@ -2009,6 +2084,69 @@ const BoardHistory: React.FC = () => {
                   ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无净流出板块" />}
                 </Col>
               </Row>
+              <Divider style={{ margin: '12px 0 16px' }} />
+              <Space style={{ marginBottom: 8 }} wrap>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>报警股票板块集中度：</span>
+                <CalendarOutlined style={{ color: '#1677ff' }} />
+                <span style={{ fontWeight: 600 }}>报警日期：</span>
+                <DatePicker
+                  value={moment(sectorAlertDate)}
+                  format="YYYY-MM-DD"
+                  allowClear={false}
+                  disabledDate={(current) => current && current > moment().endOf('day')}
+                  onChange={(date) => {
+                    if (date) setSectorAlertDate(date.format('YYYY-MM-DD'));
+                  }}
+                />
+                <Button.Group>
+                  {[7, 14, 30, 60, 90].map(days => (
+                    <Button
+                      key={days}
+                      type={sectorAlertPeriod === days ? 'primary' : 'default'}
+                      onClick={() => {
+                        setSectorAlertPeriod(days);
+                        fetchSectorAlertConcentration(days);
+                      }}
+                      loading={sectorAlertLoading && sectorAlertPeriod === days}
+                    >
+                      {days}日
+                    </Button>
+                  ))}
+                </Button.Group>
+                <Button icon={<ReloadOutlined />} size="small" onClick={() => fetchSectorAlertConcentration()} loading={sectorAlertLoading}>刷新</Button>
+                <span style={{ color: '#8c8c8c' }}>
+                  合并Record1/Record2，同一股票同一天去重
+                </span>
+              </Space>
+              <Spin spinning={sectorAlertLoading}>
+                {sectorAlertConcentration ? (
+                  <>
+                    <div style={{ marginBottom: 8, color: '#595959' }}>
+                      查询日期 {sectorAlertConcentration.requested_date} ｜ 数据截至 <strong>{sectorAlertConcentration.as_of_date}</strong>
+                    </div>
+                    <Row gutter={[16, 12]} style={{ marginTop: 8, marginBottom: 8 }}>
+                      <Col xs={12} md={6}><Statistic title="当日报警股票" value={sectorAlertConcentration.daily_alert_stock_count} suffix="只" /></Col>
+                      <Col xs={12} md={6}><Statistic title="当日报警覆盖板块" value={sectorAlertConcentration.daily_alert_covered_sector_count} suffix="个" /></Col>
+                      <Col xs={12} md={6}><Statistic title={`${sectorAlertConcentration.requested_days}日累计报警`} value={sectorAlertConcentration.period_alert_stock_day_count} suffix="股次" /></Col>
+                      <Col xs={12} md={6}><Statistic title={`${sectorAlertConcentration.requested_days}日去重股票`} value={sectorAlertConcentration.period_alert_unique_stock_count} suffix="只" /></Col>
+                    </Row>
+                    <Row gutter={[20, 16]}>
+                      <Col xs={24} lg={12}>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#1677ff' }}>当日报警股票数量 TOP5</div>
+                        {sectorAlertConcentration.daily_alert_sector_top5.length > 0 ? (
+                          <ReactEcharts option={getSectorAlertRankOption(sectorAlertConcentration.daily_alert_sector_top5, 'daily')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: handleSectorAlertRankClick }} />
+                        ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当日暂无可映射报警股票" />}
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: '#1677ff' }}>{sectorAlertConcentration.requested_days}日报警股票数量 TOP5</div>
+                        {sectorAlertConcentration.period_alert_sector_top5.length > 0 ? (
+                          <ReactEcharts option={getSectorAlertRankOption(sectorAlertConcentration.period_alert_sector_top5, 'period')} style={{ height: 250 }} opts={{ renderer: 'canvas' }} onEvents={{ click: handleSectorAlertRankClick }} />
+                        ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="区间内暂无可映射报警股票" />}
+                      </Col>
+                    </Row>
+                  </>
+                ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无报警股票板块集中度数据" />}
+              </Spin>
               <Divider style={{ margin: '12px 0 16px' }} />
               <Space style={{ marginBottom: 8 }} wrap>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>板块近期资金趋势：</span>
