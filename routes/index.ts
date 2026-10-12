@@ -1,4 +1,5 @@
 import request from 'axios';
+import { createCompetitionRouter } from './aiCompetition';
 import {
   chooseResults,
   daCalculate,
@@ -6569,9 +6570,12 @@ router.get('/board/top10', function (req, res, next) {
 });
 
 
+router.use(createCompetitionRouter(queryDB));
+
 /* GET home page. */
 router.get('*', function (req, res, next) {
   res.render('index', { title: 'Express' });
 });
+
 
 export default router;

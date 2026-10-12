@@ -1,0 +1,30 @@
+.ai-competition { width: 100%; max-width: none; margin: 0; padding: 28px 24px 48px; color: #172b4d; background: #f5f7fb; min-height: 100vh; font-size: 17px; }
+body:has(.ai-competition) .ant-menu, body:has(.ai-competition) .ant-btn { font-size: 17px; }
+.ai-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 20px; }
+.ai-eyebrow { color: #66758c; font-size: 14px; letter-spacing: 2px; font-weight: 600; }
+.ai-heading h1 { margin: 6px 0; font-size: 31px; font-weight: 650; color: #172b4d; }
+.ai-heading h1 .anticon { color: #c99435; margin-right: 8px; }
+.ai-heading p, .ai-section-title p { color: #78859a; margin: 3px 0 0; font-size: 16px; }
+.ai-toolbar { padding: 14px 18px; background: white; border: 1px solid #e3e8f1; border-radius: 8px; margin-bottom: 18px; }
+.ai-team-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.ai-team-card { border-radius: 8px; border: 1px solid #e3e8f1; border-top: 3px solid #2563eb; }
+.ai-team-1 { border-top-color: #d97706; }.ai-team-2 { border-top-color: #0f766e; }
+.ai-big { font-size: 35px; color: #172b4d; font-weight: 650; margin: 4px 0; }
+.ai-big span { font-size: 15px; color: #78859a; font-weight: 400; margin-left: 10px; }
+.ai-section { background: #fff; border: 1px solid #e3e8f1; border-radius: 8px; margin-bottom: 24px; padding: 20px; }
+.ai-section-title { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ai-number { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; color: #2563eb; background: #edf3ff; font-weight: 700; }
+.ai-section-title h2 { margin: 0; font-size: 22px; color: #172b4d; }
+.ai-sub { color: #78859a; font-size: 15px; line-height: 1.7; }
+.ai-positive { color: #cf3d3d; font-variant-numeric: tabular-nums; }.ai-negative { color: #18815a; font-variant-numeric: tabular-nums; }
+.ai-filters { margin-bottom: 16px; }.ai-note { color: #66758c; font-size: 15px; line-height: 1.9; }
+.ai-detail { padding: 8px 10px; color: #52627a; font-size: 15px; }.ai-detail p { margin: 4px 0; }
+.ai-loading { padding: 80px; text-align: center; }
+.ai-competition input[type=date] { padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 3px; color: #52627a; background: #fff; }
+.ai-competition .ant-table-thead > tr > th { background: #f5f7fb; font-size: 15px; color: #52627a; }
+.ai-competition .ant-table-cell { font-size: 15px; }.ai-competition .ant-tag { font-size: 14px; line-height: 24px; }
+.ai-competition .ant-btn, .ai-competition .ant-input, .ai-competition .ant-select, .ai-competition .ant-select-item, .ai-competition .ant-radio-button-wrapper, .ai-competition .ant-tabs-tab, .ai-competition .ant-pagination, .ai-competition .ant-alert-message, .ai-competition .ant-alert-description, .ai-competition .ant-collapse-content, .ai-competition .ant-collapse-header, .ai-competition .ant-empty-description, .ai-competition .ant-spin-text, .ai-competition .ant-tooltip-inner { font-size: 17px; }
+.ai-consensus-summary { margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.ai-competition .ant-picker-input > input, .ai-competition .ant-picker-header-view, .ai-competition .ant-picker-cell-inner { font-size: 17px; }
+.ai-consensus-member { padding: 3px 0; }.ai-consensus-member + .ai-consensus-member { border-top: 1px solid #e3e8f1; margin-top: 6px; padding-top: 8px; }
+@media (max-width: 760px) { .ai-competition { padding: 16px 12px 28px; }.ai-heading h1 { font-size: 24px; }.ai-heading { align-items: flex-start; }.ai-team-summary { grid-template-columns: 1fr; gap: 8px; }.ai-section { padding: 14px; }.ai-team-card .ant-card-body { padding: 12px 18px; }.ai-big { font-size: 28px; } }

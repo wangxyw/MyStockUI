@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "defaultDays": 180,
+  "maxCalibratedHorizon": 90,
+  "analysisDate": "2026-10-12",
+  "marketAsOf": "2026-10-09",
+  "symbols": 192,
+  "historyStart": "2024-01-02",
+  "samplingStride": 20,
+  "eligibleStartThrough": "2025-10-09",
+  "selectionRule": "Choose the smallest of 90/180/365 days covering at least 95% of completed H90 paths, including two price-row entry/expiry padding.",
+  "explanation": "192只已记录候选涉及股票的历史行情，每20个有效行情日抽样一次，起点至少距行情截止一年。H90含入场/退出缓冲共4217条完整路径，95分位146自然日；180天覆盖100%。另有0条不足样本，单列而未当作已完结。",
+  "studies": [
+    {
+      "horizon": 60,
+      "entryAndExpiryPaddingRows": 2,
+      "sampledPaths": 4217,
+      "maturedPaths": 4217,
+      "censoredPaths": 0,
+      "medianDays": 95,
+      "p95Days": 101,
+      "p99Days": 101,
+      "maxDays": 112,
+      "coverage": {
+        "90": 22.433,
+        "180": 100,
+        "365": 100
+      }
+    },
+    {
+      "horizon": 90,
+      "entryAndExpiryPaddingRows": 2,
+      "sampledPaths": 4217,
+      "maturedPaths": 4217,
+      "censoredPaths": 0,
+      "medianDays": 139,
+      "p95Days": 146,
+      "p99Days": 146,
+      "maxDays": 162,
+      "coverage": {
+        "90": 0,
+        "180": 100,
+        "365": 100
+      }
+    }
+  ]
+}
