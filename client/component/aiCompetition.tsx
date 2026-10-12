@@ -34,10 +34,6 @@ export default function AiCompetitionView(): JSX.Element {
   const selectionDate = requestedAnchor > selectionEnd ? selectionEnd : requestedAnchor < selectionStart ? selectionStart : requestedAnchor;
   const changePeriod = (next: string) => { setPeriod(next); if (next !== 'all') setPeriodDate(selectionDate); };
   useEffect(() => {
-    const timer = window.setInterval(() => { if (!document.hidden) setRefresh(v => v + 1); }, 60000);
-    return () => window.clearInterval(timer);
-  }, []);
-  useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError('');
     const params = new URLSearchParams({ period, scope });
     if (periodDate && period !== 'all') params.set('period_date', periodDate);
@@ -107,7 +103,7 @@ export default function AiCompetitionView(): JSX.Element {
     <div className="ai-toolbar"><Space wrap>
       <Radio.Group value={scope} onChange={e => { setScope(e.target.value); setPeriod(e.target.value === 'research' ? 'all' : 'month'); setPeriodDate(''); setListScope(e.target.value === 'research' ? 'all' : 'active'); }}><Radio.Button value="competition">正式竞赛期</Radio.Button><Radio.Button value="research">开赛前历史研究</Radio.Button></Radio.Group>
       <span className="ai-sub">列表时效</span><Select value={days} onChange={setDays} style={{ width: 210 }}><Select.Option value={0}>数据建议：{data?.meta.policy.defaultDays || '分析中'}天</Select.Option><Select.Option value={90}>近90天</Select.Option><Select.Option value={180}>近半年（180天）</Select.Option><Select.Option value={365}>近一年（365天）</Select.Option></Select>
-      <Tag>行情截止 {data?.meta.asOf || '—'}</Tag><Tag>自动检查更新 · 60秒</Tag>
+      <Tag>行情截止 {data?.meta.asOf || '—'}</Tag>
     </Space></div>
     {loading && !data ? <div className="ai-loading"><Spin size="large" tip="读取三队账本并评估候选…" /></div> : data && <>
       <div className="ai-team-summary">{data.teams.map((team: any, index: number) => <Card key={team.id} className={`ai-team-card ai-team-${index}`}><div className="ai-sub">{team.label}</div><div className="ai-big">{team.allCount}<span>已记录候选</span></div><div className="ai-sub">账本截至 {team.latestDate} · 归档 {team.hiddenOlder}条</div></Card>)}</div>
