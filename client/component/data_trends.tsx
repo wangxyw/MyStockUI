@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tag } from 'antd';
+import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tag, Alert } from 'antd';
 import { FireOutlined, LineChartOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
-
-interface TrendData {
-  datestr: string;
-  count: number;
-}
+import {
+  TrendData, MTempItem, MarketAnomalyResponse, getSharedTrendDates, alignMTrendRows,
+  getMVolMed, getMVolMetric, getMMetricLabel, getMSampleState, getMUnavailableText,
+  buildMMetricSegments, getMarketAnomalyStatus, getUDTrendSummary, fetchTrendSource,
+} from './data_trends_semantics';
 
 interface AllTrendsData {
   '400s_up': TrendData[];
@@ -78,70 +78,6 @@ interface HotAlphaSectorTrendData {
   stages?: HotAlphaStageItem[];
 }
 
-interface MTempItem {
-  datestr: string;
-  vol10_med: number | null;
-  temp_label: string | null;
-  alarm_dir: string | null;
-  legacy_vol10_med?: number | null;
-  m_vol_med?: number | null;
-  m_vol_metric?: 'vol10' | 'vol20' | 'legacy_vol10';
-  m_temp_label?: string | null;
-  m_alarm_dir?: string | null;
-  m_source?: 'comments_m' | 'legacy_fallback' | 'legacy_conflict' | 'no_alert_sample';
-  alarm_count: number;
-  window_signal?: string;
-  window_title?: string;
-  window_desc?: string;
-  trail_data_complete?: boolean;
-  trail_source_start_date?: string | null;
-  trail_required_start_date?: string | null;
-  trail_days?: number;
-  trail_signal_n?: number;
-  trail_negative_pct?: number;
-  trail_low_pos_pct?: number;
-  trail_hot_expand_pct?: number;
-  trail_m_expand_pct?: number;
-  trail_avg_me_hotish60?: number | null;
-  short_days?: number;
-  short_signal_n?: number;
-  short_window_signal?: string;
-  short_window_title?: string;
-  short_window_desc?: string;
-  short_data_complete?: boolean;
-  short_required_start_date?: string | null;
-  short_negative_pct?: number;
-  short_low_pos_pct?: number;
-  short_m_expand_pct?: number;
-  window_detector_version?: string;
-  window_interpretation_version?: string;
-  window_snapshot_scope?: string;
-  window_snapshot_captured_at?: string | null;
-  window_snapshot_input_hash?: string | null;
-  window_source_snapshot?: string;
-  window_snapshot_frozen?: boolean;
-  window_sequence?: string;
-  window_interpretation_title?: string;
-  window_evidence_level?: string;
-  window_action_hint?: string;
-  window_interpretation_desc?: string;
-}
-
-interface MarketAnomalyItem {
-  datestr: string;
-  state: 'NORMAL' | 'WEAK' | 'HOT' | 'OVERLAP';
-  weak: boolean;
-  hot: boolean;
-  evidence_scope: 'RECONSTRUCTED' | 'POINT_IN_TIME';
-}
-
-interface MarketAnomalyResponse {
-  model_version: string;
-  data_through: string | null;
-  timing: string;
-  rows: MarketAnomalyItem[];
-}
-
 const M_TREND_DEFAULT_MONTHS = 18;
 
 const getMTrendDefaultViewport = (dates: string[]) => {
@@ -176,12 +112,13 @@ const SimpleAlarmTrend: React.FC = () => {
   const [hotAlphaTop, setHotAlphaTop] = useState<number>(5);
   const [hotAlphaMode, setHotAlphaMode] = useState<string>('stage');
 
-  // M 市场温度数据
+  // 报警池M与独立全市场状态
   const [mTempR1, setMTempR1] = useState<MTempItem[]>([]);
   const [mTempR2, setMTempR2] = useState<MTempItem[]>([]);
   const [marketAnomaly, setMarketAnomaly] = useState<MarketAnomalyResponse | null>(null);
   const [mZoom, setMZoom] = useState<{ start: number; end: number } | null>(null);
   const [mTempLoading, setMTempLoading] = useState<boolean>(false);
+  const [mDataErrors, setMDataErrors] = useState<{ record1: string | null; record2: string | null; market: string | null }>({ record1: null, record2: null, market: null });
 
   // 天数选项
   const daysOptions = [
@@ -249,9 +186,11 @@ const SimpleAlarmTrend: React.FC = () => {
         setTrendData(data);
         message.success('数据加载成功');
       } else {
+        setTrendData(null);
         message.error(data?.error || '数据加载失败');
       }
     } catch (error) {
+      setTrendData(null);
       console.error('Failed to fetch trend data:', error);
       message.error('数据加载失败，请检查网络连接');
     } finally {
@@ -259,25 +198,19 @@ const SimpleAlarmTrend: React.FC = () => {
     }
   }, [days, daysTill]);
 
-  // 获取 M 市场温度数据
+  // 独立处理三个来源，失败的来源不继续显示上次成功的数据。
   const fetchMTempData = useCallback(async () => {
     setMTempLoading(true);
     try {
-      const [r1Res, r2Res, anomalyRes] = await Promise.all([
-        fetch('/api/m_trend?record_type=record1'),
-        fetch('/api/m_trend?record_type=record2'),
-        fetch('/api/market_anomaly_trend'),
+      const [r1, r2, anomaly] = await Promise.all([
+        fetchTrendSource<MTempItem[]>('/api/m_trend?record_type=record1', Array.isArray),
+        fetchTrendSource<MTempItem[]>('/api/m_trend?record_type=record2', Array.isArray),
+        fetchTrendSource<MarketAnomalyResponse>('/api/market_anomaly_trend', data => Array.isArray(data?.rows)),
       ]);
-      const r1Data = await r1Res.json();
-      const r2Data = await r2Res.json();
-      const anomalyData = await anomalyRes.json();
-      console.log('M Temp R1:', r1Data?.length, 'rows, R2:', r2Data?.length, 'rows');
-      if (r1Res.ok && Array.isArray(r1Data)) setMTempR1(r1Data);
-      if (r2Res.ok && Array.isArray(r2Data)) setMTempR2(r2Data);
-      if (anomalyRes.ok && Array.isArray(anomalyData?.rows)) setMarketAnomaly(anomalyData);
-      else setMarketAnomaly(null);
-    } catch (error) {
-      console.error('Failed to fetch M temp data:', error);
+      setMTempR1(r1.data || []);
+      setMTempR2(r2.data || []);
+      setMarketAnomaly(anomaly.data);
+      setMDataErrors({ record1: r1.error, record2: r2.error, market: anomaly.error });
     } finally {
       setMTempLoading(false);
     }
@@ -346,43 +279,12 @@ const SimpleAlarmTrend: React.FC = () => {
     fetchHotAlphaSectorData();
   };
 
-  const getMVolMed = (item?: MTempItem) => {
-    const value = item?.m_vol_med ?? item?.vol10_med;
-    if (value === null || value === undefined) return null;
-    return Number.isFinite(Number(value)) ? Number(value) : null;
-  };
-  const getMVolMetric = (item?: MTempItem) => item?.m_vol_metric || 'legacy_vol10';
-  const getMTempLabel = (item?: MTempItem) => item?.m_source === 'no_alert_sample' ? '无样本' : item?.m_temp_label || item?.temp_label || '未知';
-  const getMAlarmDir = (item?: MTempItem) => item?.m_source === 'no_alert_sample' ? '无样本' : item?.m_alarm_dir || item?.alarm_dir || '未知';
+  const getMTempLabel = (item?: MTempItem) => getMSampleState(item) === 'NO_ALERTS' ? '无样本' : getMSampleState(item) === 'MISSING' ? '缺数据' : item?.m_temp_label || item?.temp_label || '未知';
+  const getMAlarmDir = (item?: MTempItem) => getMSampleState(item) === 'NO_ALERTS' ? '无样本' : getMSampleState(item) === 'MISSING' ? '缺数据' : item?.m_alarm_dir || item?.alarm_dir || '未知';
 
-  const sharedMTrendDates = Array.from(new Set([
-    ...mTempR1.map(item => item.datestr),
-    ...mTempR2.map(item => item.datestr),
-    ...(marketAnomaly?.rows || []).map(item => item.datestr),
-  ])).sort();
-  const mDateFloor = [mTempR1[0]?.datestr, mTempR2[0]?.datestr].filter(Boolean).sort()[0];
-  const mDateCeiling = [mTempR1[mTempR1.length - 1]?.datestr, mTempR2[mTempR2.length - 1]?.datestr].filter(Boolean).sort().pop();
-  const sharedMDisplayDates = sharedMTrendDates.filter(date => (!mDateFloor || date >= mDateFloor) && (!mDateCeiling || date <= mDateCeiling));
-  const alignMTrendRows = (data: MTempItem[]) => {
-    const byDate = new Map(data.map(item => [item.datestr, item]));
-    const metric = data.find(item => item.m_vol_metric)?.m_vol_metric || 'legacy_vol10';
-    return sharedMDisplayDates.map(date => byDate.get(date) || {
-      datestr: date,
-      vol10_med: null,
-      temp_label: null,
-      alarm_dir: null,
-      m_vol_med: null,
-      m_vol_metric: metric,
-      m_temp_label: null,
-      m_alarm_dir: null,
-      m_source: 'no_alert_sample' as const,
-      alarm_count: 0,
-      trail_data_complete: false,
-      window_signal: 'DATA_INSUFFICIENT',
-    });
-  };
-  const alignedMTempR1 = alignMTrendRows(mTempR1);
-  const alignedMTempR2 = alignMTrendRows(mTempR2);
+  const sharedMDisplayDates = getSharedTrendDates(mTempR1, mTempR2, marketAnomaly?.rows || []);
+  const alignedMTempR1 = alignMTrendRows(mTempR1, sharedMDisplayDates);
+  const alignedMTempR2 = alignMTrendRows(mTempR2, sharedMDisplayDates);
 
   const getMTempChartOption = (data: MTempItem[], title: string, zoom?: { start: number; end: number } | null) => {
     if (!data || data.length === 0) return null;
@@ -393,15 +295,7 @@ const SimpleAlarmTrend: React.FC = () => {
     const dataCount = dates.length;
     const defaultViewport = getMTrendDefaultViewport(dates);
     const axisLabelInterval = Math.max(0, Math.ceil(defaultViewport.visibleDataCount / 15) - 1);
-    const displayValues = values.map((value, index) => value === null ? {
-      value: 0,
-      symbol: 'diamond',
-      symbolSize: dataCount > 100 ? 9 : 12,
-      itemStyle: { color: '#8c8c8c', borderColor: '#fff', borderWidth: 1 },
-      label: { show: index === data.length - 1, formatter: '无报警', position: 'top', color: '#595959', fontSize: 12 },
-    } : value);
-    const metric = getMVolMetric(data[data.length - 1]);
-    const metricLabel = metric === 'vol20' ? 'vol20' : 'vol10';
+    const metricSegments = buildMMetricSegments(data);
     const valueAxisMax = Math.max(80, Math.ceil(Math.max(...numericValues, 0) / 10) * 10);
     const tc: Record<string, string> = { '热':'#e74c3c','热偏弱':'#ee8a7d','温':'#f39c12','冷偏暖':'#3498db','极冷':'#95a5a6' };
     const ranges = getMWindowRanges(data);
@@ -439,22 +333,20 @@ const SimpleAlarmTrend: React.FC = () => {
           const evidenceLabel = d.window_snapshot_scope === 'POINT_IN_TIME' ? 'PIT不可变正式快照' : d.window_snapshot_scope === 'RECONSTRUCTED' ? '历史研究重构（非PIT/非OOS）' : '正式快照缺失';
           const mSampleText = hasMSample
             ? `报警池M(${getMVolMetric(d)}): <b>${mVol.toFixed(1)}</b><br/><span style="color:${c}">●</span> ${tempLabel} ${alarmDir}`
-            : `报警池M(${getMVolMetric(d)}): <b>当日无报警，M无定义</b>`;
-          return `<b>${d.datestr}</b><br/>${mSampleText}<br/>报警: ${d.alarm_count}条<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>窗口事实: <b style="color:${detectorStatus.color}">${detectorStatus.signal}</b> ｜ 策略参考: <b style="color:${detectorStatus.color}">${detectorStatus.actionHint}</b><br/>证据来源: <b>${evidenceLabel}</b><br/>组合状态: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
+            : `报警池M: <b>${getMUnavailableText(d)}</b>`;
+          return `<b>${d.datestr}</b><br/>${mSampleText}<br/>报警: ${d.alarm_count === null ? '数据缺失' : `${d.alarm_count}条`}<br/>M背景: <b style="color:${windowStatus.color}">${windowStatus.title}</b><br/>窗口事实: <b style="color:${detectorStatus.color}">${detectorStatus.signal}</b> ｜ 策略参考: <b style="color:${detectorStatus.color}">${detectorStatus.actionHint}</b><br/>证据来源: <b>${evidenceLabel}</b><br/>报警池组合状态: <b style="color:${shortStatus.color}">${shortStatus.title}</b><br/><span style="color:#666">${detectorStatus.desc}</span><br/><span style="color:#999">近${d.trail_days || 20}天样本 ${d.trail_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.trail_low_pos_pct)} ｜ 负面 ${fmtPct(d.trail_negative_pct)} ｜ 报扩 ${fmtPct(d.trail_m_expand_pct)}</span><br/><span style="color:#999">近${d.short_days || 5}天样本 ${d.short_signal_n ?? '-'} ｜ 低位 ${fmtPct(d.short_low_pos_pct)} ｜ 负面 ${fmtPct(d.short_negative_pct)} ｜ 报扩 ${fmtPct(d.short_m_expand_pct)}</span>`;
         }
       },
-      grid: { top: 28, bottom: dataCount>50?35:10, left: 52, right: 15 },
+      legend: { data: Array.from(new Set(metricSegments.map(segment => getMMetricLabel(segment.metric)))), top: 0, textStyle: { fontSize: 12 } },
+      grid: { top: 42, bottom: dataCount>50?35:10, left: 52, right: 15 },
       xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:12,color:'#aaa',interval:axisLabelInterval}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
       yAxis: [
-        { type:'value', name:metricLabel, nameTextStyle:{fontSize:12,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
+        { type:'value', name:'M（分口径）', nameTextStyle:{fontSize:12,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
         { type:'value', name:'报警', nameTextStyle:{fontSize:12,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
       ],
       series: [
         { name:'报警数', type:'bar', yAxisIndex:1, data:counts, itemStyle:{color:(params: any) => isMAttackWindow(data[params.dataIndex]) ? 'rgba(255,77,79,0.38)' : 'rgba(24,144,255,0.25)', borderRadius:[3,3,0,0]}, barWidth:'80%', barGap:'0%', z:1, emphasis:{itemStyle:{color:'rgba(24,144,255,0.45)'}} },
-        { name:metricLabel, type:'line', yAxisIndex:0, data:displayValues,
-          lineStyle:{color:'#9b59b6',width:1.5}, itemStyle:{color:'#e74c3c'},
-          symbol:'circle', symbolSize: dataCount>100?3:5, smooth:false, connectNulls:false,
-          areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(231,76,60,0.10)'},{offset:1,color:'rgba(231,76,60,0)'}]}},
+        { name:'M背景与阈值', type:'line', yAxisIndex:0, data:[], silent:true,
           markArea: hasMarkData ? {
             silent: true,
             data: allMarkData,
@@ -465,6 +357,17 @@ const SimpleAlarmTrend: React.FC = () => {
               {yAxis:25,label:{formatter:'温 25',position:'start',fontSize:14,color:'#f39c12'},lineStyle:{color:'#f39c12'}}
             ]
           }
+        },
+        ...metricSegments.map(segment => ({
+          name: getMMetricLabel(segment.metric), type: 'line', yAxisIndex: 0, data: segment.values,
+          lineStyle: { color: segment.metric === 'legacy_vol10' ? '#8c8c8c' : '#9b59b6', width: 1.5, type: segment.metric === 'legacy_vol10' ? 'dashed' : 'solid' },
+          itemStyle: { color: segment.metric === 'legacy_vol10' ? '#8c8c8c' : '#e74c3c' },
+          symbol: 'circle', symbolSize: dataCount > 100 ? 3 : 5, smooth: false, connectNulls: false,
+        })),
+        { name:'无报警（M无定义）', type:'scatter', yAxisIndex:0,
+          data: data.map(d => getMSampleState(d) === 'NO_ALERTS' ? 0 : null),
+          symbol:'diamond', symbolSize:dataCount>100?9:12,
+          itemStyle:{color:'#8c8c8c',borderColor:'#fff',borderWidth:1}, z:3,
         },
         { name:'历史研究窗口', type:'scatter', yAxisIndex:0,
           data: data.map(d => d.window_snapshot_scope === 'RECONSTRUCTED' && d.window_signal && d.trail_data_complete !== false ? 76 : null),
@@ -499,7 +402,11 @@ const SimpleAlarmTrend: React.FC = () => {
 
   const renderMarketAnomalyStrip = () => {
     const dates = sharedMDisplayDates;
-    if (!dates.length || !marketAnomaly?.rows?.length) return null;
+    if (!dates.length || !marketAnomaly?.rows?.length) return (
+      <Alert style={{ marginBottom: 12 }} type={mDataErrors.market ? 'error' : 'info'} showIcon
+        message="全市场当日状态（收盘后识别）"
+        description={mTempLoading ? '正在加载全市场数据…' : mDataErrors.market || '暂无全市场数据，当前状态不可判断。'} />
+    );
     const anomalyByDate = new Map(marketAnomaly.rows.map(item => [item.datestr, item]));
     const defaultViewport = getMTrendDefaultViewport(dates);
     const startPct = mZoom?.start ?? (100 * defaultViewport.startIndex / Math.max(1, dates.length - 1));
@@ -508,26 +415,34 @@ const SimpleAlarmTrend: React.FC = () => {
     const endIndex = Math.min(dates.length - 1, Math.ceil((dates.length - 1) * endPct / 100));
     const visibleDates = dates.slice(startIndex, endIndex + 1);
     const latest = anomalyByDate.get(dates[dates.length - 1]);
-    const latestTitle = latest?.state === 'HOT' ? '短期偏热' : latest?.state === 'WEAK' ? '明显偏弱' : latest?.state === 'OVERLAP' ? '偏热与偏弱同时出现' : '正常';
+    const latestStatus = getMarketAnomalyStatus(latest);
+    const sourceDate = marketAnomaly.data_through || marketAnomaly.rows[marketAnomaly.rows.length - 1].datestr;
     return (
       <div style={{ margin: '4px 15px 14px 52px', padding: '8px 10px', border: '1px solid #e8e8e8', borderRadius: 6, background: '#fff' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6, fontSize: 14, color: '#595959' }}>
-          <strong>全市场异常提示</strong>
+          <strong>全市场当日状态（收盘后识别）</strong>
           <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#cf1322', borderRadius: 2, marginRight: 4 }} />短期偏热</span>
           <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#389e0d', borderRadius: 2, marginRight: 4 }} />明显偏弱</span>
           <span><i style={{ display: 'inline-block', width: 11, height: 8, background: 'linear-gradient(to bottom,#cf1322 0 50%,#389e0d 50% 100%)', borderRadius: 2, marginRight: 4 }} />同时出现</span>
-          <span style={{ marginLeft: 'auto' }}>当前：<strong>{latestTitle}</strong></span>
+          <span style={{ marginLeft: 'auto' }}>{dates[dates.length - 1]}：<strong>{latestStatus.title}</strong></span>
+          <Space size="small">
+            <Button size="small" onClick={() => setMZoom(null)}>近18个月</Button>
+            <Button size="small" onClick={() => setMZoom({ start: 0, end: 100 })}>全部历史</Button>
+          </Space>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleDates.length}, minmax(1px, 1fr))`, gap: visibleDates.length > 180 ? 0 : 1, height: 10, background: '#f0f0f0', overflow: 'hidden', borderRadius: 3 }}>
           {visibleDates.map(date => {
             const item = anomalyByDate.get(date);
-            const background = item?.state === 'HOT' ? '#cf1322' : item?.state === 'WEAK' ? '#389e0d' : item?.state === 'OVERLAP' ? 'linear-gradient(to bottom,#cf1322 0 50%,#389e0d 50% 100%)' : 'transparent';
-            const title = item?.state === 'HOT' ? '短期偏热' : item?.state === 'WEAK' ? '明显偏弱' : item?.state === 'OVERLAP' ? '偏热与偏弱同时出现' : '正常';
-            return <span key={date} title={`${date}｜${title}`} style={{ background }} />;
+            const status = getMarketAnomalyStatus(item);
+            const scope = item?.evidence_scope === 'POINT_IN_TIME' ? 'PIT快照' : item?.evidence_scope === 'RECONSTRUCTED' ? '历史重建' : '无数据';
+            return <span key={date} title={`${date}｜${status.title}｜${scope}`} style={{ background: status.background }} />;
           })}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 13, color: '#999' }}>
-          <span>{visibleDates[0]}</span><span>独立于报警池M、背景区间和窗口散点，仅供市场环境参考</span><span>{visibleDates[visibleDates.length - 1]}</span>
+          <span>{visibleDates[0]}</span><span>灰色斜纹=缺数；浅灰=未触发异常；与下方M图共用日期缩放</span><span>{visibleDates[visibleDates.length - 1]}</span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13, color: '#595959' }}>
+          数据截至 {sourceDate} ｜ {marketAnomaly.rows.some(item => item.evidence_scope === 'RECONSTRUCTED') ? '含历史重建，非当时前向预测' : '证据范围见逐日提示'} ｜ 描述已发生的市场状态，不代表未来涨跌预测；报警池窗口另列。
         </div>
       </div>
     );
@@ -563,7 +478,8 @@ const SimpleAlarmTrend: React.FC = () => {
   };
   const getMWindowStatus = (item?: MTempItem) => {
     if (!item) return { title: '暂无数据', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待报警池 M 数据加载。' };
-    if (getMVolMed(item) === null) return { title: '当日无报警', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '当日报警池为空，M无定义；窗口状态独立展示。' };
+    if (getMSampleState(item) === 'MISSING' || getMSampleState(item) === 'MISSING_M') return { title: 'M数据缺失', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '报警池M数据缺失，不能当作零报警或中性。' };
+    if (getMSampleState(item) === 'NO_ALERTS') return { title: '当日无报警', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '当日报警池为空，M无定义；窗口状态独立展示。' };
     if (isMAttackWindow(item)) return { title: '热度扩散', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: '报警池 M 较热且报警扩散，仅描述环境，不单独形成买入动作。' };
     if (getMTempLabel(item).startsWith('热') && getMAlarmDir(item) === '报缩') return { title: '热度收缩', color: '#1677ff', bg: '#e6f4ff', border: '#91caff', desc: '报警池仍热，但报警数量相对基线收缩。' };
     if (getMAlarmDir(item) === '报扩') return { title: '非热扩散', color: '#d46b08', bg: '#fff7e6', border: '#ffd591', desc: '报警数量扩散，但报警池 M 未进入热档。' };
@@ -571,19 +487,19 @@ const SimpleAlarmTrend: React.FC = () => {
   };
   const getWindowDetectorStatus = (item?: MTempItem) => {
     if (!item) return { signal: 'NO_DATA', title: '暂无窗口', actionHint: '不可判断', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: '等待窗口识别数据加载。' };
-    if (item.trail_data_complete === false || item.window_signal === 'DATA_INSUFFICIENT') return { signal: 'DATA_INSUFFICIENT', title: '数据不足', actionHint: '不可判定', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: item.window_interpretation_desc || `窗口源数据始于 ${item.trail_source_start_date || '-'}，当前不解释为 NEUTRAL_WAIT。` };
+    if (item.trail_data_complete === false || !['GOOD_ALLOW', 'BAD_GUARD', 'NEUTRAL_WAIT'].includes(item.window_signal || '')) return { signal: 'DATA_INSUFFICIENT', title: '数据不足', actionHint: '不可判定', color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', desc: item.window_interpretation_desc || `窗口源数据始于 ${item.trail_source_start_date || '-'}，当前不解释为 NEUTRAL_WAIT。` };
     if (item.window_signal === 'BAD_GUARD') return { signal: 'BAD_GUARD', title: item.window_interpretation_title || '风险观察', actionHint: item.window_action_hint || '结合策略判断', color: '#389e0d', bg: '#f6ffed', border: '#b7eb8f', desc: item.window_interpretation_desc || '窗口指标处于高风险区，结合record和短周期确认。' };
     if (item.window_signal === 'GOOD_ALLOW') return { signal: 'GOOD_ALLOW', title: item.window_interpretation_title || '偏强观察', actionHint: item.window_action_hint || '策略独立判断', color: '#cf1322', bg: '#fff1f0', border: '#ffa39e', desc: item.window_interpretation_desc || '窗口指标偏强，仅作为个股策略的环境证据。' };
     return { signal: 'NEUTRAL_WAIT', title: item.window_interpretation_title || '中性分化', actionHint: item.window_action_hint || '策略独立判断', color: '#595959', bg: '#fafafa', border: '#d9d9d9', desc: item.window_interpretation_desc || '中性窗口内部存在修复、稳定和转弱，不解释为统一禁止。' };
   };
   const getShortWindowMomentumStatus = (item?: MTempItem) => {
-    if (!item || !item.short_window_signal || item.short_data_complete === false) return { title: '短周期数据不足', color: '#8c8c8c', desc: '短周期历史不完整，不判定状态。' };
-    const main = item.window_signal || 'NEUTRAL_WAIT';
+    if (!item || getWindowDetectorStatus(item).signal === 'DATA_INSUFFICIENT' || !['GOOD_ALLOW', 'BAD_GUARD', 'NEUTRAL_WAIT'].includes(item.short_window_signal || '') || item.short_data_complete === false) return { title: '报警池短窗数据不足', color: '#8c8c8c', desc: '主窗口或短周期历史不完整，不判定组合状态。' };
+    const main = item.window_signal;
     const short = item.short_window_signal;
     if (main === 'BAD_GUARD' && short === 'BAD_GUARD') return { title: '短周期仍坏', color: '#389e0d', desc: '近5天仍满足坏窗口，主窗口暂缓有延续性。' };
     if (main === 'BAD_GUARD' && short !== 'BAD_GUARD') return { title: '坏窗口缓和中', color: '#d46b08', desc: '20日仍坏，但近5天已脱离坏窗口，关注后续确认。' };
-    if (main === 'NEUTRAL_WAIT' && short === 'GOOD_ALLOW') return { title: '中性修复中', color: '#cf1322', desc: '20日中性，近5天转好，可能先于主窗口改善。' };
-    if (main === 'NEUTRAL_WAIT' && short === 'BAD_GUARD') return { title: '中性转弱预警', color: '#389e0d', desc: '20日中性，但近5天转坏，需防窗口回落。' };
+    if (main === 'NEUTRAL_WAIT' && short === 'GOOD_ALLOW') return { title: '报警池短窗修复中', color: '#cf1322', desc: '报警池20日中性、近5天偏好；仅描述本报警池，不等于大盘即将转强。' };
+    if (main === 'NEUTRAL_WAIT' && short === 'BAD_GUARD') return { title: '报警池短窗转弱', color: '#389e0d', desc: '报警池20日中性、近5天偏弱；全市场风险与策略执行条件分别判断。' };
     if (main === 'GOOD_ALLOW' && short === 'GOOD_ALLOW') return { title: '好窗口确认中', color: '#cf1322', desc: '20日和近5天同时偏好。' };
     if (main === 'GOOD_ALLOW' && short !== 'GOOD_ALLOW') return { title: '好窗口降温中', color: '#d46b08', desc: '20日仍好，但近5天未继续确认。' };
     return { title: '短周期中性', color: '#595959', desc: '近5天未触发明确短周期窗口。' };
@@ -627,7 +543,7 @@ const SimpleAlarmTrend: React.FC = () => {
     const shortStatus = getShortWindowMomentumStatus(latest);
     const isBadWindow = latest?.window_signal === 'BAD_GUARD';
     const latestMText = stats.latest === null
-      ? '当日无报警，M无定义'
+      ? getMUnavailableText(latest)
       : `${stats.latest.toFixed(1)} ${stats.latestLabel} ${stats.latestDir}`;
     return (
       <div style={{ flex: 1, minWidth: 280, border: `1px solid ${isBadWindow ? detectorStatus.border : status.border}`, background: isBadWindow ? detectorStatus.bg : status.bg, borderRadius: 8, padding: '10px 12px' }}>
@@ -944,14 +860,11 @@ const SimpleAlarmTrend: React.FC = () => {
   };
   // 生成图表配置
   const getChartOption = (upData: TrendData[], downData: TrendData[], title: string, colorUp: string, colorDown: string) => {
-    const dates = upData?.map(item => item.datestr) || [];
-    const upCounts = upData?.map(item => item.count) || [];
-    const downCounts = downData?.map(item => item.count) || [];
-    const diffCounts = dates.map((date, index) => {
-      const upCount = upCounts[index] || 0;
-      const downCount = downCounts[index] || 0;
-      return upCount - downCount;
-    });
+    const { rows } = getUDTrendSummary(upData, downData);
+    const dates = rows.map(row => row.datestr);
+    const upCounts = rows.map(row => row.up);
+    const downCounts = rows.map(row => row.down);
+    const diffCounts = rows.map(row => row.diff);
 
     const dataCount = dates.length;
     const isLargeDataset = dataCount > 80;
@@ -980,7 +893,7 @@ const SimpleAlarmTrend: React.FC = () => {
         }
       },
       legend: {
-        data: ['上涨数量', '下跌数量', '净差值（涨-跌）'],
+        data: ['U量占优家数', 'D量占优/持平家数', '方向差（U-D）'],
         top: 25,
         left: 'center'
       },
@@ -1008,7 +921,7 @@ const SimpleAlarmTrend: React.FC = () => {
       },
       series: [
         {
-          name: '上涨数量',
+          name: 'U量占优家数',
           type: 'line',
           data: upCounts,
           lineStyle: {
@@ -1034,7 +947,7 @@ const SimpleAlarmTrend: React.FC = () => {
           }
         },
         {
-          name: '下跌数量',
+          name: 'D量占优/持平家数',
           type: 'line',
           data: downCounts,
           lineStyle: {
@@ -1060,7 +973,7 @@ const SimpleAlarmTrend: React.FC = () => {
           }
         },
         {
-          name: '净差值（涨-跌）',
+          name: '方向差（U-D）',
           type: 'line',
           data: diffCounts,
           lineStyle: {
@@ -1124,6 +1037,24 @@ const SimpleAlarmTrend: React.FC = () => {
   };
 
   const aiFocusStats = getAiFocusStatistics();
+  const renderUDSummary = (label: string, up: TrendData[], down: TrendData[]) => {
+    const summary = getUDTrendSummary(up, down);
+    return (
+      <Card title={`${label} 区间累计U/D方向差`}>
+        <div style={{ marginBottom: 12, color: '#595959' }}>
+          已加载区间：{summary.startDate || '-'} 至 {summary.endDate || '-'} ｜ {summary.rows.length}个交易日
+        </div>
+        <Space size="large" wrap>
+          <Statistic title="区间累计方向差（家次）" value={summary.total ?? '—'}
+            valueStyle={{ color: summary.total === null ? '#8c8c8c' : summary.total >= 0 ? '#cf1322' : '#389e0d', fontSize: 24 }} />
+          <Statistic title={`最新日方向差（家） · ${summary.latest?.datestr || '-'}`} value={summary.latest?.diff ?? '—'} valueStyle={{ fontSize: 20 }} />
+        </Space>
+        <div style={{ marginTop: 12, color: '#8c8c8c' }}>
+          {summary.total === null ? '方向数据未齐，不判断累计差。' : '累计值随查询区间变化；正负只表示U/D分类家数之差，不代表当前大盘涨跌或资金净流入。'}
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
@@ -1178,7 +1109,7 @@ const SimpleAlarmTrend: React.FC = () => {
       <Spin spinning={loading || aiFocusLoading || hotAlphaLoading} tip="正在加载数据...">
         {/* 报警池 M 温度趋势 */}
         <Card
-          title={<span>🌡 报警池 M 温度趋势</span>}
+          title={<span>市场环境与报警池 M 窗口</span>}
           size="small"
           style={{ marginTop: 20 }}
           extra={
@@ -1188,6 +1119,15 @@ const SimpleAlarmTrend: React.FC = () => {
           }
         >
           <div style={{ marginBottom: 16, fontSize: 14 }}>
+            {renderMarketAnomalyStrip()}
+            <div style={{ marginBottom: 12, fontSize: 14, color: '#595959' }}>
+              <strong>报警池M与策略窗口</strong>：以下分别描述Record1、Record2选股样本，不等同于全市场冷热。
+              未来走势研究尚未验证出稳定的新增提前预警，当前状态不作为未来涨跌概率。
+            </div>
+            {(mDataErrors.record1 || mDataErrors.record2) && (
+              <Alert type="error" showIcon style={{ marginBottom: 12 }} message="部分报警池数据加载失败"
+                description={[mDataErrors.record1 && `Record1：${mDataErrors.record1}`, mDataErrors.record2 && `Record2：${mDataErrors.record2}`].filter(Boolean).join('；')} />
+            )}
             {(mTempR1.length > 0 || mTempR2.length > 0) && (
               <>
                 <div style={{ marginBottom: 12, padding: '8px 12px', borderLeft: `4px solid ${crossRecordWindowStatus.color}`, background: '#fafafa', color: '#595959' }}>
@@ -1212,16 +1152,15 @@ const SimpleAlarmTrend: React.FC = () => {
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #d9d9d9' }}>NEUTRAL_WAIT：结合CAL5分化</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#f6ffed', color: '#389e0d', border: '1px solid #b7eb8f' }}>BAD_GUARD：结合record确认风险</span>
                     <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#8c8c8c', border: '1px dashed #bfbfbf' }}>DATA_INSUFFICIENT：历史不完整，不判定窗口</span>
-                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #bfbfbf', fontWeight: 600 }}>0轴灰色菱形：当日无报警，M无定义；0仅用于绘图，不参与统计</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 12, background: '#fafafa', color: '#595959', border: '1px solid #bfbfbf', fontWeight: 600 }}>0轴灰色菱形仅表示真实零报警；缺数留空，不能当作零报警</span>
                   </div>
                 </div>
-                {renderMarketAnomalyStrip()}
               </>
             )}
             {mTempR1.length > 0 ? (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
-                  中小盘(Record1) 报警池M(vol10)：背景=M环境，实心=PIT，空心=研究重构
+                  中小盘(Record1) 报警池M：各统计口径分段，灰虚线=历史vol10回退，实心=PIT，空心=研究重构
                 </div>
                 <ReactEcharts option={getMTempChartOption(alignedMTempR1, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
@@ -1233,7 +1172,7 @@ const SimpleAlarmTrend: React.FC = () => {
             {mTempR2.length > 0 ? (
               <div>
                 <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
-                  中大盘(Record2) 报警池M(vol20)：背景=M环境，实心=PIT，空心=研究重构
+                  中大盘(Record2) 报警池M：vol20与历史vol10分段展示，实心=PIT，空心=研究重构
                 </div>
                 <ReactEcharts option={getMTempChartOption(alignedMTempR2, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
               </div>
@@ -1383,18 +1322,18 @@ const SimpleAlarmTrend: React.FC = () => {
           <>
             {/* 400s 趋势图 */}
             <Card 
-              title="400s 股票趋势" 
+              title="400s 大单方向占优家数"
               style={{ marginTop: 20 }}
               extra={
                 <Space>
                   <Statistic 
-                    title="平均上涨" 
+                    title="平均U量占优"
                     value={getStatistics(trendData['400s_up']).avg} 
                     suffix="只"
                     valueStyle={{ color: '#ff4d4f', fontSize: 14 }}
                   />
                   <Statistic 
-                    title="平均下跌" 
+                    title="平均D量占优/持平"
                     value={getStatistics(trendData['400s_down']).avg} 
                     suffix="只"
                     valueStyle={{ color: '#52c41a', fontSize: 14 }}
@@ -1402,11 +1341,12 @@ const SimpleAlarmTrend: React.FC = () => {
                 </Space>
               }
             >
+              <div style={{ color: '#595959', marginBottom: 12 }}>按现有规则：U量&gt;D量计入up，其余（含持平、双零）计入down。统计为家数，不是股价涨跌或金额净流入。</div>
               <ReactEcharts
                 option={getChartOption(
                   trendData['400s_up'],
                   trendData['400s_down'],
-                  '400s 涨跌趋势对比',
+                  '400s 大单U/D方向分类',
                   '#ff4d4f',
                   '#52c41a'
                 )}
@@ -1417,18 +1357,18 @@ const SimpleAlarmTrend: React.FC = () => {
 
             {/* 100w 趋势图 */}
             <Card 
-              title="100w 股票趋势" 
+              title="100w 大单方向占优家数"
               style={{ marginTop: 20 }}
               extra={
                 <Space>
                   <Statistic 
-                    title="平均上涨" 
+                    title="平均U量占优"
                     value={getStatistics(trendData['100w_up']).avg} 
                     suffix="只"
                     valueStyle={{ color: '#ff4d4f', fontSize: 14 }}
                   />
                   <Statistic 
-                    title="平均下跌" 
+                    title="平均D量占优/持平"
                     value={getStatistics(trendData['100w_down']).avg} 
                     suffix="只"
                     valueStyle={{ color: '#52c41a', fontSize: 14 }}
@@ -1436,11 +1376,12 @@ const SimpleAlarmTrend: React.FC = () => {
                 </Space>
               }
             >
+              <div style={{ color: '#595959', marginBottom: 12 }}>按现有规则：U量&gt;D量计入up，其余（含持平、双零）计入down。不同来源覆盖集合不同，家数不能当作全市场上涨家数。</div>
               <ReactEcharts
                 option={getChartOption(
                   trendData['100w_up'],
                   trendData['100w_down'],
-                  '100w 涨跌趋势对比',
+                  '100w 大单U/D方向分类',
                   '#ff4d4f',
                   '#52c41a'
                 )}
@@ -1452,40 +1393,10 @@ const SimpleAlarmTrend: React.FC = () => {
             {/* 对比分析卡片 */}
             <Row gutter={16} style={{ marginTop: 20 }}>
               <Col span={12}>
-                <Card title="400s 市场情绪">
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, color: trendData['400s_up'].reduce((a, b, idx) => 
-                      a + (b.count - (trendData['400s_down'][idx]?.count || 0)), 0) >= 0 ? '#ff4d4f' : '#52c41a' 
-                    }}>
-                      {trendData['400s_up'].reduce((a, b, idx) => 
-                        a + (b.count - (trendData['400s_down'][idx]?.count || 0)), 0) >= 0 ? '偏乐观' : '偏悲观'
-                      }
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                      总净差值: {trendData['400s_up'].reduce((a, b, idx) => 
-                        a + (b.count - (trendData['400s_down'][idx]?.count || 0)), 0)
-                      }
-                    </div>
-                  </div>
-                </Card>
+                {renderUDSummary('400s', trendData['400s_up'], trendData['400s_down'])}
               </Col>
               <Col span={12}>
-                <Card title="100w 市场情绪">
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, color: trendData['100w_up'].reduce((a, b, idx) => 
-                      a + (b.count - (trendData['100w_down'][idx]?.count || 0)), 0) >= 0 ? '#ff4d4f' : '#52c41a' 
-                    }}>
-                      {trendData['100w_up'].reduce((a, b, idx) => 
-                        a + (b.count - (trendData['100w_down'][idx]?.count || 0)), 0) >= 0 ? '偏乐观' : '偏悲观'
-                      }
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                      总净差值: {trendData['100w_up'].reduce((a, b, idx) => 
-                        a + (b.count - (trendData['100w_down'][idx]?.count || 0)), 0)
-                      }
-                    </div>
-                  </div>
-                </Card>
+                {renderUDSummary('100w', trendData['100w_up'], trendData['100w_down'])}
               </Col>
             </Row>
           </>

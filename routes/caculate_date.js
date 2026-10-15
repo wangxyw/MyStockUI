@@ -1,71 +1,61 @@
-var request = require('request');
-var fs = require('fs');
+const fs = require('fs');
+const path = require('path');
 
-// this holiday data get from http://timor.tech/api/holiday/year/2022/ when offical holiday is announced
-var year = process.argv.splice(2)[0];
-var options = {
-  method: 'GET',
-  url: `http://timor.tech/api/holiday/year/${year}`,
-};
+const calendarPath = path.resolve(__dirname, '../client/component/date.json');
 
-request(options, function (error, response, body) {
-  if (error) throw new Error(error);
-
-  const data = JSON.parse(body).holiday;
-
-  const newholidays = Object.keys(data).map((i) => data[i].date);
-  const tradingDays = getTradingDays(year, newholidays);
-  fs.readFile('../client/component/date.json', (err, d) => {
-    const existedDate = JSON.parse(d.toString());
-    const existedHoliday = existedDate.holiday;
-    const existedWorkday = existedDate.workday;
-    const newData = {
-      holiday: existedHoliday.concat(newholidays),
-      workday: existedWorkday.concat(tradingDays),
-    };
-    console.log(newData);
-    fs.writeFile(
-      '../client/component/date.json',
-      JSON.stringify(newData),
-      () => {}
-    );
-  });
-});
-
-function getMonthLength(date) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + 1);
-  d.setDate('1');
-  d.setDate(d.getDate() - 1);
-  return d.getDate();
+function validateYear(year) {
+  if (!/^\d{4}$/.test(String(year))) throw new Error('A four-digit calendar year is required');
+  return String(year);
 }
 
 function getTradingDays(year, holidays) {
-  const arr = [];
-  for (let i = 1; i <= 12; i++) {
-    const days = getMonthLength(`${year}-${i}-01`);
-    for (let j = 1; j <= days; j++) {
-      if (
-        new Date(`${year}-${i}-${j}`).getDay() !== 0 &&
-        new Date(`${year}-${i}-${j}`).getDay() !== 6
-      ) {
-        let i1 = '';
-        let j1 = '';
-        if (i < 10 && i > 0) {
-          i1 = `0${i}`;
-        } else {
-          i1 = i;
-        }
-        if (j < 10 && j > 0) {
-          j1 = `0${j}`;
-        } else {
-          j1 = j;
-        }
-        if (!holidays.includes(`${year}-${i1}-${j1}`)) {
-          arr.push(`${year}-${i1}-${j1}`);
-        }
-      }
+  year = validateYear(year);
+  const closed = new Set(holidays);
+  const days = [];
+  for (const date = new Date(`${year}-01-01T00:00:00Z`); date.getUTCFullYear() === Number(year); date.setUTCDate(date.getUTCDate() + 1)) {
+    const key = date.toISOString().slice(0, 10);
+    if (date.getUTCDay() !== 0 && date.getUTCDay() !== 6 && !closed.has(key)) days.push(key);
+  }
+  return days;
+}
+
+function replaceCalendarYear(calendar, year, holidays) {
+  year = validateYear(year);
+  if (!Array.isArray(holidays) || holidays.length === 0) throw new Error('Holiday data is empty; calendar was not changed');
+  for (const day of holidays) {
+    if (typeof day !== 'string' || !day.startsWith(`${year}-`) || !/^\d{4}-\d{2}-\d{2}$/.test(day)
+        || !Number.isFinite(Date.parse(`${day}T00:00:00Z`)) || new Date(`${day}T00:00:00Z`).toISOString().slice(0, 10) !== day) {
+      throw new Error('Invalid holiday date; calendar was not changed');
     }
   }
-  return arr;
+  const keepOtherYears = days => days.filter(day => !day.startsWith(`${year}-`));
+  return {
+    holiday: [...new Set([...keepOtherYears(calendar.holiday), ...holidays])].sort(),
+    workday: [...new Set([...keepOtherYears(calendar.workday), ...getTradingDays(year, holidays)])].sort(),
+  };
 }
+
+function updateCalendar(year) {
+  year = validateYear(year);
+  const request = require('request');
+  request({ method: 'GET', url: `https://timor.tech/api/holiday/year/${year}`, timeout: 30000 }, (error, response, body) => {
+    if (error) throw error;
+    if (!response || response.statusCode !== 200) throw new Error('Holiday request failed; calendar was not changed');
+    const payload = JSON.parse(body);
+    if (payload.code !== 0 || !payload.holiday) throw new Error('Invalid holiday response; calendar was not changed');
+    const holidays = Object.values(payload.holiday).filter(item => item.holiday === true).map(item => item.date);
+    const calendar = JSON.parse(fs.readFileSync(calendarPath, 'utf8'));
+    const updated = replaceCalendarYear(calendar, year, holidays);
+    const temporaryPath = `${calendarPath}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(temporaryPath, JSON.stringify(updated, null, 4) + '\n');
+      fs.renameSync(temporaryPath, calendarPath);
+    } finally {
+      if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+    }
+    console.log(`Updated ${year}: ${updated.workday.filter(day => day.startsWith(year + '-')).length} trading days`);
+  });
+}
+
+module.exports = { getTradingDays, replaceCalendarYear };
+if (require.main === module) updateCalendar(process.argv[2]);
