@@ -1,5 +1,6 @@
 import request from 'axios';
 import { createCompetitionRouter } from './aiCompetition';
+import { createMarketPessimismRouter } from './marketPessimism';
 import {
   chooseResults,
   daCalculate,
@@ -6570,6 +6571,7 @@ router.get('/board/top10', function (req, res, next) {
 });
 
 
+router.use(createMarketPessimismRouter(pool));
 router.use(createCompetitionRouter(queryDB));
 
 /* GET home page. */

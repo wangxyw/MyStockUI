@@ -3,6 +3,7 @@ import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Stati
 import { FireOutlined, LineChartOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
+import MarketPessimismPanel from './MarketPessimismPanel';
 import {
   TrendData, MTempItem, MarketAnomalyResponse, getSharedTrendDates, alignMTrendRows,
   getMVolMed, getMVolMetric, getMMetricLabel, getMSampleState, getMUnavailableText,
@@ -1262,6 +1263,10 @@ const SimpleAlarmTrend: React.FC = () => {
             </div>
           )}
         </Card>
+
+        <Divider />
+
+        <MarketPessimismPanel />
 
         <Divider />
 
