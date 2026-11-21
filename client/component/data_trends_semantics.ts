@@ -70,6 +70,44 @@ export interface MarketAnomalyResponse {
 export const getSharedTrendDates = (...sources: Array<Array<{ datestr: string }>>) =>
   Array.from(new Set(sources.flatMap(rows => rows.map(row => row.datestr)))).sort();
 
+export const M_TREND_GRID = { left: 52, right: 36 };
+export type MTrendRange = { first: string; last: string };
+
+export const getMTrendRangeIndices = (dates: string[], range: MTrendRange) => {
+  const start = dates.findIndex(day => day >= range.first);
+  const next = dates.findIndex(day => day > range.last);
+  const end = next < 0 ? dates.length - 1 : next - 1;
+  return start >= 0 && end >= start ? { start, end } : null;
+};
+
+export const decodeMTrendZoom = (dates: string[], event: {
+  start?: unknown; end?: unknown; startValue?: unknown; endValue?: unknown;
+}): MTrendRange | null => {
+  const last = dates.length - 1;
+  if (last < 0) return null;
+  const toIndex = (value: unknown, percent: unknown) => {
+    if (typeof value === 'string') {
+      const index = dates.indexOf(value);
+      if (index >= 0) return index;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.min(last, Math.round(value)));
+    }
+    return typeof percent === 'number' && Number.isFinite(percent)
+      ? Math.max(0, Math.min(last, Math.round(last * percent / 100))) : null;
+  };
+  const start = toIndex(event.startValue, event.start);
+  const end = toIndex(event.endValue, event.end);
+  return start === null || end === null ? null : { first: dates[Math.min(start, end)], last: dates[Math.max(start, end)] };
+};
+
+export const revealMTrendDate = (dates: string[], range: { start: number; end: number }, day: string): MTrendRange | null => {
+  const index = dates.indexOf(day);
+  if (index < 0 || (index >= range.start && index <= range.end)) return null;
+  const count = Math.max(1, Math.min(dates.length, range.end - range.start + 1));
+  const start = Math.max(0, Math.min(dates.length - count, index - Math.floor(count / 2)));
+  return { first: dates[start], last: dates[start + count - 1] };
+};
+
 export const alignMTrendRows = (data: MTempItem[], dates: string[]): MTempItem[] => {
   const byDate = new Map(data.map(row => [row.datestr, row]));
   return dates.map(datestr => byDate.get(datestr) || {

@@ -1,0 +1,21 @@
+.m-trend-date-chart, .m-trend-date-lane { position: relative; }
+.m-trend-chart-date-area { position: absolute; pointer-events: none; }
+.m-trend-date-axis { position: relative; height: 20px; color: #5c6c7d; font-size: 11px; font-variant-numeric: tabular-nums; }
+.m-trend-date-axis span { position: absolute; white-space: nowrap; transform: translateX(-50%); padding-top: 4px; }
+.m-trend-date-axis span::before { content: ''; position: absolute; left: 50%; top: 0; height: 3px; border-left: 1px solid #a3afbf; }
+.m-trend-anomaly-day { flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; cursor: pointer; }
+.m-trend-anomaly-day:focus-visible { position: relative; outline: 2px solid #2f5680; z-index: 1; }
+.m-trend-date-guide { position: absolute; top: 0; bottom: 0; border-left: 1px solid #125bc3; pointer-events: none; z-index: 2; }
+.m-trend-date-guide.is-preview { border-left-style: dashed; }
+.m-trend-date-guide > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  white-space: nowrap;
+  border-radius: 3px;
+  background: #125bc3;
+  color: #fff;
+  font: 11px/16px system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}

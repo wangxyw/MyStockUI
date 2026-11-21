@@ -1,13 +1,19 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Button, DatePicker, Select, Space, Card, Row, Col, Spin, message, Statistic, Divider, Tag, Alert } from 'antd';
 import { FireOutlined, LineChartOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons';
 import ReactEcharts from 'echarts-for-react';
 import moment from 'moment';
 import MarketPessimismPanel from './MarketPessimismPanel';
+import LocalMarketRegimePanel, { useLocalMarketRegime } from './LocalMarketRegimePanel';
+import {
+  MTrendInteraction, MTrendDateAxis, MTrendDateGuide, getMTrendTicks, onMTrendDateKey,
+  M_TREND_PLOT_INSETS, M_TREND_PLOT_TOP, getMTrendPlotBottom,
+} from './MTrendInteraction';
 import {
   TrendData, MTempItem, MarketAnomalyResponse, getSharedTrendDates, alignMTrendRows,
   getMVolMed, getMVolMetric, getMMetricLabel, getMSampleState, getMUnavailableText,
   buildMMetricSegments, getMarketAnomalyStatus, getUDTrendSummary, fetchTrendSource,
+  M_TREND_GRID, MTrendRange, decodeMTrendZoom, getMTrendRangeIndices, revealMTrendDate,
 } from './data_trends_semantics';
 
 interface AllTrendsData {
@@ -79,19 +85,17 @@ interface HotAlphaSectorTrendData {
   stages?: HotAlphaStageItem[];
 }
 
-const M_TREND_DEFAULT_MONTHS = 18;
+const M_TREND_PRESETS = [30, 60, 120];
+const M_TREND_DEFAULT_PRESET = '18m';
 
-const getMTrendDefaultViewport = (dates: string[]) => {
-  if (!dates.length) return { startDate: '', startIndex: 0, endIndex: 0, visibleDataCount: 0 };
-  const endIndex = dates.length - 1;
-  const latestDate = moment(dates[endIndex], 'YYYY-MM-DD', true);
-  if (!latestDate.isValid()) {
-    return { startDate: dates[0], startIndex: 0, endIndex, visibleDataCount: dates.length };
+const getMTrendPresetViewport = (dates: string[], preset: string) => {
+  const end = Math.max(0, dates.length - 1);
+  if (!dates.length || preset === 'all') return { start: 0, end };
+  if (preset.endsWith('m')) {
+    const from = moment(dates[end], 'YYYY-MM-DD', true).subtract(Number(preset.slice(0, -1)), 'months').format('YYYY-MM-DD');
+    return { start: Math.max(0, dates.findIndex(date => date >= from)), end };
   }
-  const startDate = latestDate.clone().subtract(M_TREND_DEFAULT_MONTHS, 'months').format('YYYY-MM-DD');
-  const matchedIndex = dates.findIndex(date => date >= startDate);
-  const startIndex = matchedIndex >= 0 ? matchedIndex : 0;
-  return { startDate, startIndex, endIndex, visibleDataCount: endIndex - startIndex + 1 };
+  return { start: Math.max(0, end - Number(preset) + 1), end };
 };
 
 const SimpleAlarmTrend: React.FC = () => {
@@ -117,7 +121,11 @@ const SimpleAlarmTrend: React.FC = () => {
   const [mTempR1, setMTempR1] = useState<MTempItem[]>([]);
   const [mTempR2, setMTempR2] = useState<MTempItem[]>([]);
   const [marketAnomaly, setMarketAnomaly] = useState<MarketAnomalyResponse | null>(null);
-  const [mZoom, setMZoom] = useState<{ start: number; end: number } | null>(null);
+  const [mView, setMView] = useState<string | MTrendRange>(M_TREND_DEFAULT_PRESET);
+  const [mSelectedDate, setMSelectedDate] = useState<string>();
+  const [mPlotWidth, setMPlotWidth] = useState(0);
+  const mPlot = useRef<HTMLDivElement>(null);
+  const localMarketRegime = useLocalMarketRegime();
   const [mTempLoading, setMTempLoading] = useState<boolean>(false);
   const [mDataErrors, setMDataErrors] = useState<{ record1: string | null; record2: string | null; market: string | null }>({ record1: null, record2: null, market: null });
 
@@ -274,6 +282,17 @@ const SimpleAlarmTrend: React.FC = () => {
     fetchMTempData();
     fetchHotAlphaSectorData();
   }, []);
+  useEffect(() => {
+    setMView(M_TREND_DEFAULT_PRESET);
+    setMSelectedDate(undefined);
+  }, [daysTill]);
+  useEffect(() => {
+    const plot = mPlot.current;
+    if (!plot) return;
+    const observer = new ResizeObserver(([entry]) => setMPlotWidth(entry.contentRect.width));
+    observer.observe(plot);
+    return () => observer.disconnect();
+  }, []);
 
   const refreshMainTrends = () => {
     fetchTrendData();
@@ -283,19 +302,38 @@ const SimpleAlarmTrend: React.FC = () => {
   const getMTempLabel = (item?: MTempItem) => getMSampleState(item) === 'NO_ALERTS' ? '无样本' : getMSampleState(item) === 'MISSING' ? '缺数据' : item?.m_temp_label || item?.temp_label || '未知';
   const getMAlarmDir = (item?: MTempItem) => getMSampleState(item) === 'NO_ALERTS' ? '无样本' : getMSampleState(item) === 'MISSING' ? '缺数据' : item?.m_alarm_dir || item?.alarm_dir || '未知';
 
-  const sharedMDisplayDates = getSharedTrendDates(mTempR1, mTempR2, marketAnomaly?.rows || []);
-  const alignedMTempR1 = alignMTrendRows(mTempR1, sharedMDisplayDates);
-  const alignedMTempR2 = alignMTrendRows(mTempR2, sharedMDisplayDates);
+  const displayedMTempR1 = mTempR1.filter(row => row.datestr <= daysTill);
+  const displayedMTempR2 = mTempR2.filter(row => row.datestr <= daysTill);
+  const sharedMDisplayDates = getSharedTrendDates(displayedMTempR1, displayedMTempR2,
+    (marketAnomaly?.rows || []).filter(row => row.datestr <= daysTill),
+    (localMarketRegime.payload?.rows || []).filter(row => row.date <= daysTill).map(row => ({ datestr: row.date })));
+  const alignedMTempR1 = alignMTrendRows(displayedMTempR1, sharedMDisplayDates);
+  const alignedMTempR2 = alignMTrendRows(displayedMTempR2, sharedMDisplayDates);
+  const mPreset = typeof mView === 'string' ? mView : 'custom';
+  const mViewport = typeof mView === 'string' ? getMTrendPresetViewport(sharedMDisplayDates, mView)
+    : getMTrendRangeIndices(sharedMDisplayDates, mView) ?? getMTrendPresetViewport(sharedMDisplayDates, M_TREND_DEFAULT_PRESET);
+  const visibleMDisplayDates = sharedMDisplayDates.slice(mViewport.start, mViewport.end + 1);
+  const mPinnedDate = mSelectedDate && visibleMDisplayDates.includes(mSelectedDate) ? mSelectedDate : undefined;
+  const mActiveDate = mPinnedDate ?? visibleMDisplayDates[visibleMDisplayDates.length - 1];
+  const anomalyByDate = new Map((marketAnomaly?.rows || []).map(item => [item.datestr, item]));
+  const mDateTicks = getMTrendTicks(visibleMDisplayDates, mPlotWidth);
+  const mTickDates = new Set(mDateTicks.map(tick => tick.date));
 
-  const getMTempChartOption = (data: MTempItem[], title: string, zoom?: { start: number; end: number } | null) => {
+  const updateMRange = (range: MTrendRange) => setMView(previous =>
+    typeof previous !== 'string' && previous.first === range.first && previous.last === range.last ? previous : range);
+  const selectMDate = (date: string) => {
+    setMSelectedDate(date);
+    const range = revealMTrendDate(sharedMDisplayDates, mViewport, date);
+    if (range) updateMRange(range);
+  };
+
+  const getMTempChartOption = (data: MTempItem[]) => {
     if (!data || data.length === 0) return null;
     const dates = data.map(d => d.datestr);
     const counts = data.map(d => d.alarm_count);
     const values = data.map(getMVolMed);
     const numericValues = values.filter((value): value is number => value !== null);
     const dataCount = dates.length;
-    const defaultViewport = getMTrendDefaultViewport(dates);
-    const axisLabelInterval = Math.max(0, Math.ceil(defaultViewport.visibleDataCount / 15) - 1);
     const metricSegments = buildMMetricSegments(data);
     const valueAxisMax = Math.max(80, Math.ceil(Math.max(...numericValues, 0) / 10) * 10);
     const tc: Record<string, string> = { '热':'#e74c3c','热偏弱':'#ee8a7d','温':'#f39c12','冷偏暖':'#3498db','极冷':'#95a5a6' };
@@ -339,8 +377,8 @@ const SimpleAlarmTrend: React.FC = () => {
         }
       },
       legend: { data: Array.from(new Set(metricSegments.map(segment => getMMetricLabel(segment.metric)))), top: 0, textStyle: { fontSize: 12 } },
-      grid: { top: 42, bottom: dataCount>50?35:10, left: 52, right: 15 },
-      xAxis: { type:'category', data:dates, axisLabel:{rotate:45,fontSize:12,color:'#aaa',interval:axisLabelInterval}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
+      grid: { top: M_TREND_PLOT_TOP, bottom: getMTrendPlotBottom(dataCount > 50), ...M_TREND_GRID },
+      xAxis: { type:'category', boundaryGap: true, data:dates, axisLabel:{fontSize:11,color:'#5c6c7d',interval:(_index: number, date: string) => mTickDates.has(date)}, axisTick:{alignWithLabel:true}, axisLine:{lineStyle:{color:'#e8e8e8'}} },
       yAxis: [
         { type:'value', name:'M（分口径）', nameTextStyle:{fontSize:12,color:'#aaa'}, min:0, max:valueAxisMax, axisTick:{show:false}, axisLine:{show:false}, splitLine:{lineStyle:{type:'dashed',color:'#f0f0f0'}} },
         { type:'value', name:'报警', nameTextStyle:{fontSize:12,color:'#aaa'}, axisTick:{show:false}, axisLine:{show:false}, splitLine:{show:false} }
@@ -385,66 +423,57 @@ const SimpleAlarmTrend: React.FC = () => {
           z:6,
         }
       ],
-      dataZoom: dataCount>50?[{
-        type:'slider',
-        ...(zoom ? { start: zoom.start, end: zoom.end } : { startValue: defaultViewport.startIndex, endValue: defaultViewport.endIndex }),
+      dataZoom: [{
+        id: 'm-shared-date-range', type: 'slider', show: dataCount > 50,
+        startValue: mViewport.start, endValue: mViewport.end,
         bottom:0,
         height:20,
-      }]:[],
+      }],
     };
   };
 
   const handleMDataZoom = (event: any) => {
     const payload = event?.batch?.[0] || event || {};
-    if (Number.isFinite(payload.start) && Number.isFinite(payload.end)) {
-      setMZoom({ start: payload.start, end: payload.end });
-    }
+    const range = decodeMTrendZoom(sharedMDisplayDates, payload);
+    if (range && (range.first !== visibleMDisplayDates[0] || range.last !== visibleMDisplayDates[visibleMDisplayDates.length - 1])) updateMRange(range);
   };
 
+  const renderMChart = (rows: MTempItem[]) => (
+    <div className="m-trend-date-chart" data-m-date-chart>
+      <ReactEcharts option={getMTempChartOption(rows)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
+      <div className="m-trend-chart-date-area" data-m-date-area
+        style={{ ...M_TREND_GRID, top: M_TREND_PLOT_TOP, bottom: getMTrendPlotBottom(rows.length > 50) }}>
+        <MTrendDateGuide showDate />
+      </div>
+    </div>
+  );
+
   const renderMarketAnomalyStrip = () => {
-    const dates = sharedMDisplayDates;
-    if (!dates.length || !marketAnomaly?.rows?.length) return (
-      <Alert style={{ marginBottom: 12 }} type={mDataErrors.market ? 'error' : 'info'} showIcon
-        message="全市场当日状态（收盘后识别）"
-        description={mTempLoading ? '正在加载全市场数据…' : mDataErrors.market || '暂无全市场数据，当前状态不可判断。'} />
-    );
-    const anomalyByDate = new Map(marketAnomaly.rows.map(item => [item.datestr, item]));
-    const defaultViewport = getMTrendDefaultViewport(dates);
-    const startPct = mZoom?.start ?? (100 * defaultViewport.startIndex / Math.max(1, dates.length - 1));
-    const endPct = mZoom?.end ?? 100;
-    const startIndex = Math.max(0, Math.floor((dates.length - 1) * startPct / 100));
-    const endIndex = Math.min(dates.length - 1, Math.ceil((dates.length - 1) * endPct / 100));
-    const visibleDates = dates.slice(startIndex, endIndex + 1);
-    const latest = anomalyByDate.get(dates[dates.length - 1]);
-    const latestStatus = getMarketAnomalyStatus(latest);
-    const sourceDate = marketAnomaly.data_through || marketAnomaly.rows[marketAnomaly.rows.length - 1].datestr;
+    const activeStatus = getMarketAnomalyStatus(anomalyByDate.get(mActiveDate));
     return (
-      <div style={{ margin: '4px 15px 14px 52px', padding: '8px 10px', border: '1px solid #e8e8e8', borderRadius: 6, background: '#fff' }}>
+      <div data-testid="m-anomaly-timeline" style={{ margin: '8px 0 12px' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6, fontSize: 14, color: '#595959' }}>
           <strong>全市场当日状态（收盘后识别）</strong>
           <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#cf1322', borderRadius: 2, marginRight: 4 }} />短期偏热</span>
           <span><i style={{ display: 'inline-block', width: 11, height: 7, background: '#389e0d', borderRadius: 2, marginRight: 4 }} />明显偏弱</span>
           <span><i style={{ display: 'inline-block', width: 11, height: 8, background: 'linear-gradient(to bottom,#cf1322 0 50%,#389e0d 50% 100%)', borderRadius: 2, marginRight: 4 }} />同时出现</span>
-          <span style={{ marginLeft: 'auto' }}>{dates[dates.length - 1]}：<strong>{latestStatus.title}</strong></span>
-          <Space size="small">
-            <Button size="small" onClick={() => setMZoom(null)}>近18个月</Button>
-            <Button size="small" onClick={() => setMZoom({ start: 0, end: 100 })}>全部历史</Button>
-          </Space>
+          {mActiveDate && <span style={{ marginLeft: 'auto' }}>{mActiveDate} · <strong>{activeStatus.title}</strong></span>}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleDates.length}, minmax(1px, 1fr))`, gap: visibleDates.length > 180 ? 0 : 1, height: 10, background: '#f0f0f0', overflow: 'hidden', borderRadius: 3 }}>
-          {visibleDates.map(date => {
+        {!!visibleMDisplayDates.length && <><div data-testid="m-anomaly-plot" className="m-trend-date-lane" data-m-date-area
+          role="group" aria-label="选择交易日查看全市场当日状态"
+          style={{ ...M_TREND_PLOT_INSETS, display: 'flex', height: 10 }}>
+          {visibleMDisplayDates.map((date, index) => {
             const item = anomalyByDate.get(date);
             const status = getMarketAnomalyStatus(item);
             const scope = item?.evidence_scope === 'POINT_IN_TIME' ? 'PIT快照' : item?.evidence_scope === 'RECONSTRUCTED' ? '历史重建' : '无数据';
-            return <span key={date} title={`${date}｜${status.title}｜${scope}`} style={{ background: status.background }} />;
+            const label = `${date}｜${status.title}｜${scope}`;
+            return <button key={date} type="button" className="m-trend-anomaly-day" data-date={date}
+              title={label} aria-label={label} aria-pressed={date === mActiveDate} tabIndex={date === mActiveDate ? 0 : -1}
+              onClick={() => selectMDate(date)} onKeyDown={event => onMTrendDateKey(event, visibleMDisplayDates, index, selectMDate)}
+              style={{ background: status.background }} />;
           })}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 13, color: '#999' }}>
-          <span>{visibleDates[0]}</span><span>灰色斜纹=缺数；浅灰=未触发异常；与下方M图共用日期缩放</span><span>{visibleDates[visibleDates.length - 1]}</span>
-        </div>
-        <div style={{ marginTop: 6, fontSize: 13, color: '#595959' }}>
-          数据截至 {sourceDate} ｜ {marketAnomaly.rows.some(item => item.evidence_scope === 'RECONSTRUCTED') ? '含历史重建，非当时前向预测' : '证据范围见逐日提示'} ｜ 描述已发生的市场状态，不代表未来涨跌预测；报警池窗口另列。
-        </div>
+          <MTrendDateGuide />
+        </div><MTrendDateAxis ticks={mDateTicks} /></>}
       </div>
     );
   };
@@ -575,9 +604,9 @@ const SimpleAlarmTrend: React.FC = () => {
       </div>
     );
   };
-  const r1Stats = getMTempStats(mTempR1);
-  const r2Stats = getMTempStats(mTempR2);
-  const crossRecordWindowStatus = getCrossRecordWindowStatus(mTempR1, mTempR2);
+  const r1Stats = getMTempStats(displayedMTempR1);
+  const r2Stats = getMTempStats(displayedMTempR2);
+  const crossRecordWindowStatus = getCrossRecordWindowStatus(displayedMTempR1, displayedMTempR2);
   const getAiFocusChartOption = (data: AiFocusData[], showValues: boolean = true) => {
     if (!data || data.length === 0) return null;
     
@@ -1114,13 +1143,56 @@ const SimpleAlarmTrend: React.FC = () => {
           size="small"
           style={{ marginTop: 20 }}
           extra={
-            <Space>
+            <Space size="small" wrap>
+              <Select<string> aria-label="M 窗口共用日期范围" size="small" style={{ width: 142 }}
+                value={mPreset} onChange={setMView} disabled={!sharedMDisplayDates.length}
+                options={[
+                  ...M_TREND_PRESETS.map(days => ({ value: String(days), label: `近 ${days} 个交易日` })),
+                  { value: M_TREND_DEFAULT_PRESET, label: '近 18 个月' }, { value: '36m', label: '近 36 个月' },
+                  { value: 'all', label: '全部历史' },
+                  { value: 'custom', label: '自定义范围', disabled: true },
+                ]} />
               <Button size="small" icon={<ReloadOutlined />} onClick={fetchMTempData} loading={mTempLoading}>刷新温度</Button>
             </Space>
           }
         >
-          <div style={{ marginBottom: 16, fontSize: 14 }}>
-            {renderMarketAnomalyStrip()}
+          <div ref={mPlot} data-testid="m-window-shared-plot" style={{ marginBottom: 16, fontSize: 14 }}>
+            <MTrendInteraction dates={visibleMDisplayDates} selectedDate={mPinnedDate} onSelect={selectMDate}>
+              {displayedMTempR1.length > 0 ? (
+                <div data-testid="m-record1-chart" style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
+                    中小盘(Record1) 报警池M：各统计口径分段，灰虚线=历史vol10回退，实心=PIT，空心=研究重构
+                  </div>
+                  {renderMChart(alignedMTempR1)}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
+                  {mTempLoading ? '加载中...' : '暂无 Record1 温度数据'}
+                </div>
+              )}
+              {displayedMTempR2.length > 0 ? (
+                <div data-testid="m-record2-chart">
+                  <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
+                    中大盘(Record2) 报警池M：vol20与历史vol10分段展示，实心=PIT，空心=研究重构
+                  </div>
+                  {renderMChart(alignedMTempR2)}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
+                  {mTempLoading ? '加载中...' : '暂无 Record2 温度数据'}
+                </div>
+              )}
+              {renderMarketAnomalyStrip()}
+              <LocalMarketRegimePanel source={localMarketRegime} daysTill={daysTill}
+                visibleDates={visibleMDisplayDates} ticks={mDateTicks} selectedDate={mActiveDate}
+                dailyState={anomalyByDate.get(mActiveDate)?.state} onSelectDate={selectMDate} />
+            </MTrendInteraction>
+            <div style={{ marginBottom: 12, fontSize: 13, color: '#595959' }}>
+              <strong>全市场当日状态说明</strong> · 灰色斜纹表示缺数，浅灰表示未触发异常。
+              {marketAnomaly?.data_through && <span> 数据截至 {marketAnomaly.data_through}。</span>}
+              {marketAnomaly?.rows.some(item => item.evidence_scope === 'RECONSTRUCTED') && <span> 含历史重建。</span>}
+              {mDataErrors.market && <span style={{ color: '#a61d24' }}> {mDataErrors.market}</span>}
+            </div>
             <div style={{ marginBottom: 12, fontSize: 14, color: '#595959' }}>
               <strong>报警池M与策略窗口</strong>：以下分别描述Record1、Record2选股样本，不等同于全市场冷热。
               未来走势研究尚未验证出稳定的新增提前预警，当前状态不作为未来涨跌概率。
@@ -1129,15 +1201,15 @@ const SimpleAlarmTrend: React.FC = () => {
               <Alert type="error" showIcon style={{ marginBottom: 12 }} message="部分报警池数据加载失败"
                 description={[mDataErrors.record1 && `Record1：${mDataErrors.record1}`, mDataErrors.record2 && `Record2：${mDataErrors.record2}`].filter(Boolean).join('；')} />
             )}
-            {(mTempR1.length > 0 || mTempR2.length > 0) && (
+            {(displayedMTempR1.length > 0 || displayedMTempR2.length > 0) && (
               <>
                 <div style={{ marginBottom: 12, padding: '8px 12px', borderLeft: `4px solid ${crossRecordWindowStatus.color}`, background: '#fafafa', color: '#595959' }}>
                   <strong style={{ color: crossRecordWindowStatus.color }}>{crossRecordWindowStatus.title}</strong>
                   <span> ｜ {crossRecordWindowStatus.date} ｜ {crossRecordWindowStatus.desc}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                  {mTempR1.length > 0 && renderMMarketStatus('中小盘 Record1', mTempR1, r1Stats)}
-                  {mTempR2.length > 0 && renderMMarketStatus('中大盘 Record2', mTempR2, r2Stats)}
+                  {displayedMTempR1.length > 0 && renderMMarketStatus('中小盘 Record1', displayedMTempR1, r1Stats)}
+                  {displayedMTempR2.length > 0 && renderMMarketStatus('中大盘 Record2', displayedMTempR2, r2Stats)}
                 </div>
                 <div style={{ marginBottom: 12, fontSize: 14, color: '#595959' }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -1157,30 +1229,6 @@ const SimpleAlarmTrend: React.FC = () => {
                   </div>
                 </div>
               </>
-            )}
-            {mTempR1.length > 0 ? (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
-                  中小盘(Record1) 报警池M：各统计口径分段，灰虚线=历史vol10回退，实心=PIT，空心=研究重构
-                </div>
-                <ReactEcharts option={getMTempChartOption(alignedMTempR1, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
-                {mTempLoading ? '加载中...' : '暂无 Record1 温度数据'}
-              </div>
-            )}
-            {mTempR2.length > 0 ? (
-              <div>
-                <div style={{ marginBottom: 6, fontSize: 15, color: '#595959', fontWeight: 600 }}>
-                  中大盘(Record2) 报警池M：vol20与历史vol10分段展示，实心=PIT，空心=研究重构
-                </div>
-                <ReactEcharts option={getMTempChartOption(alignedMTempR2, '', mZoom)} onEvents={{ datazoom: handleMDataZoom }} style={{ height: 280, width: '100%' }} opts={{ renderer: 'canvas' }} />
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 30, color: '#ccc' }}>
-                {mTempLoading ? '加载中...' : '暂无 Record2 温度数据'}
-              </div>
             )}
           </div>
         </Card>
