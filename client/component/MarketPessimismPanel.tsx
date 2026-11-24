@@ -154,7 +154,7 @@ const MarketPessimismPanel: React.FC = () => {
             ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="所选区间缺少足够历史行情或样本覆盖，分值保持未知" />}
             <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 8 }}>
               <Tag>本地行情重建</Tag><Tag>V1</Tag>
-              截至本地昨日及以前的最近交易日。月初换组会影响分值；20%回撤截顶，悬停可查看未截顶平均回撤和样本覆盖。曲线用于描述同期市场压力。
+              收盘后纳入当日已落库行情，盘中截至上一交易日。月初换组会影响分值；20%回撤截顶，悬停可查看未截顶平均回撤和样本覆盖。曲线用于描述同期市场压力。
             </div>
           </>
         )}

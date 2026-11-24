@@ -13,14 +13,23 @@ const select = (connection: any, sql: string, args: any[] = []): Promise<any[]> 
 const connectionFrom = (pool: any): Promise<any> =>
   new Promise((resolve, reject) => pool.getConnection((error: any, connection: any) =>
     error ? reject(error) : resolve(connection)));
-const todayShanghai = () => new Intl.DateTimeFormat('en-CA', {
+const shanghaiClock = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
-}).format(new Date());
+  hour: '2-digit', hourCycle: 'h23',
+});
+
+export function marketSnapshotCutoff(now = new Date()): string {
+  const { year, month, day, hour } = Object.fromEntries(
+    shanghaiClock.formatToParts(now).map(part => [part.type, part.value]));
+  // The SQL upper bound is exclusive. Include today's daily quotes after the Shanghai close.
+  if (Number(hour) < 15) return `${year}-${month}-${day}`;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day) + 1)).toISOString().slice(0, 10);
+}
 
 export function createMarketPessimismRouter(pool: any) {
   const router = Router();
   let cached: { at: number; cutoff: string; payload: Snapshot } | null = null;
-  let running: Promise<Snapshot> | null = null;
+  let running: { cutoff: string; promise: Promise<Snapshot> } | null = null;
 
   const calculate = async (cutoff: string) => {
     const connection = await connectionFrom(pool);
@@ -98,13 +107,19 @@ export function createMarketPessimismRouter(pool: any) {
     }
   };
 
-  const readSnapshot = (force: boolean) => {
-    const cutoff = todayShanghai();
+  const readSnapshot = async (force: boolean): Promise<Snapshot> => {
+    const cutoff = marketSnapshotCutoff();
     if (!force && cached && cached.cutoff === cutoff && Date.now() - cached.at < CACHE_MS) {
       return Promise.resolve(cached.payload);
     }
-    if (!running) running = calculate(cutoff).finally(() => { running = null; });
-    return running;
+    if (running) {
+      if (running.cutoff === cutoff) return running.promise;
+      await running.promise.catch(() => undefined);
+      return readSnapshot(force);
+    }
+    const promise = calculate(cutoff).finally(() => { running = null; });
+    running = { cutoff, promise };
+    return promise;
   };
 
   router.get('/market_pessimism_trend', async (req, res) => {
