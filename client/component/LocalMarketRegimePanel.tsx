@@ -203,16 +203,17 @@ const LocalMarketRegimePanel: React.FC<{
         </div>
         {!!visibleDates.length && <>
           <div className="local-regime-timeline m-trend-date-lane" data-m-date-area style={M_TREND_PLOT_INSETS}>
-            <div className="local-regime-lanes" aria-hidden="true"><span>中期背景</span><span>波段状态</span><span>异常</span></div>
+            <div className="local-regime-lanes" aria-hidden="true"><span>中期背景</span><span>确认波段</span><span>当日读数</span><span>异常</span></div>
             <div className="local-regime-days" role="group" aria-label="选择交易日查看详情">
               {visibleDates.map((date, pos) => {
                 const row = byDate.get(date);
                 const anomaly = row?.anomaly ?? 'unknown';
-                const title = `${date} · ${row ? stateName(row) : '状态未定'} · ${ANOMALIES[anomaly]}`;
+                const title = `${date} · ${row ? stateName(row) : '状态未定'} · 当日读数：${swingName(row?.raw ?? null)}${row?.pending ? `（确认 ${row.pending}/3 日）` : ''} · ${ANOMALIES[anomaly]}`;
                 return <button key={date} data-date={date} type="button" title={title} aria-label={title}
                   aria-pressed={date === displayedDate} tabIndex={date === displayedDate ? 0 : -1}
                   onClick={() => onSelectDate(date)} onKeyDown={event => onMTrendDateKey(event, visibleDates, pos, onSelectDate)}>
                   <i className={tone(row?.background ?? null)} /><i className={tone(row?.swing ?? null)} />
+                  <i className={tone(row?.raw ?? null)} />
                   <i className={`local-regime-anomaly-track anomaly-${anomaly}`} />
                 </button>;
               })}
@@ -230,6 +231,7 @@ const LocalMarketRegimePanel: React.FC<{
         </div>
         <div className="local-regime-action-title">{readout.title}</div>
         <div className="local-regime-action-notes">
+          {day && day.advance !== null && <p><strong>当日上涨</strong> {Math.round(day.n * day.advance / 100).toLocaleString()} / {day.n.toLocaleString()} 只（{percent(day.advance)}）</p>}
           <p><strong>主导依据</strong> {readout.reason}</p>
           <p><strong>复核条件</strong> {readout.next}</p>
         </div>
@@ -255,7 +257,7 @@ const LocalMarketRegimePanel: React.FC<{
         <>
           <div className="local-regime-highlights">
             <div className="local-regime-current">
-              <div className="local-regime-kicker">{day.date} · 收盘状态</div>
+              <div className="local-regime-kicker">{day.date} · 已确认的中期背景与波段</div>
               <div className={`local-regime-current-title ${tone(day.swing)}`} data-testid="local-regime-selected-state">{stateName(day)}</div>
               <div className="local-regime-state-evidence">{backgroundName(day.background)} · {swingName(day.swing)}{day.age > 0 ? ` · 持续 ${day.age} 日` : ''}</div>
               {day.change && <div className="local-regime-change">{stateName(day.change)} → {stateName(day)}</div>}

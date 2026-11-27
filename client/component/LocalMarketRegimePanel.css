@@ -79,13 +79,13 @@
 .local-regime-history-head { margin-bottom: 6px; }
 .local-regime-key { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--soft); font-size: 11px; }
 .local-regime-key i { display: inline-block; width: 10px; height: 7px; margin-right: 4px; border-radius: 2px; }
-.local-regime-lanes { position: absolute; right: 100%; top: 0; display: grid; grid-template-rows: 11px 11px 8px; gap: 3px; padding: 2px 5px 2px 0; color: var(--soft); font-size: 10px; line-height: 1; white-space: nowrap; }
+.local-regime-lanes { position: absolute; right: 100%; top: 0; display: grid; grid-template-rows: 11px 11px 11px 8px; gap: 3px; padding: 2px 5px 2px 0; color: var(--soft); font-size: 10px; line-height: 1; white-space: nowrap; }
 .local-regime-days { display: flex; min-width: 0; }
 .local-regime-days button {
   flex: 1 1 0;
   min-width: 0;
   display: grid;
-  grid-template-rows: 11px 11px 8px;
+  grid-template-rows: 11px 11px 11px 8px;
   gap: 3px;
   padding: 2px 0;
   border: 0;

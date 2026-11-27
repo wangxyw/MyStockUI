@@ -6,6 +6,7 @@ type RegimeEvidence = {
   swing: Direction;
   raw: Direction;
   pending: number;
+  advance?: number | null;
   anomaly: 'new' | 'active' | 'cleared' | 'quiet' | 'unknown';
 };
 
@@ -39,8 +40,15 @@ export function getMarketRegimeReadout(row?: RegimeEvidence, daily?: MarketAnoma
     const missing = [background === null && '中期背景', swing === null && '波段', anomaly === 'unknown' && '普跌检测', !daily && '全市场当日状态'].filter(Boolean);
     return observe('数据待齐', `${missing.join('、')}缺少可用读数。`, '补齐所选交易日的读数后重新核对。');
   }
-  if (raw !== null && raw !== swing && pending > 0) return observe('转换待确认',
-    `波段出现新方向，连续确认进度为 ${pending}/3 日。`, '复核下一交易日的方向及连续确认进度。');
+  if (raw !== null && raw !== swing && pending > 0) {
+    const target = raw === 1 ? '上行' : raw === -1 ? '下行' : '盘整';
+    const confirmed = swing === 1 ? '上行' : swing === -1 ? '下行' : '盘整';
+    const direction = raw > swing ? '转强' : '转弱';
+    const breadth = typeof row.advance === 'number' && row.advance >= 80 ? '当日普涨，' : '';
+    return observe(`${breadth}波段${direction}待确认`,
+      `当日读数指向${target}，已确认波段仍为${confirmed}。连续确认 ${pending}/3 日。`,
+      `继续跟踪${target}读数，还需连续 ${3 - pending} 个交易日才确认转换。`);
+  }
   if (daily === 'OVERLAP' || (daily === 'WEAK' && swing === 1) || (daily === 'HOT' && swing === -1)) {
     const reason = daily === 'OVERLAP' ? '当日同时出现偏热与偏弱，短期信号分化。'
       : daily === 'WEAK' ? '波段上行与全市场当日偏弱并存。' : '波段下行与全市场当日短期偏热并存。';
